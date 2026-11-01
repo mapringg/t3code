@@ -75,7 +75,7 @@ function EnvironmentPickerRow(props: {
     diagnosis?.headline ??
     (connection ? environmentStatusText({ ...connection, error: null }) : "Offline");
   return (
-    <View className={cn("bg-grouped-card", !props.isLast && "border-b border-border-subtle")}>
+    <View className="bg-grouped-card">
       <View className="flex-row items-center">
         <Pressable
           accessibilityRole="radio"

@@ -108,14 +108,13 @@ export function ThreadAgentsSheet({ route }: StaticScreenProps<AgentsTarget>) {
         subagents.map((subagent) => {
           const group = workflowGroups.get(subagent.id);
           return group === undefined ? (
-            <View key={subagent.id} className="border-b border-border">
-              <AgentRow
-                subagent={subagent}
-                environmentId={target.environmentId}
-                tickSeconds={hasLiveAgent}
-                onOpen={openChildThread}
-              />
-            </View>
+            <AgentRow
+              key={subagent.id}
+              subagent={subagent}
+              environmentId={target.environmentId}
+              tickSeconds={hasLiveAgent}
+              onOpen={openChildThread}
+            />
           ) : (
             <ThreadWorkflowGroup
               key={subagent.id}

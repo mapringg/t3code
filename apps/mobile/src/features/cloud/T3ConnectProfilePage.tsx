@@ -214,7 +214,7 @@ const ENVIRONMENT_MENU_ACTIONS = [
 
 function ClerkSectionHeader(props: { readonly children: string }) {
   return (
-    <Text className="min-h-4 border-b border-clerk-border px-6 pt-8 pb-4 text-xs font-medium tracking-[0.3px] text-clerk-foreground-muted uppercase">
+    <Text className="min-h-4 px-6 py-4 text-xs font-medium tracking-[0.3px] text-clerk-foreground-muted uppercase">
       {props.children}
     </Text>
   );
@@ -226,10 +226,7 @@ function ClerkRow(props: {
   readonly accessory?: ReactNode;
 }) {
   return (
-    <View
-      collapsable={false}
-      className="flex-row items-center gap-3 border-b border-clerk-border px-6 py-4"
-    >
+    <View collapsable={false} className="flex-row items-center gap-3 px-6 py-4">
       <View className="min-w-0 flex-1 gap-0.5">
         <Text className="min-h-[22px] text-base text-clerk-foreground" numberOfLines={1}>
           {props.title}
@@ -248,7 +245,7 @@ function ClerkButtonRow(props: { readonly label: string; readonly onPress: () =>
     <Pressable
       accessibilityRole="button"
       onPress={props.onPress}
-      className="border-b border-clerk-border px-6 py-4 active:opacity-60"
+      className="px-6 py-4 active:opacity-60"
     >
       <Text className="text-base font-semibold text-clerk-foreground">{props.label}</Text>
     </Pressable>

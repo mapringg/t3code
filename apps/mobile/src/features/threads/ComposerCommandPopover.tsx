@@ -12,7 +12,7 @@ import type {
 } from "@t3tools/contracts";
 import type { ComposerTriggerKind } from "@t3tools/shared/composerTrigger";
 import { memo } from "react";
-import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
+import { Pressable, ScrollView, View, type ViewStyle } from "react-native";
 
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
@@ -162,7 +162,6 @@ function emptyText(triggerKind: ComposerTriggerKind | null, isLoading: boolean):
 const CommandRow = memo(function CommandRow(props: {
   readonly item: ComposerCommandItem;
   readonly onPress: () => void;
-  readonly isLast: boolean;
   readonly isSlashSkill: boolean;
 }) {
   const iconName = itemIcon(props.item);
@@ -171,8 +170,7 @@ const CommandRow = memo(function CommandRow(props: {
     <Pressable
       accessibilityRole="button"
       onPress={props.onPress}
-      className="flex-row items-center gap-2.5 border-border px-3.5 py-2.5 active:opacity-60"
-      style={{ borderBottomWidth: props.isLast ? 0 : StyleSheet.hairlineWidth }}
+      className="flex-row items-center gap-2.5 px-3.5 py-2.5 active:opacity-60"
     >
       {props.item.type === "path" ? (
         <PierreEntryIcon path={props.item.path} kind={props.item.kind} size={16} />
@@ -227,12 +225,11 @@ export const ComposerCommandPopover = memo(function ComposerCommandPopover(
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          {props.items.map((item, index) => (
+          {props.items.map((item) => (
             <CommandRow
               key={item.id}
               item={item}
               onPress={() => props.onSelect(item)}
-              isLast={index === props.items.length - 1}
               isSlashSkill={props.triggerKind === "slash-command" && item.type === "skill"}
             />
           ))}

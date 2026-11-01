@@ -50,10 +50,7 @@ export function SelectionRow(props: {
         accessibilityLabel={[props.title, props.subtitle].filter(Boolean).join(", ")}
         accessibilityRole={role}
         accessibilityState={{ checked: props.selected }}
-        className={cn(
-          "min-h-14 flex-row items-center gap-3 bg-grouped-card px-4 py-3 active:bg-subtle",
-          !props.isLast && "border-b border-border-subtle",
-        )}
+        className="min-h-14 flex-row items-center gap-3 bg-grouped-card px-4 py-3 active:bg-subtle"
         disabled={props.disabled}
         onPress={props.onPress}
         style={{ opacity: props.disabled ? 0.45 : 1 }}

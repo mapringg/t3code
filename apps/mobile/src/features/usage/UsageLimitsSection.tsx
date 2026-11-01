@@ -177,11 +177,7 @@ export function AccountLimits(props: {
   const externalUsage = limits.externalUsage;
   const padding = dense ? "px-4 py-3" : "p-4";
   return (
-    <View
-      className={
-        props.first ? `gap-3 ${padding}` : `gap-3 border-t border-border-subtle ${padding}`
-      }
-    >
+    <View className={`gap-3 ${padding}`}>
       <View className="flex-row items-center gap-2">
         <ProviderIcon provider={props.driver} size={16} />
         <View className="min-w-0 flex-1 flex-row items-baseline gap-2">

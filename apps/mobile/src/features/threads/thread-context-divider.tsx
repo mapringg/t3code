@@ -13,8 +13,7 @@ export function ThreadContextDivider(props: {
   children?: ReactNode;
 }) {
   return (
-    <View className="mb-3 flex-row items-center gap-3 px-1 py-1">
-      <View className="h-px min-w-2 flex-1 bg-separator" />
+    <View className="my-3 flex-row items-center justify-center gap-3 px-1 py-1">
       <View className="shrink flex-row flex-wrap items-center justify-center gap-1.5">
         <SymbolView name={props.icon} size={12} tintColor={props.iconColor} type="monochrome" />
         {props.active ? (
@@ -40,7 +39,6 @@ export function ThreadContextDivider(props: {
         )}
         {props.children}
       </View>
-      <View className="h-px min-w-2 flex-1 bg-separator" />
     </View>
   );
 }

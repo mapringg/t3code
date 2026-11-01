@@ -16,7 +16,6 @@ import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import * as Dialog from "../../components/ui/Dialog";
 import { Menu } from "../../components/ui/Menu";
-import { cn } from "../../lib/cn";
 import { RelativeTime } from "../../components/RelativeTime";
 import type { EnvironmentRuntimeState } from "../../state/remote-runtime-types";
 import { useScaledTextRole } from "../settings/appearance/useScaledTextRole";
@@ -58,7 +57,6 @@ export function linkedPullRequestKey(line: PullRequestListLine) {
 
 export const LinkedPullRequestRow = memo(function LinkedPullRequestRow(props: {
   readonly line: PullRequestListLine;
-  readonly separator: boolean;
   readonly surfaceClassName: string;
   readonly openPullRequest: (url: string) => Promise<boolean>;
   readonly actions: LinkedPullRequestActions | null;
@@ -107,12 +105,7 @@ export const LinkedPullRequestRow = memo(function LinkedPullRequestRow(props: {
         />
         {conflict ? <PullRequestConflictBadge surfaceClassName={props.surfaceClassName} /> : null}
       </View>
-      <View
-        className={cn(
-          "min-w-0 flex-1 gap-1 py-2.5",
-          props.separator && "border-b border-border-subtle",
-        )}
-      >
+      <View className="min-w-0 flex-1 gap-1 py-2.5">
         <View className="flex-row items-center gap-1.5">
           {snapshot?.author ? <PullRequestAvatar actor={snapshot.author} size={16} /> : null}
           <Text className="min-w-0 shrink text-xs text-foreground-muted" numberOfLines={1}>

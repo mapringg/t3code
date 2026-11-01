@@ -105,7 +105,7 @@ function FileRow(props: {
       accessibilityRole="button"
       accessibilityLabel={`View diff for ${file.path}, ${file.additions} additions, ${file.deletions} deletions${props.viewed ? ", viewed" : ""}`}
       onPress={props.onPress}
-      className="min-h-14 flex-row items-center gap-3 border-b border-border-subtle py-3 active:opacity-70"
+      className="min-h-14 flex-row items-center gap-3 py-3 active:opacity-70"
     >
       <PierreEntryIcon kind="file" path={file.path} size={20} />
       <View className="min-w-0 flex-1 gap-0.5">
@@ -141,7 +141,7 @@ function FileRowSkeleton(props: { readonly index: number }) {
     <View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      className="min-h-14 flex-row items-center gap-3 border-b border-border-subtle py-3"
+      className="min-h-14 flex-row items-center gap-3 py-3"
     >
       <View className="size-5 rounded-md bg-subtle-strong" />
       <View className="flex-1 gap-2">

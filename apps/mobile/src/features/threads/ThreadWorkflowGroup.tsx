@@ -117,10 +117,7 @@ export function ThreadWorkflowGroup(props: {
           </ScrollView>
         ) : null}
         {open === undefined ? null : open.members.length === 0 ? (
-          <Text
-            textRole="footnote"
-            className="border-t border-border-subtle px-4 py-3 text-foreground-muted"
-          >
+          <Text textRole="footnote" className="px-4 py-3 text-foreground-muted">
             No agents yet
           </Text>
         ) : (
@@ -174,7 +171,7 @@ function WorkflowMemberRow(props: {
       accessibilityHint={canOpen ? "Opens this agent's thread" : "Its thread is not available yet"}
       disabled={!canOpen}
       onPress={() => threadId !== null && props.onOpen(threadId)}
-      className="min-h-11 flex-row gap-3 border-t border-border-subtle px-4 py-3 active:opacity-70"
+      className="min-h-11 flex-row gap-3 px-4 py-3 active:opacity-70"
     >
       <View className="h-5 justify-center">
         <SubagentStatusDot tone={presentation.tone} placement="sheet" />

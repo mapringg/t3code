@@ -209,7 +209,7 @@ export function PullRequestReviewersScreen({ route }: StaticScreenProps<PullRequ
                 accessibilityState={{ disabled: !allowed || pending !== null }}
                 disabled={!allowed || pending !== null}
                 onPress={() => void update(item)}
-                className="min-h-16 flex-row items-center gap-3 border-b border-border-subtle px-4 py-3 active:opacity-70"
+                className="min-h-16 flex-row items-center gap-3 px-4 py-3 active:opacity-70"
               >
                 <PullRequestAvatar actor={item} size={32} />
                 <View className="min-w-0 flex-1 gap-0.5">

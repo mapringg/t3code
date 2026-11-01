@@ -181,14 +181,14 @@ function ThreadListV2Section(props: {
   const snoozed = props.tone === "snoozed";
   const sidebarPane = props.pane === "sidebar";
   const className = cn(
-    "mb-1.5 mt-4 flex-row items-center gap-2.5",
+    "my-2.5 flex-row items-center gap-2.5",
     props.pane === "sidebar" ? "px-3" : "px-5",
   );
   const content = (
     <>
       <Text
         className={cn(
-          "text-xs font-t3-medium",
+          "flex-1 text-xs font-t3-medium",
           sidebarPane
             ? "text-drawer-foreground-muted"
             : snoozed
@@ -198,12 +198,6 @@ function ThreadListV2Section(props: {
       >
         {props.label}
       </Text>
-      <View
-        className={cn(
-          "h-px flex-1",
-          snoozed ? "bg-primary/20" : sidebarPane ? "bg-drawer-border" : "bg-border",
-        )}
-      />
       {props.disclosure ? (
         <SymbolView
           name="chevron.down"
@@ -563,7 +557,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
               ) : (
                 <View>
                   <View className="px-5 py-2.5">{rowContent}</View>
-                  {props.showTrailingDivider !== false ? (
+                  {THREAD_LIST_V2_ROW_DIVIDERS && props.showTrailingDivider !== false ? (
                     <View className="ml-5 h-px bg-border-subtle" />
                   ) : null}
                 </View>

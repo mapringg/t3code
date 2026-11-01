@@ -53,7 +53,7 @@ export function PullRequestCardRow(props: {
       accessibilityState={props.expanded === undefined ? undefined : { expanded: props.expanded }}
       onPress={props.onPress}
       disabled={!props.onPress && !props.menu}
-      className={`${props.compact ? "min-h-11 py-2.5" : "min-h-13 py-3"} flex-row items-center gap-3 px-4 ${props.last || props.compact ? "" : "border-b border-border-subtle"} ${props.onPress ? "active:opacity-70" : ""}`}
+      className={`${props.compact ? "min-h-11 py-2.5" : "min-h-13 py-3"} flex-row items-center gap-3 px-4 ${props.onPress ? "active:opacity-70" : ""}`}
     >
       <SymbolView
         name={props.icon}

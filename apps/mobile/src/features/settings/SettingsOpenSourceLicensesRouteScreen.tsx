@@ -43,13 +43,11 @@ function LicenseRow(props: {
   readonly onPress: () => void;
 }) {
   return (
-    <View className="border-b border-border">
-      <ListRow
-        label={props.entry.name}
-        description={[props.entry.version, props.entry.license].filter(Boolean).join(" · ")}
-        onPress={props.onPress}
-      />
-    </View>
+    <ListRow
+      label={props.entry.name}
+      description={[props.entry.version, props.entry.license].filter(Boolean).join(" · ")}
+      onPress={props.onPress}
+    />
   );
 }
 
@@ -133,7 +131,7 @@ export function SettingsOpenSourceLicensesRouteScreen() {
         }}
         contentInsetAdjustmentBehavior="automatic"
         data={filteredEntries}
-        estimatedItemSize={78}
+        estimatedItemSize={77}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         keyExtractor={thirdPartyLicenseEntryKey}

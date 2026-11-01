@@ -84,7 +84,7 @@ function ArrangementRow(props: {
   return (
     <Reanimated.View
       style={[{ height: props.height }, style]}
-      className="flex-row items-center border-b border-border-subtle px-5"
+      className="flex-row items-center px-5"
     >
       {props.children}
     </Reanimated.View>

@@ -466,7 +466,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                   : "overflow-hidden rounded-[24px] bg-grouped-card"
               }
             >
-              {visibleScopes.map((scope, scopeIndex) => {
+              {visibleScopes.map((scope) => {
                 const hasMultipleProjects = scope.projects.length > 1;
                 const selectionTarget = getProjectScopeSelectionTarget(
                   scope,
@@ -502,10 +502,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                   );
                 }
                 return (
-                  <View
-                    key={scope.key}
-                    className={cn(scopeIndex > 0 && "border-t border-border-subtle")}
-                  >
+                  <View key={scope.key}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={scope.title}

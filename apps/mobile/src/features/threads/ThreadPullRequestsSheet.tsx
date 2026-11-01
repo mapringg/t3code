@@ -55,10 +55,9 @@ export function ThreadPullRequestsSheet(
         data={lines}
         keyExtractor={linkedPullRequestKey}
         extraData={rowInputs}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <LinkedPullRequestRow
             line={item}
-            separator={index < lines.length - 1}
             surfaceClassName={Platform.OS === "ios" ? "text-screen" : "text-sheet-solid"}
             openPullRequest={openPullRequest}
             actions={actions}
