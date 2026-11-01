@@ -14,7 +14,6 @@ import { SymbolView } from "../../components/ui/AppSymbol";
 import { ProviderIcon, ProviderInstanceIcon } from "../../components/ProviderIcon";
 import { cn } from "../../lib/cn";
 import { useEnvironmentServerConfig, useProject, useThreadShell } from "../../state/entities";
-import { subagentCardDetail } from "./subagent-card-presentation";
 import { SUBAGENT_TONE_TEXT_CLASS, SubagentStatusDot } from "./SubagentStatusDot";
 import { resolveSubagentRowPresentation } from "./threadAgentsPresentation";
 
@@ -28,8 +27,6 @@ type SubagentRowSubagent = Pick<
   | "title"
   | "prompt"
   | "status"
-  | "progress"
-  | "result"
   | "remoteChild"
 >;
 
@@ -41,7 +38,6 @@ export function SubagentRow(props: {
   readonly canOpenRemote?: boolean;
 }) {
   const presentation = resolveSubagentRowPresentation(props.subagent, props.canOpenRemote);
-  const detail = subagentCardDetail(presentation.detail);
   return (
     <View className="flex-row gap-3">
       <View className="h-5 justify-center">
@@ -83,17 +79,6 @@ export function SubagentRow(props: {
           ) : null}
         </View>
         <SubagentMetadata environmentId={props.environmentId} subagent={props.subagent} />
-        {detail ? (
-          <Text
-            numberOfLines={3}
-            className={cn(
-              "text-xs text-foreground-muted",
-              presentation.tone === "failed" && SUBAGENT_TONE_TEXT_CLASS.failed,
-            )}
-          >
-            {detail}
-          </Text>
-        ) : null}
       </View>
     </View>
   );

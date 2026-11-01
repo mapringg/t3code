@@ -155,7 +155,6 @@ function WorkflowMemberRow(props: {
     title: member.title,
     prompt: "",
     status: member.status,
-    result: null,
     childThreadId: threadId,
   });
   const { detail, error } = workflowMemberDetail(member);

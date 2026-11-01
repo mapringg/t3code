@@ -68,8 +68,6 @@ function memberRowSubagent(
     title: member.title,
     prompt: member.progress ?? member.title,
     status: member.status,
-    progress: undefined,
-    result: member.result ?? member.error,
   };
 }
 
