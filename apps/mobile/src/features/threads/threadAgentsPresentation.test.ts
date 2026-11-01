@@ -25,41 +25,26 @@ const base = {
   title: null,
   prompt: "Audit the timestamps",
   status: "running" as const,
-  result: null,
   childThreadId: "thread-child" as never,
 };
 
 describe("resolveSubagentRowPresentation", () => {
-  it("leads with progress while the agent is working", () => {
-    const row = resolveSubagentRowPresentation({
-      ...base,
-      progress: "Reading files",
-      result: "stale result",
-    });
+  it.each([
+    ["pending", "Working", "working", true],
+    ["running", "Working", "working", true],
+    ["waiting", "Waiting", "working", true],
+    ["idle", "Idle", "stopped", false],
+    ["completed", "Completed", "completed", false],
+    ["failed", "Failed", "failed", false],
+    ["cancelled", "Cancelled", "stopped", false],
+    ["interrupted", "Interrupted", "stopped", false],
+  ] as const)("keeps %s in the title line", (status, statusLabel, tone, live) => {
+    const row = resolveSubagentRowPresentation({ ...base, status });
 
-    expect(row.detail).toBe("Reading files");
-    expect(row.tone).toBe("working");
-    expect(row.live).toBe(true);
-  });
-
-  it("leads with the result once the agent has settled", () => {
-    const row = resolveSubagentRowPresentation({
-      ...base,
-      status: "completed",
-      progress: "Reading files",
-      result: "Found two\n  problems",
-    });
-
-    expect(row.detail).toBe("Found two problems");
-    expect(row.tone).toBe("completed");
-    expect(row.statusLabel).toBe("Completed");
-  });
-
-  it("shows a failure's text, since that is where the error lands", () => {
-    const row = resolveSubagentRowPresentation({ ...base, status: "failed", result: "Timed out" });
-
-    expect(row.detail).toBe("Timed out");
-    expect(row.tone).toBe("failed");
+    expect(row.statusLabel).toBe(statusLabel);
+    expect(row.tone).toBe(tone);
+    expect(row.live).toBe(live);
+    expect(row.canOpenThread).toBe(true);
   });
 
   it("falls back to a trimmed prompt when the agent has no title", () => {
@@ -76,23 +61,6 @@ describe("resolveSubagentRowPresentation", () => {
     expect(resolveSubagentRowPresentation({ ...base, childThreadId: null }).canOpenThread).toBe(
       false,
     );
-  });
-
-  it("uses the status label when there is nothing to report yet", () => {
-    const row = resolveSubagentRowPresentation({ ...base, status: "pending" });
-
-    expect(row.detail).toBeNull();
-    expect(row.statusLabel).toBe("Working");
-  });
-
-  it("bounds long result previews without dropping the agent's status", () => {
-    const row = resolveSubagentRowPresentation({
-      ...base,
-      status: "failed",
-      result: "x".repeat(400),
-    });
-    expect(row.detail).toBe(`${"x".repeat(280)}…`);
-    expect(row.statusLabel).toBe("Failed");
   });
 });
 

@@ -25,7 +25,6 @@ export type SubagentRowTone = "working" | "completed" | "failed" | "stopped";
 
 export interface SubagentRowPresentation {
   readonly title: string;
-  readonly detail: string | null;
   readonly statusLabel: string;
   readonly tone: SubagentRowTone;
   readonly live: boolean;
@@ -93,14 +92,13 @@ function rowStatusLabel(status: OrchestrationV2Subagent["status"]): string {
 export function resolveSubagentRowPresentation(
   subagent: Pick<
     OrchestrationV2Subagent,
-    "title" | "prompt" | "status" | "progress" | "result" | "childThreadId" | "remoteChild"
+    "title" | "prompt" | "status" | "childThreadId" | "remoteChild"
   >,
   canOpenRemote = false,
 ): SubagentRowPresentation {
   const live = isActiveSubagentStatus(subagent.status);
   return {
     title: rowTitle(subagent),
-    detail: subagentDetailPreview(subagent),
     statusLabel: rowStatusLabel(subagent.status),
     tone: rowTone(subagent.status),
     live,
