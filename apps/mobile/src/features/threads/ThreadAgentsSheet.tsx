@@ -28,7 +28,6 @@ import { NativeHeader, NativeScreen } from "../../native/ThemedScreenStack";
 import { useEnvironments } from "../../state/environments";
 import { SubagentRow } from "./SubagentRow";
 import { useVisibleSecondClock } from "./use-visible-second-clock";
-import { SubagentStopButton } from "./SubagentStopButton";
 import { ThreadWorkflowGroup } from "./ThreadWorkflowGroup";
 import { ScreenContent } from "../../components/ui/ScreenContent";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
@@ -219,12 +218,7 @@ function AgentRow(props: {
       </Pressable>
     );
 
-  return (
-    <View className="flex-row items-center">
-      {content}
-      <SubagentStopButton environmentId={props.environmentId} subagent={subagent} />
-    </View>
-  );
+  return <View className="flex-row items-center">{content}</View>;
 }
 
 function AgentElapsed(props: {
