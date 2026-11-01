@@ -2,7 +2,6 @@ import { Button } from "./ui/Button";
 import * as Dialog from "./ui/Dialog";
 import { useEffect, useEffectEvent } from "react";
 import { Modal, View } from "react-native";
-import ImageViewing from "react-native-image-viewing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { openAttachmentInViewer } from "../lib/attachmentDownload";
@@ -102,20 +101,5 @@ export function FilePreview(props: {
 }) {
   if (props.source.kind === "pdf") return <PdfDocumentPreview {...props} />;
   if (props.source.kind !== "image") return <DocumentPreview {...props} />;
-  if (props.source.actionsSource) return <MediaImagePreview {...props} />;
-  return (
-    <ImageViewing
-      images={
-        props.source.gallery?.map((item) => ({ uri: item.uri })) ?? [{ uri: props.source.uri }]
-      }
-      imageIndex={Math.max(
-        0,
-        props.source.gallery?.findIndex((item) => item.uri === props.source.uri) ?? 0,
-      )}
-      visible
-      onRequestClose={props.onRequestClose}
-      swipeToCloseEnabled={false}
-      doubleTapToZoomEnabled
-    />
-  );
+  return <MediaImagePreview {...props} />;
 }
