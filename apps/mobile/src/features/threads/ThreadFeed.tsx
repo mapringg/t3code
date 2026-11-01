@@ -1722,7 +1722,7 @@ function renderFeedEntry(
 
   if (entry.type === "run-fold") {
     return (
-      <View className="mb-1 flex-row items-center border-b border-border-subtle px-2">
+      <View className="mb-5 flex-row items-center px-2">
         <RunFoldButton
           key={entry.id}
           entry={entry}
