@@ -167,7 +167,7 @@ function CacheEnvironmentRow(props: {
   readonly onClear: () => void;
 }) {
   return (
-    <View className={props.first ? undefined : "border-t border-border"}>
+    <View className={props.first ? undefined : "border-t border-border-subtle"}>
       <SettingsActionRow
         icon={ENVIRONMENT_MACHINE_SYMBOLS[props.machine]}
         label={props.environmentLabel}
