@@ -64,7 +64,7 @@ export function PdfPreview(props: { readonly uri: string }) {
       </View>
     );
   }
-  if (localUri === null) return <FilePreviewLoading message="Loading PDF..." background="card" />;
+  if (localUri === null) return <FilePreviewLoading message="Loading PDF…" background="card" />;
 
   return (
     <Pdf

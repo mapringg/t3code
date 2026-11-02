@@ -701,7 +701,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
         action:
           unresponsive && canForceStop
             ? {
-                label: forceStoppingKey === selectedThreadKey ? "Force stopping..." : "Force stop",
+                label: forceStoppingKey === selectedThreadKey ? "Force stopping…" : "Force stop",
                 accessibilityLabel: "Force stop the agent",
                 disabled: forceStoppingKey === selectedThreadKey,
                 onPress: () =>
@@ -767,7 +767,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
           });
         },
         action: {
-          label: statusPending ? "Stopping..." : "Stop",
+          label: statusPending ? "Stopping…" : "Stop",
           accessibilityLabel: "Stop background work",
           disabled: !props.canOperateThread || statusPending,
           onPress: () => void runStatusAction("stop"),
@@ -794,10 +794,10 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
         action: {
           label: statusPending
             ? snoozed
-              ? "Waking..."
+              ? "Waking…"
               : settled
-                ? "Un-settling..."
-                : "Dismissing..."
+                ? "Un-settling…"
+                : "Dismissing…"
             : actionLabel,
           accessibilityLabel: actionLabel,
           disabled: !props.canOperateThread || statusPending,

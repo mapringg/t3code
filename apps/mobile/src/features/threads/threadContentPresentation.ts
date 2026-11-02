@@ -56,7 +56,7 @@ export function threadSyncLabel(input: {
     input.syncStatus === "cached" ||
     input.syncStatus === "synchronizing";
   if (!syncing || input.contentKind === "unavailable") return null;
-  return input.contentKind === "ready" ? "Syncing messages..." : "Loading messages...";
+  return input.contentKind === "ready" ? "Syncing messages…" : "Loading messages…";
 }
 
 /**

@@ -74,7 +74,7 @@ export function WorkspaceFileImagePreview(props: {
   readonly actionsSource?: MediaActionsSource;
 }) {
   if (props.uri === null) {
-    return <FilePreviewLoading message="Preparing image preview..." background="card" />;
+    return <FilePreviewLoading message="Preparing image preview…" background="card" />;
   }
 
   return (

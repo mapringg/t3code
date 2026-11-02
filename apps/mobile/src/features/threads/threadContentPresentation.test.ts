@@ -35,10 +35,10 @@ describe("thread content presentation", () => {
 
   it("labels a sync by whether content is already on screen", () => {
     expect(threadSyncLabel({ syncStatus: "synchronizing", contentKind: "loading" })).toBe(
-      "Loading messages...",
+      "Loading messages…",
     );
     expect(threadSyncLabel({ syncStatus: "cached", contentKind: "ready" })).toBe(
-      "Syncing messages...",
+      "Syncing messages…",
     );
     expect(threadSyncLabel({ syncStatus: "live", contentKind: "ready" })).toBe(null);
     expect(threadSyncLabel({ syncStatus: "empty", contentKind: "unavailable" })).toBe(null);
@@ -46,12 +46,12 @@ describe("thread content presentation", () => {
 
   it("keeps the sync pill's first shown label until the pill hides", () => {
     // Not shown yet: a cached thread whose content lands during the show delay says Syncing.
-    expect(lockThreadSyncLabel(null, "Syncing messages...", false)).toBe(null);
-    const shown = lockThreadSyncLabel(null, "Loading messages...", true);
-    expect(shown).toBe("Loading messages...");
-    expect(lockThreadSyncLabel(shown, "Syncing messages...", true)).toBe("Loading messages...");
+    expect(lockThreadSyncLabel(null, "Syncing messages…", false)).toBe(null);
+    const shown = lockThreadSyncLabel(null, "Loading messages…", true);
+    expect(shown).toBe("Loading messages…");
+    expect(lockThreadSyncLabel(shown, "Syncing messages…", true)).toBe("Loading messages…");
     // The minimum hold outlives the sync itself.
-    expect(lockThreadSyncLabel(shown, null, true)).toBe("Loading messages...");
+    expect(lockThreadSyncLabel(shown, null, true)).toBe("Loading messages…");
     expect(lockThreadSyncLabel(shown, null, false)).toBe(null);
   });
 });
