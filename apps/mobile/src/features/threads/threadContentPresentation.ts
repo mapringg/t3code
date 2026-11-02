@@ -1,4 +1,5 @@
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+import type { EnvironmentThreadStatus } from "@t3tools/client-runtime/state/threads";
 
 export type ThreadContentPresentation =
   | { readonly kind: "ready" }
@@ -44,4 +45,25 @@ export function projectThreadContentPresentation(input: {
     title: "Messages not cached",
     detail: "Reconnect this environment to load the conversation.",
   };
+}
+
+/**
+ * A sync keeps the label it opened with: a cold open that says "Loading" would otherwise
+ * swap to "Syncing" as content lands, restarting the pill's minimum hold over a ready feed.
+ */
+export function nextThreadSyncLabel(
+  previous: string | null,
+  input: {
+    readonly syncStatus: EnvironmentThreadStatus | undefined;
+    readonly contentKind: ThreadContentPresentation["kind"];
+  },
+): string | null {
+  const syncing =
+    input.syncStatus === "empty" ||
+    input.syncStatus === "cached" ||
+    input.syncStatus === "synchronizing";
+  if (!syncing || input.contentKind === "unavailable") return null;
+  return (
+    previous ?? (input.contentKind === "ready" ? "Syncing messages..." : "Loading messages...")
+  );
 }

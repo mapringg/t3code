@@ -197,7 +197,7 @@ import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";
 import { ThreadGuestShareBar } from "./ThreadGuestShareBar";
 import { ThreadSideChatsRow } from "./ThreadSideChatsRow";
-import type { ThreadContentPresentation } from "./threadContentPresentation";
+import { nextThreadSyncLabel, type ThreadContentPresentation } from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
 import { useGlobalVoiceInput } from "../voice-input/VoiceInputProvider";
@@ -520,19 +520,18 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
-  const realThreadSyncLabel = (() => {
-    switch (props.threadSyncStatus) {
-      case "empty":
-      case "cached":
-      case "synchronizing":
-        if (contentPresentationKind === "ready") {
-          return "Syncing messages...";
-        }
-        return contentPresentationKind === "loading" ? "Loading messages..." : null;
-      default:
-        return null;
-    }
-  })();
+  const [syncLabelState, setSyncLabelState] = useState<{
+    readonly key: string;
+    readonly label: string | null;
+  } | null>(null);
+  const previousSyncLabel = syncLabelState?.key === selectedThreadKey ? syncLabelState.label : null;
+  const realThreadSyncLabel = nextThreadSyncLabel(previousSyncLabel, {
+    syncStatus: props.threadSyncStatus,
+    contentKind: contentPresentationKind,
+  });
+  if (realThreadSyncLabel !== previousSyncLabel) {
+    setSyncLabelState({ key: selectedThreadKey, label: realThreadSyncLabel });
+  }
   const threadSyncLabel = useDelayedStatus(selectedThreadKey, realThreadSyncLabel);
   const connectionRetrying =
     props.connectionStateLabel === "connecting" || props.connectionStateLabel === "reconnecting";
