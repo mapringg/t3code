@@ -15,6 +15,7 @@ import {
   enrichedSkillReference,
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
+import { rememberedThreadFeedRowSizes } from "./threadFeedRowSizes";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
 import { GuestBubbleTint, GuestMessageName } from "./guestMessageStyle";
 import { ThreadGuestPendingMessage, useThreadGuestShare } from "./ThreadGuestShareBar";
@@ -3285,6 +3286,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   }
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealDeadlineRef = useRef(0);
+  const resizedListKeyRef = useRef<string | null>(null);
   const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
   const scheduleReveal = (key: string) => {
     if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
@@ -3480,7 +3482,13 @@ export const ThreadFeed = memo(function ThreadFeed({
     settleDisclosureAfterLayout();
   };
 
-  const handleItemSizeChanged = () => {
+  const handleItemSizeChanged = (info: {
+    readonly itemKey: string;
+    readonly previous: number;
+    readonly size: number;
+  }) => {
+    rememberedRowSizes.set(info.itemKey, info.size);
+    if (Math.abs(info.size - info.previous) > 1) resizedListKeyRef.current = listMountKey;
     extendRevealWait();
     if (disclosureAnchorKeyRef.current !== null) {
       settleDisclosureAfterLayout();
@@ -3604,6 +3612,9 @@ export const ThreadFeed = memo(function ThreadFeed({
   // after the commit that hands it rows at the new geometry; clearing earlier
   // re-caches old sizes.
   const { textSizeKey } = workRowSizing;
+  const rememberedRowSizes = rememberedThreadFeedRowSizes(
+    `${feedThreadKey}:${contentWidth}:${textSizeKey}`,
+  );
   const hasHtmlRenders = presentedFeed.some((entry) => entry.type === "html-render");
   const previousRowGeometry = useRef({ textSizeKey, contentWidth });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears LegendList size caches and starts a reflow after the commit that brings new row geometry
@@ -3773,6 +3784,7 @@ export const ThreadFeed = memo(function ThreadFeed({
                 : `message:${entry.message.role}`;
             }}
             getFixedItemSize={getFixedItemSize}
+            getEstimatedItemSize={(entry) => rememberedRowSizes.get(entry.id)}
             // Native layout transitions retain stale row positions during sync, even at duration zero.
             onItemSizeChanged={handleItemSizeChanged}
             drawDistance={500}
@@ -3791,7 +3803,12 @@ export const ThreadFeed = memo(function ThreadFeed({
             onLoad={() => {
               loadedListKeyRef.current = listMountKey;
               setLoadedListKey(listMountKey);
-              if (Platform.OS !== "android" || emptyThreadKey === feedThreadKey) {
+              // Rows that all landed at their remembered sizes have nothing left to settle.
+              if (
+                Platform.OS !== "android" ||
+                emptyThreadKey === feedThreadKey ||
+                resizedListKeyRef.current !== listMountKey
+              ) {
                 setRevealedListKey(listMountKey);
               } else {
                 revealDeadlineRef.current = Date.now() + LIST_REVEAL_MAX_MS;
