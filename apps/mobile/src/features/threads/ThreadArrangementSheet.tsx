@@ -518,6 +518,7 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                           </>
                         ) : item.more ? (
                           <Pressable
+                            accessibilityRole="button"
                             disabled={olderSettledShelf.loading}
                             className="flex-1 justify-center self-stretch"
                             onPress={() => {
@@ -529,7 +530,7 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                           >
                             <Text className="text-sm text-foreground-muted">
                               {olderSettledShelf.loading
-                                ? "Loading"
+                                ? "Loading…"
                                 : olderSettledShelf.failed
                                   ? "Could not load older threads. Retry"
                                   : `Show more (${settledCount - visibleSettled.length} settled hidden)`}
@@ -537,6 +538,16 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                           </Pressable>
                         ) : (
                           <Pressable
+                            accessibilityRole={
+                              item.section === "snoozed" || item.section === "settled"
+                                ? "button"
+                                : "header"
+                            }
+                            accessibilityState={
+                              item.section === "snoozed" || item.section === "settled"
+                                ? { expanded: expanded[item.section] }
+                                : undefined
+                            }
                             disabled={item.section === "pinned" || item.section === "active"}
                             className="flex-1 justify-center self-stretch"
                             onPress={() => {
