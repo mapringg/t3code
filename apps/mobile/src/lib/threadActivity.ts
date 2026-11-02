@@ -1552,7 +1552,14 @@ export function deriveThreadFeedPresentation(
     }
   }
   for (const [runId, index] of workRowByRunId) {
-    result[index] = { ...result[index]!, checkpointSummary: checkpointByRunId.get(runId)! };
+    const row = result[index]!;
+    const checkpointSummary = checkpointByRunId.get(runId)!;
+    let summarized = checkpointRows.get(row);
+    if (summarized?.summary !== checkpointSummary) {
+      summarized = { summary: checkpointSummary, row: { ...row, checkpointSummary } };
+      checkpointRows.set(row, summarized);
+    }
+    result[index] = summarized.row;
   }
   for (let index = tailStart; index < result.length; index += 1) {
     const row = result[index]!;
@@ -1562,9 +1569,14 @@ export function deriveThreadFeedPresentation(
       !workRowByRunId.has(row.message.checkpointSummary.runId)
     )
       continue;
-    const message = { ...row.message };
-    delete message.checkpointSummary;
-    result[index] = { ...row, message };
+    let unsummarized = uncheckpointedRows.get(row);
+    if (!unsummarized) {
+      const message = { ...row.message };
+      delete message.checkpointSummary;
+      unsummarized = { ...row, message };
+      uncheckpointedRows.set(row, unsummarized);
+    }
+    result[index] = unsummarized;
   }
   // Reused rows are final: the user message after them never continues a work log.
   for (let index = tailStart; index < result.length; index += 1) {
@@ -1614,6 +1626,13 @@ export function deriveThreadFeedPresentation(
 }
 
 const continuedWorkLogRows = new WeakMap<ThreadFeedEntry, ThreadFeedEntry>();
+// Rebuilt tails reuse these clones so an unchanged row keeps its identity, which
+// LegendList reads as unchanged data instead of restarting its initial end scroll.
+const checkpointRows = new WeakMap<
+  ThreadFeedEntry,
+  { readonly summary: ThreadCheckpointSummary; readonly row: ThreadFeedEntry }
+>();
+const uncheckpointedRows = new WeakMap<ThreadFeedEntry, ThreadFeedEntry>();
 
 function isWorkLogFeedRow(row: ThreadFeedEntry | undefined): boolean {
   return (

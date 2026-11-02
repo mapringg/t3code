@@ -528,6 +528,17 @@ describe("buildThreadFeed", () => {
           checkpointSummary: summary,
         });
         expect(presented.at(-1)).not.toHaveProperty("message.checkpointSummary");
+        // LegendList restarts its initial end scroll when a row's identity changes.
+        const again = deriveThreadFeedPresentation(
+          [...workAfter],
+          null,
+          expanded,
+          new Set(),
+          null,
+          false,
+          cache,
+        );
+        for (const [index, row] of again.entries()) expect(row).toBe(presented[index]);
       }
       const active = deriveThreadFeedPresentation(
         workAfter,
