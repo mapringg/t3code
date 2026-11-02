@@ -902,24 +902,6 @@ function ThreadSettingsOptionsItem(props: {
           />
         </Animated.View>
       </Animated.View>
-
-      <Text className="px-5 pb-2 pt-7 text-sm font-t3-medium text-foreground-muted">Catalog</Text>
-      <View className="mx-4 overflow-hidden rounded-2xl bg-grouped-card">
-        <SwitchRow
-          label="Manage hidden models"
-          value={session.manageHidden}
-          onValueChange={session.setManageHidden}
-          isLast={Platform.OS === "ios" || !session.hasLegacyModels}
-        />
-        {Platform.OS !== "ios" && session.hasLegacyModels ? (
-          <SwitchRow
-            isLast
-            label="Legacy models"
-            onValueChange={session.setShowLegacy}
-            value={session.showLegacy}
-          />
-        ) : null}
-      </View>
     </View>
   );
 }
