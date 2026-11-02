@@ -40,7 +40,12 @@ describe("workspace tab selections", () => {
   });
 
   it("doesn't remember pages a Settings row doesn't open", () => {
-    for (const name of ["SettingsEnvironmentNew", "SettingsProjectOverview", "SettingsAuth"]) {
+    for (const name of [
+      "SettingsEnvironmentNew",
+      "SettingsProjectOverview",
+      "SettingsLabs",
+      "SettingsAuth",
+    ]) {
       expect(workspaceSelectionsIn([home, settings, { key: name, name }], {}).settings).toBe(
         undefined,
       );

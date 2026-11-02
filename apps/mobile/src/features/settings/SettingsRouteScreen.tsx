@@ -20,7 +20,6 @@ import { use, type ComponentProps } from "react";
 import { Platform, View } from "react-native";
 import { useWorkspaceSurface } from "../workspace/useWorkspaceSurface";
 import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
-import { deriveProjectGroupLabel } from "@t3tools/client-runtime/state/project-grouping";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
@@ -210,22 +209,8 @@ function SettingsList(props: { readonly connections: readonly SettingsListRow[] 
 }
 
 function useSettingsIndexSections(): SettingsListSection[] {
-  const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
+  const { selectedTargets } = useSettingsEnvironmentFilter();
   const noServerTargets = selectedTargets.length === 0;
-  const selectedProject = projectGroups.find((group) => group.key === selectedProjectKey);
-  const scopedProjectMembers =
-    selectedProject?.members
-      .map((member) => member.project)
-      .filter((project) =>
-        selectedTargets.some((target) => target.environmentId === project.environmentId),
-      ) ?? [];
-  const projectLabel =
-    scopedProjectMembers.length > 0
-      ? deriveProjectGroupLabel({
-          representative: scopedProjectMembers[0]!,
-          members: scopedProjectMembers,
-        })
-      : (selectedProject?.label ?? "Unavailable project");
   const page = (
     target: SettingsPageTarget,
     icon: SettingsListRow["icon"],
@@ -234,7 +219,8 @@ function useSettingsIndexSections(): SettingsListSection[] {
   ): SettingsListRow => ({ id: target, icon, label, target, ...extra });
   const serverPage = (target: SettingsPageTarget, icon: SettingsListRow["icon"], label: string) =>
     page(target, icon, label, { disabled: noServerTargets });
-  // The same pages and groups as Settings on web, minus what mobile has no setting for.
+  // The same pages and groups as Settings on web, minus what mobile has no setting for and the
+  // code pages and Labs, which mobile leaves to desktop.
   return [
     {
       rows: [
@@ -261,22 +247,8 @@ function useSettingsIndexSections(): SettingsListSection[] {
       ],
     },
     {
-      title: "Code",
-      rows: [
-        page(
-          "SettingsProjectOverview",
-          "folder",
-          "Projects",
-          selectedProjectKey !== null ? { value: projectLabel } : undefined,
-        ),
-        serverPage("SettingsEnvironmentSourceControl", "arrow.triangle.branch", "Source control"),
-        serverPage("SettingsWorktrees", "square.on.square", "Worktrees"),
-      ],
-    },
-    {
       rows: [
         serverPage("SettingsEnvironmentMaintenance", "arrow.clockwise", "Maintenance"),
-        page("SettingsLabs", "sparkles", "Labs"),
         page("SettingsAbout", "info.circle", "About"),
         page("SettingsArchive", "archivebox", "Archive"),
       ],

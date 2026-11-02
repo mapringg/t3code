@@ -25,10 +25,16 @@ export function workspaceTabColumns(
   return columns && (platform === "ios" || (platform === "android" && tab === "settings"));
 }
 
-// Pages a Settings row opens, minus Project overview: it shows the project chosen in the
-// Settings scope, which resets whenever Settings closes.
+// Pages a Settings row opens, minus the pages mobile no longer lists. Project overview also
+// shows the project chosen in the Settings scope, which resets whenever Settings closes.
+const UNLISTED_SETTINGS_PAGES: ReadonlySet<string> = new Set([
+  "SettingsProjectOverview",
+  "SettingsEnvironmentSourceControl",
+  "SettingsWorktrees",
+  "SettingsLabs",
+] satisfies SettingsPageTarget[]);
 const REMEMBERED_SETTINGS_PAGES: ReadonlySet<string> = new Set(
-  SETTINGS_PAGE_TARGETS.filter((page) => page !== "SettingsProjectOverview"),
+  SETTINGS_PAGE_TARGETS.filter((page) => !UNLISTED_SETTINGS_PAGES.has(page)),
 );
 
 export function rememberedSettingsPage(selections: WorkspaceSelections): SettingsPageTarget {
