@@ -43,7 +43,7 @@ const EMPTY_TURN_SUBAGENTS_ATOM = Atom.make<ThreadTurnSubagents | null>(null).pi
   Atom.withLabel("mobile-thread-turn-subagents:empty"),
 );
 
-export function useThreadTurnSubagents(target: AgentsTarget | null): ThreadTurnSubagents | null {
+function useThreadTurnSubagents(target: AgentsTarget | null): ThreadTurnSubagents | null {
   return useAtomValue(
     target === null
       ? EMPTY_TURN_SUBAGENTS_ATOM

@@ -2577,7 +2577,11 @@ function useThreadFeedPresentation(
   const [feedCache] = useState(createThreadFeedCache);
   return appendPendingThreadMessages(
     deriveThreadFeedPresentation(
-      props.feed,
+      props.feed.filter(
+        (entry) =>
+          entry.type !== "activity-group" ||
+          entry.activities[0]?.projectedItem.item.type !== "subagent",
+      ),
       props.latestRun,
       expandedTurnIds,
       new Set(

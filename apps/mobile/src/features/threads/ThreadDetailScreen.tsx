@@ -63,7 +63,6 @@ import {
   presentPendingBackgroundWork,
   presentProviderGoal,
 } from "@t3tools/client-runtime/state/thread-execution";
-import { resolveSubagentPillSegment } from "@t3tools/client-runtime/state/thread-subagents";
 import {
   formatModelSelectionEffort,
   type ProviderSubagentStatus,
@@ -192,7 +191,6 @@ import {
 } from "./ThreadComposer";
 import { ComposerPopoverHost } from "./ComposerPopoverHost";
 import { ThreadFeed, type ThreadFeedHandle, type ThreadFeedHistoryControls } from "./ThreadFeed";
-import { useThreadTurnSubagents } from "./ThreadAgentsSheet";
 import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";
 import { ThreadGuestShareBar } from "./ThreadGuestShareBar";
@@ -465,8 +463,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   });
   const composerError = useAtomValue(threadComposerErrorsAtom)[selectedThreadKey]?.message ?? null;
   const queuedCount = useThreadQueuedCount(props.selectedThreadDetailRef);
-  const turnSubagents = useThreadTurnSubagents(props.selectedThreadDetailRef);
-  const agentsSegment = resolveSubagentPillSegment(turnSubagents);
   const defaultComposerEditorRef = useRef<ComposerEditorHandle>(null);
   const composerEditorRef = props.draftMode?.editorRef ?? defaultComposerEditorRef;
   const isProviderSubagent = isProviderNativeSubagentThread(props.selectedThread.source);
@@ -819,7 +815,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   const showFloatingStatus =
     showWorkingControl ||
     queuedCount > 0 ||
-    agentsSegment !== null ||
     devicePreviews.length > 0 ||
     browserTabs.tabs.length > 0 ||
     props.connectionStateLabel !== "connected" ||
@@ -1505,7 +1500,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     }
                     showScrollToEnd={showScrollToEndButton}
                     onScrollToEnd={handleScrollToEnd}
-                    agents={agentsSegment}
+                    agents={null}
                     onOpenAgents={() => {
                       Keyboard.dismiss();
                       navigation.navigate("ThreadAgents", {
