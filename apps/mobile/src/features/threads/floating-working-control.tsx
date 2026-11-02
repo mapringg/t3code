@@ -1,7 +1,7 @@
 import type { SubagentPillSegment } from "@t3tools/client-runtime/state/thread-subagents";
 import { formatDuration } from "@t3tools/shared/orchestrationTiming";
 import { GlassContainer, GlassView } from "expo-glass-effect";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
   Pressable,
@@ -127,7 +127,19 @@ export function FloatingWorkingControl(props: {
   // Animate an in-flow sizer for native glass layout. Measure labels at fixed width to avoid repeated animation retargeting.
   const capsuleWidth = useSharedValue<number | null>(null);
   const measuredWidthRef = useRef<number | null>(null);
-  const handleLabelLayout = (event: LayoutChangeEvent) => {
+  const labelKey =
+    props.status === null
+      ? null
+      : props.status.kind === "working" || props.status.kind === "compacting"
+        ? props.status.kind
+        : `${props.status.kind}:${props.status.label}`;
+  const currentLabelKeyRef = useRef(labelKey);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- a fading label still reports layout when the action narrows the label area; only the current label may size the capsule
+  useLayoutEffect(() => {
+    currentLabelKeyRef.current = labelKey;
+  }, [labelKey]);
+  const handleLabelLayout = (key: string | null, event: LayoutChangeEvent) => {
+    if (key !== currentLabelKeyRef.current) return;
     const width = event.nativeEvent.layout.width;
     if (width === measuredWidthRef.current) {
       return;
@@ -180,13 +192,9 @@ export function FloatingWorkingControl(props: {
           style={{ width: labelWidth }}
         >
           <FloatingStatusLabel
-            key={
-              props.status.kind === "working" || props.status.kind === "compacting"
-                ? props.status.kind
-                : `${props.status.kind}:${props.status.label}`
-            }
+            key={labelKey}
             status={props.status}
-            onLayout={handleLabelLayout}
+            onLayout={(event) => handleLabelLayout(labelKey, event)}
           />
         </View>
       </View>
@@ -196,7 +204,10 @@ export function FloatingWorkingControl(props: {
     <View className="flex-row items-center">
       {statusContent}
       {action !== null ? (
-        <View
+        // Enters with the label it belongs to, so it never pairs with the outgoing label.
+        <Animated.View
+          key={props.status?.kind}
+          entering={reducedMotion ? undefined : LABEL_ENTERING}
           onLayout={(event) => setActionWidth(settleWidth(event.nativeEvent.layout.width))}
           className="h-11 flex-row items-center"
         >
@@ -213,7 +224,7 @@ export function FloatingWorkingControl(props: {
               {action.label}
             </Text>
           </Pressable>
-        </View>
+        </Animated.View>
       ) : null}
       {hasPreview ? (
         <View
