@@ -89,6 +89,7 @@ export function ThreadListFilters(
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reset thread filters"
+          hitSlop={6}
           className="h-8 w-8 items-center justify-center"
           onPress={() => {
             props.onEnvironmentChange(null);
