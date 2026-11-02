@@ -1,4 +1,5 @@
 import * as Dialog from "../../components/ui/Dialog";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthOrchestrationOperateScope,
@@ -1416,7 +1417,13 @@ function EnvironmentTasks({
       }
     >
       {tasks.error ? (
-        <Text className="p-4 text-base text-danger-foreground">{tasks.error}</Text>
+        <EmptyState
+          variant="plain"
+          title="Couldn't load scheduled tasks"
+          detail={tasks.error}
+          actionLabel="Retry"
+          onAction={tasks.refresh}
+        />
       ) : !tasks.data ? (
         <Text className="p-4 text-base text-foreground-muted">Loading tasks…</Text>
       ) : visibleTasks?.length === 0 ? (
