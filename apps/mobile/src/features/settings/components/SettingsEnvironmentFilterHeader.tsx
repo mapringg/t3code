@@ -24,6 +24,7 @@ export function SettingsEnvironmentFilterHeader(props: {
   } = useSettingsEnvironmentFilter();
   if (Platform.OS !== "ios") return null;
 
+  const filterable = availableTargets.length > 1;
   const filterIcon =
     selectedIds === null && selectedProjectKey === null
       ? "line.3.horizontal.decrease"
@@ -39,6 +40,70 @@ export function SettingsEnvironmentFilterHeader(props: {
     project: selectedProjectKey,
     projects: selectableProjectGroups.map((group) => [group.key, group.label]),
     trailingItems: props.trailingItems,
+    filterable,
+  });
+
+  const filterMenu = withNativeGlassHeaderItem({
+    accessibilityLabel: "Filter settings environments and projects",
+    icon: { name: filterIcon, type: "sfSymbol" },
+    label: "",
+    type: "menu",
+    menu: {
+      title: "Settings scope",
+      items: [
+        {
+          type: "submenu",
+          label:
+            selectedIds === null
+              ? "All environments"
+              : `${selectedTargets.length} ${selectedTargets.length === 1 ? "environment" : "environments"}`,
+          items: [
+            {
+              type: "action",
+              label: "All connected environments",
+              state: selectedIds === null ? "on" : undefined,
+              onPress: selectAll,
+            },
+            ...availableTargets.map((entry) => ({
+              type: "action" as const,
+              label: entry.label,
+              icon: {
+                type: "sfSymbol" as const,
+                name: ENVIRONMENT_MACHINE_SYMBOLS[
+                  resolveEnvironmentMachineKind(entry.serverConfig)
+                ],
+              },
+              description: entry.displayUrl ?? undefined,
+              state:
+                selectedIds === null || selectedIds.has(entry.environmentId)
+                  ? ("on" as const)
+                  : undefined,
+              onPress: () => toggleEnvironment(entry.environmentId),
+            })),
+          ],
+        },
+        {
+          type: "submenu",
+          label:
+            selectableProjectGroups.find((group) => group.key === selectedProjectKey)?.label ??
+            (selectedProjectKey === null ? "All projects" : "Unavailable project"),
+          items: [
+            {
+              type: "action",
+              label: "All projects",
+              state: selectedProjectKey === null ? "on" : undefined,
+              onPress: () => selectProject(null),
+            },
+            ...selectableProjectGroups.map((group) => ({
+              type: "action" as const,
+              label: projectMenuLabel(group),
+              state: selectedProjectKey === group.key ? ("on" as const) : undefined,
+              onPress: () => selectProject(group.key),
+            })),
+          ],
+        },
+      ],
+    },
   });
 
   return (
@@ -46,69 +111,7 @@ export function SettingsEnvironmentFilterHeader(props: {
       optionsVersion={filterVersion}
       options={{
         unstable_headerRightItems: () => [
-          withNativeGlassHeaderItem({
-            accessibilityLabel: "Filter settings environments and projects",
-            icon: { name: filterIcon, type: "sfSymbol" },
-            label: "",
-            type: "menu",
-            menu: {
-              title: "Settings scope",
-              items: [
-                {
-                  type: "submenu",
-                  label:
-                    selectedIds === null
-                      ? "All environments"
-                      : `${selectedTargets.length} ${selectedTargets.length === 1 ? "environment" : "environments"}`,
-                  items: [
-                    {
-                      type: "action",
-                      label: "All connected environments",
-                      state: selectedIds === null ? "on" : undefined,
-                      onPress: selectAll,
-                    },
-                    ...availableTargets.map((entry) => ({
-                      type: "action" as const,
-                      label: entry.label,
-                      icon: {
-                        type: "sfSymbol" as const,
-                        name: ENVIRONMENT_MACHINE_SYMBOLS[
-                          resolveEnvironmentMachineKind(entry.serverConfig)
-                        ],
-                      },
-                      description: entry.displayUrl ?? undefined,
-                      state:
-                        selectedIds === null || selectedIds.has(entry.environmentId)
-                          ? ("on" as const)
-                          : undefined,
-                      onPress: () => toggleEnvironment(entry.environmentId),
-                    })),
-                  ],
-                },
-                {
-                  type: "submenu",
-                  label:
-                    selectableProjectGroups.find((group) => group.key === selectedProjectKey)
-                      ?.label ??
-                    (selectedProjectKey === null ? "All projects" : "Unavailable project"),
-                  items: [
-                    {
-                      type: "action",
-                      label: "All projects",
-                      state: selectedProjectKey === null ? "on" : undefined,
-                      onPress: () => selectProject(null),
-                    },
-                    ...selectableProjectGroups.map((group) => ({
-                      type: "action" as const,
-                      label: projectMenuLabel(group),
-                      state: selectedProjectKey === group.key ? ("on" as const) : undefined,
-                      onPress: () => selectProject(group.key),
-                    })),
-                  ],
-                },
-              ],
-            },
-          }),
+          ...(filterable ? [filterMenu] : []),
           ...(props.trailingItems ?? []),
         ],
       }}
@@ -130,6 +133,7 @@ export function AndroidSettingsEnvironmentFilter() {
     selectedIds === null && selectedProjectKey === null
       ? "line.3.horizontal.decrease.circle"
       : "line.3.horizontal.decrease.circle.fill";
+  if (availableTargets.length <= 1) return null;
 
   return (
     <AndroidAnchoredMenu
