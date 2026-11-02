@@ -16,6 +16,7 @@ import type {
 } from "@t3tools/contracts";
 import { Atom } from "effect/reactivity";
 import { useMemo } from "react";
+import { useResolveClassNames } from "uniwind";
 import { Pressable, View, type ColorValue } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
@@ -57,8 +58,9 @@ export function ThreadHandoffRow(props: {
     [props.environmentId, props.projectedItem],
   );
   const endpoints = useAtomValue(endpointsAtom);
+  const { color: dangerColor } = useResolveClassNames("text-danger-foreground");
   if (item.type !== "handoff" || endpoints === null) return null;
-  const color = item.status === "failed" ? "#e11d48" : props.iconColor;
+  const color = item.status === "failed" ? dangerColor : props.iconColor;
   return (
     <ThreadHandoffDivider
       environmentId={props.environmentId}

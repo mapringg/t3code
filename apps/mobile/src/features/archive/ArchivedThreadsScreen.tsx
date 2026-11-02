@@ -198,7 +198,7 @@ function ArchivedThreadRow(props: {
   );
   const rowContent = (
     <View
-      className={`flex-row items-center gap-3 bg-grouped-card px-4 py-3 ${props.isLast ? "" : "border-b border-separator"}`}
+      className={`flex-row items-center gap-3 bg-grouped-card px-4 py-3 ${props.isLast ? "" : "border-b border-border-subtle"}`}
     >
       <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
         <SymbolView
