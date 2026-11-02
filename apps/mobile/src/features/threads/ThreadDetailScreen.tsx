@@ -197,7 +197,11 @@ import { ComposerQueuedEditBanner } from "./ComposerQueuedEdit";
 import { useThreadQueuedCount } from "./ThreadQueueControl";
 import { ThreadGuestShareBar } from "./ThreadGuestShareBar";
 import { ThreadSideChatsRow } from "./ThreadSideChatsRow";
-import { nextThreadSyncLabel, type ThreadContentPresentation } from "./threadContentPresentation";
+import {
+  lockThreadSyncLabel,
+  threadSyncLabel,
+  type ThreadContentPresentation,
+} from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
 import { useGlobalVoiceInput } from "../voice-input/VoiceInputProvider";
@@ -520,19 +524,23 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
-  const [syncLabelState, setSyncLabelState] = useState<{
-    readonly key: string;
-    readonly label: string | null;
-  } | null>(null);
-  const previousSyncLabel = syncLabelState?.key === selectedThreadKey ? syncLabelState.label : null;
-  const realThreadSyncLabel = nextThreadSyncLabel(previousSyncLabel, {
+  const rawThreadSyncLabel = threadSyncLabel({
     syncStatus: props.threadSyncStatus,
     contentKind: contentPresentationKind,
   });
-  if (realThreadSyncLabel !== previousSyncLabel) {
-    setSyncLabelState({ key: selectedThreadKey, label: realThreadSyncLabel });
+  // One token for both labels, so the pill's show delay and hold span the whole sync.
+  const syncShown =
+    useDelayedStatus(selectedThreadKey, rawThreadSyncLabel === null ? null : "sync") !== null;
+  const syncPending = rawThreadSyncLabel !== null && !syncShown;
+  const [lockedSync, setLockedSync] = useState<{
+    readonly key: string;
+    readonly label: string | null;
+  } | null>(null);
+  const previousSyncLabel = lockedSync?.key === selectedThreadKey ? lockedSync.label : null;
+  const shownSyncLabel = lockThreadSyncLabel(previousSyncLabel, rawThreadSyncLabel, syncShown);
+  if (shownSyncLabel !== previousSyncLabel) {
+    setLockedSync({ key: selectedThreadKey, label: shownSyncLabel });
   }
-  const threadSyncLabel = useDelayedStatus(selectedThreadKey, realThreadSyncLabel);
   const connectionRetrying =
     props.connectionStateLabel === "connecting" || props.connectionStateLabel === "reconnecting";
   const retryError = connectionRetrying ? props.connectionError : null;
@@ -722,8 +730,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     if (props.creationState?.kind === "failed") {
       return null;
     }
-    if (threadSyncLabel !== null) {
-      return { kind: "syncing", label: threadSyncLabel };
+    if (shownSyncLabel !== null) {
+      return { kind: "syncing", label: shownSyncLabel };
     }
     const childInput = childThreadInputs[0];
     if (childInput && contentPresentationKind === "ready") {
@@ -765,6 +773,10 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
           onPress: () => void runStatusAction("stop"),
         },
       };
+    }
+    // An idle pill would show for the sync pill's delay, only to be replaced by it.
+    if (syncPending) {
+      return null;
     }
     if (contentPresentationKind === "ready" && (snoozed || settled || woke)) {
       const state = snoozed ? "snoozed" : settled ? "settled" : "woke";
