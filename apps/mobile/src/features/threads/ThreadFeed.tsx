@@ -302,6 +302,7 @@ function formatMessageTime(input: string): string {
 
 const TURN_FOLD_HEIGHT = 42;
 const FEED_PADDING_TOP = 12;
+const HIDDEN_LIST_HEADER_STYLE = { opacity: 0 };
 // Rows re-measure within a commit or two of a width change. LegendList also defers imperative
 // scrolls for 100ms after it compensates a size change, and a deferred restore could land
 // under a drag that starts meanwhile.
@@ -3264,6 +3265,9 @@ export const ThreadFeed = memo(function ThreadFeed({
   // current overlay height before the scroll integration's next reaction;
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
+  // LegendList hides rows until the end landing settles, but not the header or scroll
+  // indicator, which would otherwise flash at the top and jump as the list lands at the end.
+  const listAwaitsLanding = listMountKey.endsWith(":filled") && loadedListKey !== listMountKey;
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
@@ -3758,6 +3762,8 @@ export const ThreadFeed = memo(function ThreadFeed({
             onMomentumScrollBegin={handleMomentumScrollBegin}
             onMomentumScrollEnd={handleMomentumScrollEnd}
             scrollEventThrottle={16}
+            ListHeaderComponentStyle={listAwaitsLanding ? HIDDEN_LIST_HEADER_STYLE : undefined}
+            showsVerticalScrollIndicator={!listAwaitsLanding}
             ListHeaderComponent={
               <>
                 {usesNativeAutomaticInsets ? null : <View style={{ height: topContentInset }} />}
