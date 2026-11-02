@@ -302,7 +302,10 @@ function formatMessageTime(input: string): string {
 
 const TURN_FOLD_HEIGHT = 42;
 const FEED_PADDING_TOP = 12;
-const HIDDEN_LIST_HEADER_STYLE = { opacity: 0 };
+// A cold list keeps measuring rows after LegendList loads; on Android its end follow trails each
+// change by a frame, so stay hidden until sizes go quiet, but never longer than the cap.
+const LIST_REVEAL_QUIET_MS = 150;
+const LIST_REVEAL_MAX_MS = 800;
 // Rows re-measure within a commit or two of a width change. LegendList also defers imperative
 // scrolls for 100ms after it compensates a size change, and a deferred restore could land
 // under a drag that starts meanwhile.
@@ -3167,6 +3170,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     onHeaderMaterialVisibilityChange?.(visible);
   };
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    extendRevealWait();
     reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
     // Re-arm follow only at the actual end; the broader threshold can reclaim upward drags during streaming.
     const listState = listRef.current?.getState();
@@ -3265,9 +3269,35 @@ export const ThreadFeed = memo(function ThreadFeed({
   // current overlay height before the scroll integration's next reaction;
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
-  // LegendList hides rows until the end landing settles, but not the header or scroll
-  // indicator, which would otherwise flash at the top and jump as the list lands at the end.
-  const listAwaitsLanding = listMountKey.endsWith(":filled") && loadedListKey !== listMountKey;
+  const [revealedListKey, setRevealedListKey] = useState<string | null>(null);
+  // A thread that was empty, not loading, fills from the user's own send; its rows must not wait.
+  const [emptyThreadKey, setEmptyThreadKey] = useState<string | null>(null);
+  if (
+    listMountKey.endsWith(":empty") &&
+    props.contentPresentation.kind === "ready" &&
+    emptyThreadKey !== feedThreadKey
+  ) {
+    setEmptyThreadKey(feedThreadKey);
+  }
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealDeadlineRef = useRef(0);
+  const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
+  const scheduleReveal = (key: string) => {
+    if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
+    const remaining = Math.max(0, revealDeadlineRef.current - Date.now());
+    revealTimerRef.current = setTimeout(
+      () => {
+        revealTimerRef.current = null;
+        setRevealedListKey(key);
+      },
+      Math.min(LIST_REVEAL_QUIET_MS, remaining),
+    );
+  };
+  const extendRevealWait = () => {
+    if (revealTimerRef.current !== null && loadedListKeyRef.current === listMountKey) {
+      scheduleReveal(listMountKey);
+    }
+  };
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
@@ -3399,6 +3429,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     () => () => {
       if (userScrollSettleTimerRef.current !== null) clearTimeout(userScrollSettleTimerRef.current);
       if (reflowSettleTimerRef.current !== null) clearTimeout(reflowSettleTimerRef.current);
+      if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
       if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
       if (disclosureSettleFrameRef.current !== null) {
         cancelAnimationFrame(disclosureSettleFrameRef.current);
@@ -3446,6 +3477,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const handleItemSizeChanged = () => {
+    extendRevealWait();
     if (disclosureAnchorKeyRef.current !== null) {
       settleDisclosureAfterLayout();
     }
@@ -3662,7 +3694,11 @@ export const ThreadFeed = memo(function ThreadFeed({
   return (
     <PresentationSource identifier={fileShareSourceIdentifier} style={{ flex: 1 }}>
       <View className="flex-1" onLayout={handleViewportLayout}>
-        <View className="flex-1">
+        <View
+          className="flex-1"
+          pointerEvents={listAwaitsLanding ? "none" : "auto"}
+          style={listAwaitsLanding ? { opacity: 0 } : undefined}
+        >
           {/* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */}
           <KeyboardAwareLegendList
             ref={attachList}
@@ -3751,6 +3787,12 @@ export const ThreadFeed = memo(function ThreadFeed({
             onLoad={() => {
               loadedListKeyRef.current = listMountKey;
               setLoadedListKey(listMountKey);
+              if (Platform.OS !== "android" || emptyThreadKey === feedThreadKey) {
+                setRevealedListKey(listMountKey);
+              } else {
+                revealDeadlineRef.current = Date.now() + LIST_REVEAL_MAX_MS;
+                scheduleReveal(listMountKey);
+              }
             }}
             // Row positions start below the header; the reflow anchor converts between them.
             onMetricsChange={(metrics) => {
@@ -3762,8 +3804,6 @@ export const ThreadFeed = memo(function ThreadFeed({
             onMomentumScrollBegin={handleMomentumScrollBegin}
             onMomentumScrollEnd={handleMomentumScrollEnd}
             scrollEventThrottle={16}
-            ListHeaderComponentStyle={listAwaitsLanding ? HIDDEN_LIST_HEADER_STYLE : undefined}
-            showsVerticalScrollIndicator={!listAwaitsLanding}
             ListHeaderComponent={
               <>
                 {usesNativeAutomaticInsets ? null : <View style={{ height: topContentInset }} />}
