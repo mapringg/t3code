@@ -64,7 +64,7 @@ export function availableCloudEnvironmentPresentation(input: {
     connectionErrorTraceId: null,
     connectionState: "available",
     statusText: input.isStatusPending
-      ? "Available · Checking relay status..."
+      ? "Available · Checking relay status…"
       : "Available · Relay status unknown",
   };
 }

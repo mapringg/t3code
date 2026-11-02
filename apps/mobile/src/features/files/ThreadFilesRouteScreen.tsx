@@ -275,7 +275,7 @@ function FileContent(props: {
 
   if (isAudioFile) {
     return props.previewUri === null ? (
-      <FilePreviewLoading message="Loading file..." />
+      <FilePreviewLoading message="Loading file…" />
     ) : (
       <AudioFilePreview uri={props.previewUri} onRetry={props.onRetryPreview} />
     );
@@ -307,7 +307,7 @@ function FileContent(props: {
   }
 
   if (props.fileContents === null) {
-    return <FilePreviewLoading message="Loading file..." />;
+    return <FilePreviewLoading message="Loading file…" />;
   }
 
   return (
@@ -523,12 +523,12 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
         />
       );
     }
-    return <LoadingScreen message="Opening files..." messagePlacement="above-spinner" />;
+    return <LoadingScreen message="Opening files…" messagePlacement="above-spinner" />;
   }
 
   if (!canReadFiles) {
     if (fileAccess.isPending) {
-      return <LoadingScreen message="Checking file access..." messagePlacement="above-spinner" />;
+      return <LoadingScreen message="Checking file access…" messagePlacement="above-spinner" />;
     }
     return (
       <FilesUnavailable detail={fileAccess.error ?? "This connection cannot read host files."} />
@@ -904,12 +904,12 @@ export function ThreadFileScreen(props: ThreadFileRouteScreenProps) {
   };
 
   if (environmentId === null || (threadId !== null && selectedThread === null)) {
-    return <LoadingScreen message="Opening file..." messagePlacement="above-spinner" />;
+    return <LoadingScreen message="Opening file…" messagePlacement="above-spinner" />;
   }
 
   if (!canReadFiles) {
     if (fileAccess.isPending) {
-      return <LoadingScreen message="Checking file access..." messagePlacement="above-spinner" />;
+      return <LoadingScreen message="Checking file access…" messagePlacement="above-spinner" />;
     }
     return (
       <FilesUnavailable detail={fileAccess.error ?? "This connection cannot read host files."} />
@@ -929,7 +929,7 @@ export function ThreadFileScreen(props: ThreadFileRouteScreenProps) {
   }
 
   if (metadataPending) {
-    return <LoadingScreen message="Opening file..." messagePlacement="above-spinner" />;
+    return <LoadingScreen message="Opening file…" messagePlacement="above-spinner" />;
   }
   if (directoryPath !== null) {
     return (

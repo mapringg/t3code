@@ -236,7 +236,7 @@ export function ReviewCommentComposerSheet(props: ReviewCommentComposerSheetProp
                         autoFocus
                         multiline
                         scrollEnabled
-                        placeholder="Leave a comment..."
+                        placeholder="Leave a comment…"
                         textAlignVertical="top"
                         value={commentText}
                         onChangeText={setCommentText}

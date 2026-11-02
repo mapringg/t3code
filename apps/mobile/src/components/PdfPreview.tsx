@@ -21,7 +21,7 @@ export function PdfPreview(props: { readonly uri: string }) {
         onHttpError={(event) =>
           setError(`The server returned HTTP ${event.nativeEvent.statusCode}.`)
         }
-        renderLoading={() => <FilePreviewLoading message="Loading PDF..." background="card" />}
+        renderLoading={() => <FilePreviewLoading message="Loading PDF…" background="card" />}
         style={{ flex: 1, backgroundColor: "transparent" }}
       />
     </View>

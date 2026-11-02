@@ -15,7 +15,7 @@ import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics
 
 export function WorkspaceFileWebPreview(props: { readonly uri: string | null }) {
   if (props.uri === null) {
-    return <FilePreviewLoading message="Preparing preview..." background="card" />;
+    return <FilePreviewLoading message="Preparing preview…" background="card" />;
   }
   return <DocumentWebPreview key={props.uri} uri={props.uri} />;
 }
