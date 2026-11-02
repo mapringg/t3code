@@ -21,7 +21,6 @@ import {
   PullRequestDiffStats,
 } from "./PullRequestPresentation";
 import {
-  pullRequestLabelColor,
   pullRequestListReviewStatus,
   pullRequestListRowsAreEqual,
   type EnvironmentPullRequestListEntry,
@@ -143,38 +142,7 @@ export const PullRequestListRow = memo(
                 {item.title}
               </Text>
               <View className="flex-row items-center gap-1.5">
-                <View className="min-w-0 flex-1 flex-row items-center gap-1">
-                  {item.labels.slice(0, 2).map((label) => {
-                    const color = pullRequestLabelColor(label.color);
-                    return (
-                      <View
-                        key={label.name}
-                        className="min-w-0 shrink flex-row items-center gap-1 rounded-md bg-subtle px-1.5 py-0.5"
-                        style={{
-                          maxWidth: 160,
-                          ...(color ? { backgroundColor: `${color}20` } : {}),
-                        }}
-                      >
-                        {color ? (
-                          <View
-                            style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: color }}
-                          />
-                        ) : null}
-                        <Text
-                          className={cn("shrink text-2xs font-t3-medium", mutedForeground)}
-                          numberOfLines={1}
-                        >
-                          {label.name}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                  {item.labels.length > 2 ? (
-                    <Text className={cn("shrink-0 text-2xs", tertiaryForeground)}>
-                      +{item.labels.length - 2}
-                    </Text>
-                  ) : null}
-                </View>
+                <View className="flex-1" />
                 {checks ? (
                   <View className="shrink-0" accessibilityLabel={`Checks ${item.checksState}`}>
                     <SymbolView name={checks.icon} size={13} tintColorClassName={checks.tint} />
