@@ -20,6 +20,7 @@ function AndroidActivityIndicator({
   return (
     <View
       accessible={animating}
+      accessibilityLabel="Loading"
       accessibilityRole="progressbar"
       accessibilityState={{ busy: animating }}
       {...viewProps}
