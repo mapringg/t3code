@@ -68,7 +68,7 @@ export function SettingsClientStorageRouteScreen() {
   };
 
   return (
-    <SettingsScreen title="Client Storage">
+    <SettingsScreen title="Client storage">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentInset={{ bottom: Math.max(insets.bottom, 18) }}
