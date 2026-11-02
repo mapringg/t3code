@@ -60,7 +60,7 @@ export function ThreadHandoffRow(props: {
   const endpoints = useAtomValue(endpointsAtom);
   const { color: dangerColor } = useResolveClassNames("text-danger-foreground");
   if (item.type !== "handoff" || endpoints === null) return null;
-  const color = item.status === "failed" ? dangerColor : props.iconColor;
+  const color = item.status === "failed" ? (dangerColor ?? props.iconColor) : props.iconColor;
   return (
     <ThreadHandoffDivider
       environmentId={props.environmentId}
