@@ -7,7 +7,7 @@ import { Menu } from "../../components/ui/Menu";
 
 const ATTACHMENT_MENU_ACTIONS: MenuAction[] = [
   { id: "photos", title: "Photo Library", image: "photo" },
-  { id: "files", title: "Choose Files", image: "folder" },
+  { id: "files", title: "Choose files", image: "folder" },
 ];
 
 export function ComposerAttachmentButton(props: {

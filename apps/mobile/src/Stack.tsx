@@ -312,7 +312,7 @@ const SETTINGS_SCREENS = {
     linking: "settings/environment-new",
     options: {
       ...SETTINGS_PAGE_OPTIONS,
-      title: "Add Environment",
+      title: "Add environment",
     },
   }),
   SettingsArchive: createNativeStackScreen({
@@ -420,7 +420,7 @@ const SETTINGS_SCREENS = {
     linking: "settings/client-storage",
     options: {
       ...SETTINGS_PAGE_OPTIONS,
-      title: "Client Storage",
+      title: "Client storage",
     },
   }),
   SettingsDiagnostics: createNativeStackScreen({
@@ -1002,7 +1002,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       options: {
         // Mount the iOS header immediately to avoid remounting the pairing form.
         ...(Platform.OS === "ios" ? SHEET_GLASS_HEADER_OPTIONS : undefined),
-        title: "Add Environment",
+        title: "Add environment",
         ...HORIZONTAL_FORM_SHEET_OPTIONS,
         sheetAllowedDetents: [0.55, 0.7],
         sheetGrabberVisible: true,
