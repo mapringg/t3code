@@ -47,23 +47,26 @@ export function projectThreadContentPresentation(input: {
   };
 }
 
-/**
- * A sync keeps the label it opened with: a cold open that says "Loading" would otherwise
- * swap to "Syncing" as content lands, restarting the pill's minimum hold over a ready feed.
- */
-export function nextThreadSyncLabel(
-  previous: string | null,
-  input: {
-    readonly syncStatus: EnvironmentThreadStatus | undefined;
-    readonly contentKind: ThreadContentPresentation["kind"];
-  },
-): string | null {
+export function threadSyncLabel(input: {
+  readonly syncStatus: EnvironmentThreadStatus | undefined;
+  readonly contentKind: ThreadContentPresentation["kind"];
+}): string | null {
   const syncing =
     input.syncStatus === "empty" ||
     input.syncStatus === "cached" ||
     input.syncStatus === "synchronizing";
   if (!syncing || input.contentKind === "unavailable") return null;
-  return (
-    previous ?? (input.contentKind === "ready" ? "Syncing messages..." : "Loading messages...")
-  );
+  return input.contentKind === "ready" ? "Syncing messages..." : "Loading messages...";
+}
+
+/**
+ * A shown sync pill keeps its first label: a cold open's "Loading" would otherwise swap to
+ * "Syncing" the moment content lands, restarting the pill's minimum hold over a ready feed.
+ */
+export function lockThreadSyncLabel(
+  locked: string | null,
+  label: string | null,
+  shown: boolean,
+): string | null {
+  return shown ? (locked ?? label) : null;
 }
