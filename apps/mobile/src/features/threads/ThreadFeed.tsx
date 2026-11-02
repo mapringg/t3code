@@ -3174,7 +3174,10 @@ export const ThreadFeed = memo(function ThreadFeed({
     onHeaderMaterialVisibilityChange?.(visible);
   };
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    extendRevealWait();
+    // Sub-pixel end corrections arrive after every landing; only real movement is unsettled.
+    const offset = event.nativeEvent.contentOffset.y;
+    if (Math.abs(offset - revealScrollOffsetRef.current) > 1) extendRevealWait();
+    revealScrollOffsetRef.current = offset;
     reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
     // Re-arm follow only at the actual end; the broader threshold can reclaim upward drags during streaming.
     const listState = listRef.current?.getState();
@@ -3285,6 +3288,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   }
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealDeadlineRef = useRef(0);
+  const revealScrollOffsetRef = useRef(0);
   const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
   const scheduleReveal = (key: string) => {
     if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
