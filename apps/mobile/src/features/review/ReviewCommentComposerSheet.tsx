@@ -139,6 +139,8 @@ export function ReviewCommentComposerSheet(props: ReviewCommentComposerSheetProp
         >
           <View className="flex-row items-center justify-between py-2">
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
               className="bg-subtle h-12 w-12 items-center justify-center rounded-full"
               onPress={dismissComposer}
             >
@@ -150,7 +152,7 @@ export function ReviewCommentComposerSheet(props: ReviewCommentComposerSheetProp
               />
             </Pressable>
 
-            <Text className="text-lg font-t3-bold text-foreground">Add Comment</Text>
+            <Text className="text-lg font-t3-bold text-foreground">Add comment</Text>
 
             <View className="h-12 w-12" />
           </View>

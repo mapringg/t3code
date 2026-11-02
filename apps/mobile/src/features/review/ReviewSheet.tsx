@@ -202,6 +202,7 @@ function ReviewSelectionActionBar(props: {
     >
       {props.onOpenComment ? (
         <Pressable
+          accessibilityRole="button"
           className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-full bg-primary px-5"
           onPress={props.onOpenComment}
         >
@@ -214,6 +215,8 @@ function ReviewSelectionActionBar(props: {
       )}
 
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Clear selection"
         className="h-12 w-12 items-center justify-center rounded-full bg-primary"
         onPress={props.onClear}
       >
