@@ -41,7 +41,7 @@ export function PullRequestRoutingSettings() {
   const update = useAtomCommand(environmentCatalog.setPullRequestRoutingPermission);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  if (catalog.entries.size === 0) return null;
+  if (catalog.entries.size <= 1) return null;
 
   return (
     <View className="mt-5 gap-3">
