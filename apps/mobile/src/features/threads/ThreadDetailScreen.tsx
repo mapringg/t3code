@@ -59,10 +59,7 @@ import {
   type ApprovalResponder,
   type ThreadUserInputQuestion,
 } from "@t3tools/client-runtime/state/thread-requests";
-import {
-  presentPendingBackgroundWork,
-  presentProviderGoal,
-} from "@t3tools/client-runtime/state/thread-execution";
+import { presentProviderGoal } from "@t3tools/client-runtime/state/thread-execution";
 import {
   formatModelSelectionEffort,
   type ProviderSubagentStatus,
@@ -674,9 +671,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       );
     }
   };
-  const pendingBackgroundWork = presentPendingBackgroundWork(
-    props.selectedThread.pendingBackgroundTasks,
-  );
   const floatingStatus = ((): FloatingWorkingStatus | null => {
     const connectionStatus = connectionFloatingStatus({
       connectionError: connectionRetrying ? retryConnectionError : props.connectionError,
@@ -746,29 +740,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     }
     if (props.activeWorkStartedAt !== null && contentPresentationKind === "ready") {
       return { kind: "working", startedAt: props.activeWorkStartedAt };
-    }
-    if (pendingBackgroundWork !== null && contentPresentationKind === "ready") {
-      return {
-        kind: "background",
-        label: pendingBackgroundWork.title,
-        accessibilityLabel: `${pendingBackgroundWork.title}: ${pendingBackgroundWork.items
-          .map((item) => item.label)
-          .join(", ")}`,
-        waiting: pendingBackgroundWork.waiting,
-        onPress: () => {
-          Keyboard.dismiss();
-          navigation.navigate("ThreadBackgroundWork", {
-            environmentId: props.environmentId,
-            threadId: props.selectedThread.id,
-          });
-        },
-        action: {
-          label: statusPending ? "Stopping…" : "Stop",
-          accessibilityLabel: "Stop background work",
-          disabled: !props.canOperateThread || statusPending,
-          onPress: () => void runStatusAction("stop"),
-        },
-      };
     }
     // An idle pill would show for the sync pill's delay, only to be replaced by it.
     if (syncPending) {
