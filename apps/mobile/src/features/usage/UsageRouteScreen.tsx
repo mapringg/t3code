@@ -512,23 +512,16 @@ function CursorEnableRow({
   environmentId,
   label,
   showEnvironment,
-  bordered,
   onEnabled,
 }: {
   readonly environmentId: EnvironmentId;
   readonly label: string;
   readonly showEnvironment: boolean;
-  readonly bordered: boolean;
   readonly onEnabled: () => void;
 }) {
   const colors = useProviderColors();
   return (
-    <View
-      className={cn(
-        "flex-row items-center justify-between gap-3 p-4",
-        bordered && "border-t border-border-subtle",
-      )}
-    >
+    <View className="flex-row items-center justify-between gap-3 p-4">
       <View className="min-w-0 flex-1 flex-row items-center gap-2">
         <View className="size-2.5 rounded-full" style={{ backgroundColor: colors.cursor }} />
         <Text className="shrink text-lg text-foreground">
@@ -709,7 +702,7 @@ function ProviderSection(props: {
 
   return (
     <SettingsSection title="Providers">
-      {rows.map((row, index) => {
+      {rows.map((row) => {
         if (row.kind === "enable") {
           return (
             <CursorEnableRow
@@ -717,7 +710,6 @@ function ProviderSection(props: {
               environmentId={row.environment.environmentId}
               label={row.environment.label}
               showEnvironment={props.showCursorEnvironment}
-              bordered={index > 0}
               onEnabled={props.onCursorEnabled}
             />
           );
@@ -727,10 +719,7 @@ function ProviderSection(props: {
         return (
           <View
             key={provider.provider}
-            className={cn(
-              props.compact ? "gap-0.5 px-4 py-3" : "gap-2 p-4",
-              index > 0 && "border-t border-border-subtle",
-            )}
+            className={props.compact ? "gap-0.5 px-4 py-3" : "gap-2 p-4"}
           >
             <View className="flex-row items-baseline justify-between gap-3">
               <View className="flex-row items-center gap-2">
@@ -966,7 +955,6 @@ function ModelsSection(props: {
             key={`${model.provider}:${model.model}`}
             className={cn(
               "flex-row items-center gap-3 p-4",
-              index >= props.columns && "border-t border-border-subtle",
               index % props.columns === 1 && "border-l border-border-subtle",
             )}
             style={{ width: `${100 / props.columns}%` }}

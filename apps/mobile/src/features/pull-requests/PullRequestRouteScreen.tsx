@@ -779,7 +779,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                 />
                               ) : null}
                               <View
-                                className="mt-8 border-t border-border-subtle pt-3"
+                                className="py-5"
                                 onLayout={(event) => {
                                   filesY.current = event.nativeEvent.layout.y;
                                   if (pendingFilesJump.current) {

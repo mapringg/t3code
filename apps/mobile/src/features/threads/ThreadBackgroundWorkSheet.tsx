@@ -110,7 +110,7 @@ function BackgroundWorkRow(props: {
   const { item } = props;
   const childThreadId = item.childThreadId;
   const row = (
-    <View className="flex-row items-center gap-3 border-b border-border py-3.5">
+    <View className="flex-row items-center gap-3 py-3.5">
       <SymbolView
         name={
           item.kind === "subagent" ? "person.2" : item.kind === "monitor" ? "clock" : "terminal"

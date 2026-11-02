@@ -197,9 +197,7 @@ function ArchivedThreadRow(props: {
     Boolean(part),
   );
   const rowContent = (
-    <View
-      className={`flex-row items-center gap-3 bg-grouped-card px-4 py-3 ${props.isLast ? "" : "border-b border-border-subtle"}`}
-    >
+    <View className="flex-row items-center gap-3 bg-grouped-card px-4 py-3">
       <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
         <SymbolView
           name="archivebox.fill"
@@ -430,7 +428,7 @@ export function ArchivedThreadsScreen(props: {
             }}
             contentInsetAdjustmentBehavior="automatic"
             data={listItems}
-            estimatedItemSize={62}
+            estimatedItemSize={61}
             getItemType={(item) => item.kind}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"

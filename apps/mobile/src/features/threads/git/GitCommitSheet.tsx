@@ -157,7 +157,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 return (
                   <Pressable
                     key={file.path}
-                    className="min-h-16 flex-row items-center gap-3 border-t border-border-subtle py-3"
+                    className="min-h-16 flex-row items-center gap-3 py-3"
                     accessibilityRole="checkbox"
                     accessibilityLabel={file.path}
                     accessibilityState={{ checked: included }}

@@ -199,7 +199,7 @@ function Discussion({ params }: { params: PullRequestParams & { readonly discuss
               <Text>This discussion is no longer available.</Text>
             ) : null}
             {comments.map((comment) => (
-              <View key={comment.id} className="gap-3 border-b border-border-subtle py-4">
+              <View key={comment.id} className="gap-3 py-4">
                 <View className="flex-row items-center gap-2">
                   <PullRequestAvatar actor={comment.author} size={28} />
                   <Text className="min-w-0 flex-1 text-sm font-t3-medium">

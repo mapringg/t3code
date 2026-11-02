@@ -101,12 +101,7 @@ export const PullRequestListRow = memo(
                 />
               ) : null}
             </View>
-            <View
-              className={cn(
-                "min-w-0 flex-1 gap-1",
-                !props.sidebar && "border-b border-border-subtle py-2.5",
-              )}
-            >
+            <View className={cn("min-w-0 flex-1 gap-1", !props.sidebar && "py-2.5")}>
               <View className="flex-row items-center gap-1.5">
                 <PullRequestAvatar actor={item.author} size={16} />
                 <Text className={cn("min-w-0 flex-1 text-xs", mutedForeground)} numberOfLines={1}>

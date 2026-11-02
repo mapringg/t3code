@@ -79,14 +79,7 @@ export function ComposerUsageLimits({
           </View>
         ) : null}
         {report.notices.map((notice) => (
-          <Text
-            key={notice}
-            className={
-              report.accounts.length === 0
-                ? "px-4 py-3 text-xs text-foreground-muted"
-                : "border-t border-border-subtle px-4 py-3 text-xs text-foreground-muted"
-            }
-          >
+          <Text key={notice} className="px-4 py-3 text-xs text-foreground-muted">
             {notice}
           </Text>
         ))}

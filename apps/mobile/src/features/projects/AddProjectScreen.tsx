@@ -223,7 +223,6 @@ function ListRow(props: {
       onPress={props.onPress}
       className={cn(
         "bg-grouped-card px-3.5 py-2.5 active:opacity-70",
-        !props.isFirst && "border-t border-border-subtle",
         props.disabled && "opacity-[0.45]",
       )}
     >

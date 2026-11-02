@@ -248,7 +248,7 @@ export function ThreadQueueSheet({ route }: StaticScreenProps<QueueTarget>) {
         const title =
           controls.displayText || (attachments.length > 0 ? "Attachments" : "Queued message");
         return (
-          <View key={run.id} className="flex-row items-center border-b border-border bg-sheet">
+          <View key={run.id} className="flex-row items-center bg-sheet">
             <QueueRowSwipeable
               enabled={busyRunId === null && controls.canDismiss}
               background={theme["--color-sheet"]}

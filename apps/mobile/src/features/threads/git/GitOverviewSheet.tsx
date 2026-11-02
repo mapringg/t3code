@@ -318,11 +318,10 @@ function GitOverviewSheetContent(props: GitOverviewSheetProps) {
 
       {linkedPrLines.length > 0 ? (
         <ListSection title={`Linked ${linkedPrActions.terminology.plural}`}>
-          {linkedPrLines.map((line, index) => (
+          {linkedPrLines.map((line) => (
             <LinkedPullRequestRow
               key={linkedPullRequestKey(line)}
               line={line}
-              separator={index < linkedPrLines.length - 1}
               surfaceClassName="text-grouped-card"
               openPullRequest={openPullRequest}
               actions={linkedPrActions}
