@@ -311,7 +311,10 @@ function RouteRow(props: {
             ) : null}
           </View>
           {address !== null ? (
-            <Text numberOfLines={1} className="text-sm text-foreground-muted">
+            <Text
+              numberOfLines={1}
+              className="text-sm text-foreground-muted android:font-mono android:text-xs"
+            >
               {isLearned(route) ? `${address} · found automatically` : address}
             </Text>
           ) : null}
