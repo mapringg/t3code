@@ -338,7 +338,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
                               {provider.displayName ?? provider.driver}
                             </Text>
                           </View>
-                          <Text className="text-sm text-foreground-muted">
+                          <Text className="text-sm text-foreground-muted android:font-mono android:text-xs">
                             {provider.installed
                               ? (provider.version ?? "Version unknown")
                               : "Not installed"}

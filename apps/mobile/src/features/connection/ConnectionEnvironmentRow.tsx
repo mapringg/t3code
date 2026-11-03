@@ -124,7 +124,7 @@ export function ConnectionEnvironmentRow(props: {
             </Text>
           </View>
           {!props.environment.isRelayManaged && props.environment.displayUrl.trim() ? (
-            <Text className="text-xs text-foreground-muted" numberOfLines={1}>
+            <Text className="text-xs text-foreground-muted android:font-mono" numberOfLines={1}>
               {props.environment.displayUrl}
             </Text>
           ) : null}

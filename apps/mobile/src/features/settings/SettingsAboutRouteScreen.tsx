@@ -124,7 +124,9 @@ function AppSettingsSection() {
       </Text>
       <View className="items-end">
         <Text
-          className={android ? "text-sm text-foreground-muted" : "text-lg text-foreground-muted"}
+          className={
+            android ? "font-mono text-xs text-foreground-muted" : "text-lg text-foreground-muted"
+          }
         >
           {versionLabel}
         </Text>
