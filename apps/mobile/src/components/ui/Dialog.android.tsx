@@ -3,7 +3,6 @@ import {
   AlertDialog,
   Button,
   OutlinedButton,
-  Icon,
   FlowRow,
   Column,
   OutlinedTextField,
@@ -160,7 +159,6 @@ function DialogPresentation(props: DialogPresentationProps) {
       onPress: confirm,
     },
   ];
-  const destructive = actions.some((action) => action.style === "destructive");
   // Error text colors can be pastel in dark themes. Filled actions need a white-label contrast pair.
   const destructiveFill = themeColorWithContrast(colors["--color-danger-foreground"], "#ffffff");
   const renderAction = (action: AlertButton, index: number) => {
@@ -204,16 +202,7 @@ function DialogPresentation(props: DialogPresentationProps) {
         }}
       >
         <AlertDialog.Title>
-          <Column verticalArrangement={{ spacedBy: 16 }}>
-            {destructive ? (
-              <Icon
-                source={require("../../../assets/icons/delete.xml")}
-                tint={colors["--color-danger-foreground"]}
-                size={24}
-              />
-            ) : null}
-            <Text style={titleTypography}>{props.request.title}</Text>
-          </Column>
+          <Text style={titleTypography}>{props.request.title}</Text>
         </AlertDialog.Title>
         {props.inputInitialValue !== undefined ? (
           <AlertDialog.Text>

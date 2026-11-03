@@ -195,6 +195,8 @@ function PoolWindowCard({
   const inlineReset = wide && segmentWidth >= 150;
   const inlineName = wide && segmentWidth >= 220;
   const nextRefill = pool.resets.find((reset) => reset.restoresPercent > 0);
+  // A lone account's percent and reset repeat the summary above, so its row keeps only what differs.
+  const single = Platform.OS === "android" && pool.columns.length === 1;
   const openAccount = (account: LimitAccount) =>
     navigation.navigate("SettingsUsageAccount", {
       accountKey: account.key,
@@ -316,12 +318,14 @@ function PoolWindowCard({
                 pointerEvents="none"
                 className="absolute inset-0 items-center justify-center overflow-hidden rounded-md"
               >
-                <Text
-                  numberOfLines={1}
-                  className="max-w-full shrink text-xs font-t3-medium tabular-nums text-foreground"
-                >
-                  {index + 1}
-                </Text>
+                {single ? null : (
+                  <Text
+                    numberOfLines={1}
+                    className="max-w-full shrink text-xs font-t3-medium tabular-nums text-foreground"
+                  >
+                    {index + 1}
+                  </Text>
+                )}
               </View>
             )}
           </Pressable>
@@ -346,27 +350,31 @@ function PoolWindowCard({
             {...accountPressFeedback}
             className="min-h-[44px] flex-row items-center gap-2 active:opacity-60"
           >
-            <View className="relative size-5 items-center justify-center overflow-hidden rounded-md bg-subtle-strong">
-              <View
-                pointerEvents="none"
-                className="absolute inset-0"
-                style={{ backgroundColor: segmentColor, opacity: 0.35 }}
-              />
-              <Text className="text-xs font-t3-medium tabular-nums text-foreground">
-                {index + 1}
-              </Text>
-            </View>
+            {single ? null : (
+              <View className="relative size-5 items-center justify-center overflow-hidden rounded-md bg-subtle-strong">
+                <View
+                  pointerEvents="none"
+                  className="absolute inset-0"
+                  style={{ backgroundColor: segmentColor, opacity: 0.35 }}
+                />
+                <Text className="text-xs font-t3-medium tabular-nums text-foreground">
+                  {index + 1}
+                </Text>
+              </View>
+            )}
             <Text
               numberOfLines={1}
               className="min-w-0 flex-1 text-sm font-t3-medium text-foreground"
             >
               {accountName(account)}
             </Text>
-            <Text className="text-sm font-t3-medium tabular-nums text-foreground">
-              {remainingPercent(window)}%
-            </Text>
+            {single ? null : (
+              <Text className="text-sm font-t3-medium tabular-nums text-foreground">
+                {remainingPercent(window)}%
+              </Text>
+            )}
             <View className="flex-row items-center gap-1">
-              {resetsIn ? (
+              {resetsIn && !single ? (
                 <>
                   <SymbolView
                     name="arrow.clockwise"
@@ -380,7 +388,9 @@ function PoolWindowCard({
               ) : null}
               {credits ? (
                 <>
-                  {resetsIn ? <Text className="text-xs text-foreground-tertiary">·</Text> : null}
+                  {resetsIn && !single ? (
+                    <Text className="text-xs text-foreground-tertiary">·</Text>
+                  ) : null}
                   <SymbolView name="ticket" size={13} tintColorClassName="accent-icon" />
                   <Text className="text-xs font-t3-medium tabular-nums text-foreground">
                     {credits}
