@@ -18,6 +18,8 @@ export const CHAT_CONTENT_MAX_WIDTH = 960;
 export const ANDROID_READING_MAX_WIDTH = 640;
 // min-h-8 uses the 14px rem configured in metro.config.js.
 export const THREAD_WORK_ROW_MIN_HEIGHT = 28;
+/** `mb-3` between finished work and the reply below it, so the work reads as one group. */
+export const THREAD_WORK_LOG_END_GAP = 10.5;
 
 export function deriveThreadArrangementSizing(input: {
   readonly baseFontSize: number;
