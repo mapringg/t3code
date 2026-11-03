@@ -15,14 +15,8 @@ export function SegmentedControl<Value extends string | number>(
   const { colorScheme, colors, themeId } = useControlTheme();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const { width } = layout;
-  const reduceMotion = useReducedMotion();
   const selectedIndex = props.options.findIndex((option) => option.value === props.selected);
   const segmentWidth = props.options.length ? Math.max(0, width - 6) / props.options.length : 0;
-  const selectionOffset = selectedIndex * segmentWidth * (I18nManager.isRTL ? -1 : 1);
-  const selectionStyle = useAnimatedStyle(() => ({
-    width: segmentWidth,
-    transform: [{ translateX: withTiming(selectionOffset, { duration: reduceMotion ? 0 : 160 }) }],
-  }));
   const { trackColor, selectedColor, selectedTextColor, mutedColor } = segmentedControlColors(
     colors,
     colorScheme,
@@ -43,15 +37,10 @@ export function SegmentedControl<Value extends string | number>(
         }}
       >
         {selectedIndex >= 0 && width > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            className="absolute bottom-[3px] start-[3px] top-[3px] rounded-full"
-            style={[
-              {
-                backgroundColor: selectedColor,
-              },
-              selectionStyle,
-            ]}
+          <SelectionPill
+            color={selectedColor}
+            offset={selectedIndex * segmentWidth * (I18nManager.isRTL ? -1 : 1)}
+            width={segmentWidth}
           />
         ) : null}
         {props.options.map((option) => {
@@ -80,5 +69,27 @@ export function SegmentedControl<Value extends string | number>(
         })}
       </View>
     </View>
+  );
+}
+
+// Mounted once the track is measured, so its first frame sits on the selected segment instead
+// of sliding there from the first one.
+function SelectionPill(props: {
+  readonly color: string;
+  readonly offset: number;
+  readonly width: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const { offset, width } = props;
+  const style = useAnimatedStyle(() => ({
+    width,
+    transform: [{ translateX: withTiming(offset, { duration: reduceMotion ? 0 : 160 }) }],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      className="absolute bottom-[3px] start-[3px] top-[3px] rounded-full"
+      style={[{ backgroundColor: props.color }, style]}
+    />
   );
 }
