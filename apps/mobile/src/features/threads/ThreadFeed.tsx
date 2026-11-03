@@ -174,6 +174,7 @@ import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
 import type { MenuAction } from "@react-native-menu/menu";
 import { MessageActionsMenu } from "./MessageActionsMenu";
+import { useScreenReaderEnabled } from "../../lib/useScreenReaderEnabled";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
@@ -1789,6 +1790,7 @@ function renderFeedEntry(
       readonly icon: number;
     };
     readonly latestAssistantMessageId: string | null;
+    readonly messageActionsInMenu: boolean;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
     readonly markdownStyles: MarkdownStyleSets;
@@ -2083,7 +2085,7 @@ function renderFeedEntry(
               })
           : undefined;
       // Android moves the time and copy into the message's actions menu.
-      const metaInMenu = Platform.OS === "android" && presentation.text.trim().length > 0;
+      const metaInMenu = props.messageActionsInMenu && presentation.text.trim().length > 0;
       const pendingUnacknowledged = entry.pendingMessage !== undefined && !entry.acknowledged;
       const canEditPending =
         props.onEditPendingMessage !== null &&
@@ -2392,7 +2394,7 @@ function renderFeedEntry(
     const enterAnimated = isFreshTimestamp(message.createdAt);
     // Android keeps the footer on the newest reply; older replies move it into their actions menu.
     const replyActionsInMenu =
-      Platform.OS === "android" &&
+      props.messageActionsInMenu &&
       showAssistantMeta &&
       message.id !== props.latestAssistantMessageId &&
       renderedText.trim().length > 0;
@@ -3307,6 +3309,9 @@ export const ThreadFeed = memo(function ThreadFeed({
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
+  // The selection-toolbar menu is out of reach for screen readers, so they keep the footers.
+  const screenReaderEnabled = useScreenReaderEnabled();
+  const messageActionsInMenu = Platform.OS === "android" && !screenReaderEnabled;
   const latestAssistantMessageId = (() => {
     for (let index = props.feed.length - 1; index >= 0; index--) {
       const entry = props.feed[index];
@@ -3320,6 +3325,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     dispatchingMessageId: props.dispatchingMessageId,
     unsettledTurnId,
     latestAssistantMessageId,
+    messageActionsInMenu,
     copiedRowId,
     workRowSizing,
     iconSubtleColor,
@@ -3630,6 +3636,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           workRowSizing,
           terminalAssistantMessageIds,
           latestAssistantMessageId,
+          messageActionsInMenu,
           unsettledTurnId,
           compactionLabelsByEntryId,
           failedRunIds,
