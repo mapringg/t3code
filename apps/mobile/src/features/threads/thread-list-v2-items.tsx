@@ -5,7 +5,6 @@ import {
   THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME,
   THREAD_LIST_V2_ROW_DIVIDERS,
   selectedThreadRowColors,
-  getThreadListV2NewBranchMenuTitle,
   getThreadListV2RowAppearance,
 } from "./thread-list-v2-row-appearance";
 import { RowPressable } from "../../components/ui/RowPressable";
@@ -1443,7 +1442,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                 ? [
                     {
                       id: "new-thread-on-branch",
-                      title: getThreadListV2NewBranchMenuTitle(thread.branch),
+                      title: "New thread",
                       image: "square.and.pencil",
                     },
                   ]
