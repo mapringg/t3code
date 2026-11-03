@@ -30,6 +30,7 @@ import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSw
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { cn } from "../../lib/cn";
+import { useDelayedStatus } from "../../lib/useDelayedStatus";
 import {
   ANDROID_READING_MAX_WIDTH,
   deriveCenteredContentHorizontalPadding,
@@ -141,6 +142,7 @@ const ESTIMATED_THREAD_LIST_V2_ROW_HEIGHT = 72;
 // swipe-row-activation), so render further ahead: a fast fling then reaches
 // rows that are already built instead of rows still being rebuilt.
 const THREAD_LIST_V2_DRAW_DISTANCE = 1_000;
+const HOME_LOADING_PLACEHOLDER_DELAY_MS = 1_000;
 
 function deriveEmptyState(props: {
   readonly catalogState: WorkspaceState;
@@ -665,8 +667,22 @@ export function HomeScreen(props: HomeScreenProps) {
     catalogState: props.catalogState,
     projectCount: props.projects.length,
   });
+  // A cold-start connect usually lands within the splash fade; stay blank instead of
+  // flashing the loading placeholder, and show it only if loading really takes a while.
+  const delayedLoadingTitle = useDelayedStatus(
+    "home-empty-loading",
+    emptyState.loading ? emptyState.title : null,
+    HOME_LOADING_PLACEHOLDER_DELAY_MS,
+  );
 
   if (!hasAnyThreads) {
+    if (Platform.OS === "android" && emptyState.loading && delayedLoadingTitle === null) {
+      return (
+        <View className={containerClassName}>
+          <View className={cn("flex-1", contentBackground)} />
+        </View>
+      );
+    }
     return (
       <View className={containerClassName}>
         <View

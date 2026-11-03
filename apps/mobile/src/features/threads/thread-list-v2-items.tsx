@@ -1119,10 +1119,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       />
     </View>
   ) : null;
+  const showPrBadge = Platform.OS !== "android" && pr !== null;
   const hasDetailLine = Boolean(
     ((status === "failed" || status === "limited") && thread.runtime?.lastError) ||
     props.environmentLabel ||
-    pr,
+    showPrBadge,
   );
   // On Android a provider glyph alone does not earn a second line; it joins the trailing cluster.
   const inlineProvider = Platform.OS === "android" && !hasDetailLine;
@@ -1300,7 +1301,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           ) : (
             <View className="flex-1" />
           )}
-          {pr ? (
+          {showPrBadge && pr ? (
             <Pressable
               // Padding cancelled by negative margin grows the touch target into
               // the row padding without moving the badge.

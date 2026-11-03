@@ -128,7 +128,19 @@ export function AppBar(props: AppBarProps) {
                   value={search.value}
                   onChangeText={search.onChangeText}
                 />
-                {/* Menus stay trailing while searching, like the workspace tab headers. */}
+                {/* Actions and menus stay trailing while searching, like the workspace tab headers. */}
+                {props.actions
+                  ?.filter((action) => !action.overflowOnly)
+                  .map((action) => (
+                    <ScreenHeaderButton
+                      key={action.accessibilityLabel}
+                      accessibilityLabel={action.accessibilityLabel}
+                      icon={action.icon}
+                      onPress={action.onPress}
+                      disabled={action.disabled || action.loading}
+                      selected={action.selected}
+                    />
+                  ))}
                 {trailing}
               </View>
             </View>

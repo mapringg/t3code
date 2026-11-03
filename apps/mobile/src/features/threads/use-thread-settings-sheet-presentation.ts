@@ -1,4 +1,5 @@
 import { useRef, useState, type RefObject } from "react";
+import { Platform } from "react-native";
 import { KeyboardController } from "react-native-keyboard-controller";
 
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
@@ -57,8 +58,8 @@ export function useThreadSettingsSheetPresentation(input: {
     const openingId = openingIdRef.current + 1;
     openingIdRef.current = openingId;
 
-    // Dismiss the keyboard before blur, then present next frame so native transitions overlap.
-    void KeyboardController.dismiss({ animated: true });
+    // Android's instant picker must not resize while the old editor's IME animates away.
+    void KeyboardController.dismiss({ animated: Platform.OS !== "android" });
     editorRef.current?.blur();
 
     requestAnimationFrame(() => {
@@ -121,7 +122,10 @@ export function useThreadSettingsSheetPresentation(input: {
     restoreFocusAfterDismissRef.current = false;
     restorePendingRef.current = true;
     clearDismissRestoreTimer();
-    if (Date.now() - lastStackTransitionFinishedAtRef.current <= NATIVE_DISMISSAL_ECHO_WINDOW_MS) {
+    if (
+      Platform.OS === "android" ||
+      Date.now() - lastStackTransitionFinishedAtRef.current <= NATIVE_DISMISSAL_ECHO_WINDOW_MS
+    ) {
       runPendingDismissalRestore();
       return;
     }

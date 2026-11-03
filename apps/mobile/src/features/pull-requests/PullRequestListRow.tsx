@@ -3,7 +3,7 @@ import {
   sourceControlClients,
 } from "@t3tools/client-runtime/source-control-clients";
 import { memo } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { Menu } from "../../components/ui/Menu";
@@ -136,26 +136,28 @@ export const PullRequestListRow = memo(
               >
                 {item.title}
               </Text>
-              <View className="flex-row items-center gap-1.5">
-                <View className="flex-1" />
-                {checks ? (
-                  <View className="shrink-0" accessibilityLabel={`Checks ${item.checksState}`}>
-                    <SymbolView name={checks.icon} size={13} tintColorClassName={checks.tint} />
-                  </View>
-                ) : null}
-                {review ? (
-                  <View className="shrink-0" accessibilityLabel={review.accessibleLabel}>
-                    <SymbolView name={review.icon} size={13} tintColorClassName={review.tint} />
-                  </View>
-                ) : null}
-                {item.additions || item.deletions ? (
-                  <PullRequestDiffStats
-                    additions={item.additions}
-                    deletions={item.deletions}
-                    compact
-                  />
-                ) : null}
-              </View>
+              {Platform.OS !== "android" ? (
+                <View className="flex-row items-center gap-1.5">
+                  <View className="flex-1" />
+                  {checks ? (
+                    <View className="shrink-0" accessibilityLabel={`Checks ${item.checksState}`}>
+                      <SymbolView name={checks.icon} size={13} tintColorClassName={checks.tint} />
+                    </View>
+                  ) : null}
+                  {review ? (
+                    <View className="shrink-0" accessibilityLabel={review.accessibleLabel}>
+                      <SymbolView name={review.icon} size={13} tintColorClassName={review.tint} />
+                    </View>
+                  ) : null}
+                  {item.additions || item.deletions ? (
+                    <PullRequestDiffStats
+                      additions={item.additions}
+                      deletions={item.deletions}
+                      compact
+                    />
+                  ) : null}
+                </View>
+              ) : null}
             </View>
           </Pressable>
         </Menu>

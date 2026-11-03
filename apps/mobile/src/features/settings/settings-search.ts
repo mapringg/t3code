@@ -10,6 +10,7 @@ const SETTINGS_SEARCH_TERMS = {
     "connections",
     "pair",
     "add environment",
+    "manage environments",
     "remote",
     "tailscale",
   ],
@@ -84,7 +85,7 @@ const SETTINGS_SEARCH_TERMS = {
     "start from remote",
   ],
   SettingsLabs: ["legacy", "plan mode", "beta", "linked environments", "link machine"],
-  SettingsEnvironmentMaintenance: ["updates", "provider updates", "restart", "manage environments"],
+  SettingsEnvironmentMaintenance: ["updates", "provider updates", "restart"],
   SettingsAbout: [
     "version",
     "diagnostics",

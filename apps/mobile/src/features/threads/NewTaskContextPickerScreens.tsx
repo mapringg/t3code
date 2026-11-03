@@ -85,17 +85,25 @@ function EnvironmentPickerRow(props: {
           onPress={props.onPress}
           className="min-h-16 flex-1 flex-row items-center gap-3 px-4 py-3 active:bg-subtle"
         >
-          <EnvironmentMachineSymbol
-            kind={resolveEnvironmentMachineKind(presentation?.serverConfig ?? null)}
-            size={20}
-            tintColorClassName="accent-icon-muted"
-          />
+          {Platform.OS !== "android" ? (
+            <EnvironmentMachineSymbol
+              kind={resolveEnvironmentMachineKind(presentation?.serverConfig ?? null)}
+              size={20}
+              tintColorClassName="accent-icon-muted"
+            />
+          ) : null}
           <View className="min-w-0 flex-1 gap-1">
             <Text className="text-base font-t3-medium text-foreground" numberOfLines={1}>
               {props.title}
             </Text>
             <View className="flex-row items-center gap-1.5">
-              <ConnectionStatusDot state={connection?.phase ?? "offline"} pulse={false} size={6} />
+              {Platform.OS !== "android" ? (
+                <ConnectionStatusDot
+                  state={connection?.phase ?? "offline"}
+                  pulse={false}
+                  size={6}
+                />
+              ) : null}
               <Text className="shrink text-xs text-foreground-muted" numberOfLines={2}>
                 {status}
               </Text>
@@ -105,21 +113,23 @@ function EnvironmentPickerRow(props: {
             <SymbolView name="checkmark" size={16} tintColorClassName="accent-icon" />
           ) : null}
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${expanded ? "Hide" : "Show"} connection details for ${props.title}`}
-          accessibilityState={{ expanded }}
-          onPress={() => setExpanded(!expanded)}
-          className="min-h-11 min-w-11 items-center justify-center active:opacity-65"
-        >
-          <SymbolView
-            name={expanded ? "chevron.up" : "chevron.down"}
-            size={13}
-            tintColorClassName="accent-icon-muted"
-          />
-        </Pressable>
+        {Platform.OS !== "android" ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${expanded ? "Hide" : "Show"} connection details for ${props.title}`}
+            accessibilityState={{ expanded }}
+            onPress={() => setExpanded(!expanded)}
+            className="min-h-11 min-w-11 items-center justify-center active:opacity-65"
+          >
+            <SymbolView
+              name={expanded ? "chevron.up" : "chevron.down"}
+              size={13}
+              tintColorClassName="accent-icon-muted"
+            />
+          </Pressable>
+        ) : null}
       </View>
-      {expanded ? (
+      {Platform.OS !== "android" && expanded ? (
         <View className="gap-3 px-4 pb-4">
           {diagnosis ? (
             <ConnectionDiagnosisDetails hostLabel={props.title} diagnosis={diagnosis} />

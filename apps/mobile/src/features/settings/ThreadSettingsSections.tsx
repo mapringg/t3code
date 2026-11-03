@@ -28,6 +28,7 @@ import {
   managedSettingReason,
   resolveMobileSettingsTargets,
   uniformMobileSetting,
+  withMobileSettingsPatch,
 } from "./settings-scoped-server";
 
 export function SettingsLabsRouteScreen() {
@@ -58,6 +59,7 @@ const AUTO_SETTLE_DEFAULT_DAYS = DEFAULT_SERVER_SETTINGS.sidebarAutoSettleAfterD
 export function AutoSettleSettingsRows(props: {
   readonly write: (patch: ServerSettingsPatch) => void;
   readonly pending: boolean;
+  readonly optimistic: ServerSettingsPatch | null;
 }) {
   const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
   const selectedProject = projectGroups.find((group) => group.key === selectedProjectKey);
@@ -67,9 +69,12 @@ export function AutoSettleSettingsRows(props: {
   const projectMembers = projectSelected
     ? (selectedProject?.members.map((member) => member.project) ?? [])
     : null;
-  const displayTargets = resolveMobileSettingsTargets(
-    selectedTargets.filter(supportsSharedSettingsSync),
-    projectMembers,
+  const displayTargets = withMobileSettingsPatch(
+    resolveMobileSettingsTargets(
+      selectedTargets.filter(supportsSharedSettingsSync),
+      projectMembers,
+    ),
+    props.optimistic,
   );
   // The page saves to all its targets, so any read-only one blocks the save.
   const canWriteSettings =
@@ -105,7 +110,7 @@ export function AutoSettleSettingsRows(props: {
     })),
   );
 
-  const disabled = !canWriteSettings || props.pending;
+  const disabled = !canWriteSettings;
   const disabledFor = (...keys: string[]) =>
     disabled || managedSettingReason(displayTargets, ...keys) !== undefined;
   const afterDays = referenceSettings.sidebarAutoSettleAfterDays;

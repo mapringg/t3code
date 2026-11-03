@@ -248,6 +248,7 @@ export interface ThreadDetailScreenProps {
   readonly respondingUserInputId: RuntimeRequestId | null;
   readonly connectionStateLabel: EnvironmentConnectionPhase;
   readonly threadSyncStatus?: EnvironmentThreadStatus;
+  readonly feedAwaitsCatchUp?: boolean;
   readonly historyControls?: ThreadFeedHistoryControls;
   readonly activeThreadBusy: boolean;
   readonly canStopThread: boolean;
@@ -515,10 +516,14 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
-  const rawThreadSyncLabel = threadSyncLabel({
-    syncStatus: props.threadSyncStatus,
-    contentKind: contentPresentationKind,
-  });
+  // On Android the pill's end-inset coverage shifts a cached feed when it comes and goes.
+  const rawThreadSyncLabel =
+    Platform.OS === "android" && contentPresentationKind === "ready"
+      ? null
+      : threadSyncLabel({
+          syncStatus: props.threadSyncStatus,
+          contentKind: contentPresentationKind,
+        });
   // One token for both labels, so the pill's show delay and hold span the whole sync.
   const syncShown =
     useDelayedStatus(selectedThreadKey, rawThreadSyncLabel === null ? null : "sync") !== null;
@@ -1275,6 +1280,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                 isProviderSubagent || pendingMessageEditBlocked ? null : handleEditPendingMessage
               }
               contentPresentation={props.contentPresentation}
+              awaitsCatchUp={props.feedAwaitsCatchUp}
               threadTitle={props.selectedThread.title}
               latestRun={props.activityRun}
               activeWorkStartedAt={props.activeWorkStartedAt}

@@ -146,7 +146,9 @@ function usePullRequestActivityRows(params: PullRequestParams, filter: ActivityF
   const result = useEnvironmentQuery(composerPullRequests.activity(requestTarget(params)));
   const detail = useEnvironmentQuery(composerPullRequests.detail(requestTarget(params)));
   const permissions = usePullRequestPermissions(params, detail.data);
-  const filtered = result.data ? filterPullRequestActivity(result.data, filter) : null;
+  const filtered = result.data
+    ? filterPullRequestActivity(result.data, filter, { hideMacroscope: Platform.OS === "android" })
+    : null;
   const rows = (() => {
     if (!filtered) return [];
     const rows = pullRequestTimelineRows(filtered.activity, params, navigation, {
@@ -259,7 +261,10 @@ function PullRequestLabels(props: {
     props.pr.viewerPermissions.labels !== false;
   if (!props.pr.labels.length && !editable) return null;
   return (
-    <Animated.View layout={PR_ROW_LAYOUT} className="flex-row flex-wrap gap-2">
+    <Animated.View
+      layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}
+      className="flex-row flex-wrap gap-2"
+    >
       {props.pr.labels.map((label) => {
         const color = pullRequestLabelColor(label.color);
         // Tinted like the list row's label pills, at the overview's chip size.
@@ -307,16 +312,16 @@ function PullRequestOverview(props: {
       <PullRequestCardGroup>
         <PullRequestChecksRow pr={pr} params={props.params} />
         <PullRequestReviewersRow pr={pr} params={props.params} />
-        <Animated.View layout={PR_ROW_LAYOUT}>
+        <Animated.View layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}>
           <PullRequestBranchRow pr={pr} params={props.params} />
         </Animated.View>
-        <Animated.View layout={PR_ROW_LAYOUT}>
+        <Animated.View layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}>
           <PullRequestMergeControls pr={pr} params={props.params} stack={props.stack} />
         </Animated.View>
       </PullRequestCardGroup>
       <PullRequestLabels pr={pr} params={props.params} />
       <Animated.View
-        layout={PR_POSITION_LAYOUT}
+        layout={Platform.OS === "android" ? undefined : PR_POSITION_LAYOUT}
         onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
       >
         <PullRequestDescription
@@ -342,17 +347,9 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const navigation =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "PullRequest">>();
-  // Android's push waits for the first commit, so the cached overview mounts after it, the file
-  // rows and hidden tabs a frame later, and row animations a frame after that: rows land below the
-  // measured overview, and no mount shares a frame with a fade.
+  // Android waits for the push before mounting the complete overview, including cached visits.
   const entered = usePullRequestDiffEntry(navigation) || Platform.OS !== "android";
-  const [entryStage, setEntryStage] = useState(entered ? 2 : 0);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- steps the entry stages one frame apart after the push ends
-  useEffect(() => {
-    if (!entered || entryStage === 2) return;
-    const frame = requestAnimationFrame(() => setEntryStage((stage) => stage + 1));
-    return () => cancelAnimationFrame(frame);
-  }, [entered, entryStage]);
+  const entryStage = entered ? 2 : 0;
   const insets = useSafeAreaInsets();
   const [toolbarHeight, setToolbarHeight] = usePullRequestToolbarHeight(insets.bottom);
   // Only iOS lists run under the bars; Android lists start below the header.
@@ -425,8 +422,8 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   useFocusEffect(refreshDetail);
   const pr = usePullRequestLiveChecks(params, result.data);
   const summary = params.initialSummary;
-  const identity = pr ?? summary;
-  const terminology = sourceControlClients.get(identity?.provider).changeRequest;
+  const identity = Platform.OS === "android" ? (entered ? pr : null) : (pr ?? summary);
+  const terminology = sourceControlClients.get((pr ?? summary)?.provider).changeRequest;
   const permissions = usePullRequestPermissions(params, pr);
   const action = usePullRequestAction(params, pr);
   const maintainerEdits = usePullRequestMaintainerEdits(
@@ -766,7 +763,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                 host={params.host}
                                 repository={params.repository}
                               />
-                              {pr && (entered || !summary) ? (
+                              {pr && (Platform.OS === "android" || entered || !summary) ? (
                                 <PullRequestOverview
                                   pr={pr}
                                   params={params}
@@ -879,7 +876,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                   ListHeaderComponent={
                     <>
                       <PullRequestReadStatus
-                        pending={result.isPending && !identity}
+                        pending={Platform.OS !== "android" && result.isPending && !identity}
                         error={result.error}
                         terminology={terminology}
                       />
@@ -915,17 +912,19 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ) : null}
                     </>
                   }
-                  ListFooterComponent={tab === "overview" ? filesContent.footer : null}
+                  ListFooterComponent={tab === "overview" && identity ? filesContent.footer : null}
                 />
               </View>
             ))}
         </View>
-        <PullRequestActionToolbar
-          pr={pr}
-          params={params}
-          onOpenFiles={openFiles}
-          onHeightChange={setToolbarHeight}
-        />
+        {Platform.OS !== "android" || identity ? (
+          <PullRequestActionToolbar
+            pr={pr}
+            params={params}
+            onOpenFiles={openFiles}
+            onHeightChange={setToolbarHeight}
+          />
+        ) : null}
       </View>
     </PullRequestMarkdownRepository>
   );

@@ -14,7 +14,7 @@ import {
   type ProjectScopedServerSettingKey,
 } from "@t3tools/contracts";
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -41,6 +41,7 @@ import {
   planMobileScopedSettingsPatch,
   resolveMobileSettingsTargets,
   uniformMobileSetting,
+  withMobileSettingsPatch,
   type ScopedMobileSettingsTarget,
 } from "./settings-scoped-server";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
@@ -142,6 +143,19 @@ const AUTO_SETTLE_SETTING_KEYS: ReadonlySet<string> = new Set([
   "snoozeLimitedThreads",
 ]);
 
+function settingsReflectPatch(
+  targets: readonly ScopedMobileSettingsTarget[],
+  patch: ServerSettingsPatch,
+) {
+  return Object.entries(patch).every(([key, value]) =>
+    targets.every(
+      (target) =>
+        (AUTO_SETTLE_SETTING_KEYS.has(key) && !supportsSharedSettingsSync(target.environment)) ||
+        JSON.stringify(target.settings[key as keyof ServerSettings]) === JSON.stringify(value),
+    ),
+  );
+}
+
 function planServerSettingsWrites(
   targets: readonly ScopedMobileSettingsTarget[],
   projectSelected: boolean,
@@ -201,7 +215,23 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
   const canWriteSettings =
     targets.length > 0 &&
     targets.every((target) => writableEnvironments.has(target.environment.environmentId));
-  const displayTargets = pendingWrites > 0 && pendingTargets !== null ? pendingTargets : targets;
+  // Controls show what was saved until the settings push confirms it, instead of bouncing back.
+  const [optimistic, setOptimistic] = useState<{
+    key: string;
+    patch: ServerSettingsPatch;
+  } | null>(null);
+  if (
+    optimistic !== null &&
+    pendingWrites === 0 &&
+    (optimistic.key !== targetsKey || settingsReflectPatch(targets, optimistic.patch))
+  ) {
+    setOptimistic(null);
+  }
+  const optimisticPatch = optimistic?.key === targetsKey ? optimistic.patch : null;
+  const displayTargets = withMobileSettingsPatch(
+    pendingWrites > 0 && pendingTargets !== null ? pendingTargets : targets,
+    optimisticPatch,
+  );
   const hasConnectedSelection = targets.length > 0;
   const reference = displayTargets[0] ?? null;
   const uniform = <K extends keyof ServerSettings>(key: K) =>
@@ -211,8 +241,14 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
     reference === null ||
     displayTargets.some((entry) => entry.settings[key] !== reference.settings[key]);
   const writeSettings = useSettingsWriter();
+  const showOptimistic = (patch: ServerSettingsPatch) =>
+    setOptimistic((current) => ({
+      key: targetsKey,
+      patch: current?.key === targetsKey ? { ...current.patch, ...patch } : patch,
+    }));
   const write = (patch: ServerSettingsPatch) => {
     if (writeInFlight.current) {
+      showOptimistic(patch);
       const queued = queuedPatch.current;
       queuedPatch.current = {
         key: targetsKey,
@@ -230,18 +266,25 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
     const writes = planServerSettingsWrites(targets, projectSelected, patch);
     if (writes.length === 0) return;
     writeInFlight.current = true;
+    showOptimistic(patch);
     setPendingTargets(targets);
     setPendingWrites((count) => count + 1);
-    void writeSettings(targets, writes).finally(() => {
-      writeInFlight.current = false;
-      setPendingTargets(null);
-      setPendingWrites((count) => count - 1);
-      const queued = queuedPatch.current;
-      queuedPatch.current = null;
-      // These targets may not show this write yet, so send it again with the
-      // queued patch; project overrides are replaced whole.
-      if (queued?.key === targetsKey) write({ ...patch, ...queued.patch });
-    });
+    void writeSettings(targets, writes)
+      .then(
+        (saved) => saved,
+        () => false,
+      )
+      .then((saved) => {
+        writeInFlight.current = false;
+        if (!saved) setOptimistic(null);
+        setPendingTargets(null);
+        setPendingWrites((count) => count - 1);
+        const queued = queuedPatch.current;
+        queuedPatch.current = null;
+        // These targets may not show this write yet, so send it again with the
+        // queued patch; project overrides are replaced whole.
+        if (queued?.key === targetsKey) write({ ...patch, ...queued.patch });
+      });
   };
   const clearProjectOverrides = () => {
     if (
@@ -254,6 +297,7 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
     const writes = planMobileScopedSettingsClear(targets, PAGE_PROJECT_KEYS[props.page]);
     if (writes.length === 0) return;
     writeInFlight.current = true;
+    setOptimistic(null);
     setPendingTargets(targets);
     setPendingWrites((count) => count + 1);
     void writeSettings(targets, writes).finally(() => {
@@ -264,7 +308,8 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
       setPendingWrites((count) => count - 1);
     });
   };
-  const disabled = !canWriteSettings || pendingWrites > 0 || !hasConnectedSelection;
+  // A write in flight queues the next one, so controls stay live instead of dimming the page.
+  const disabled = !canWriteSettings || !hasConnectedSelection;
   const managed = (...keys: string[]) => managedSettingReason(targets, ...keys);
   // A locked row keeps its explanation and says who manages it.
   const managedSubtitle = (key: string, subtitle: string) => {
@@ -399,7 +444,11 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                       onValueChange={(value) => write({ enableAgentBrowserAccess: value })}
                     />
                   </SettingsSection>
-                  <AutoSettleSettingsRows write={write} pending={pendingWrites > 0} />
+                  <AutoSettleSettingsRows
+                    write={write}
+                    pending={pendingWrites > 0}
+                    optimistic={optimisticPatch}
+                  />
                 </>
               ) : null}
 
@@ -506,7 +555,7 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                       )}
                     />
                   ) : null}
-                  {!projectSelected ? (
+                  {!projectSelected && Platform.OS !== "android" ? (
                     <SettingsSection title="Manage environments">
                       {selectedTargets.map((target) => (
                         <SettingsRow

@@ -35,7 +35,11 @@ function eventCount(activity: PullRequestActivity) {
   );
 }
 
-export function filterPullRequestActivity(activity: PullRequestActivity, filter: ActivityFilter) {
+export function filterPullRequestActivity(
+  activity: PullRequestActivity,
+  filter: ActivityFilter,
+  options?: { readonly hideMacroscope?: boolean },
+) {
   const reviewThreads =
     filter.kind === "commits"
       ? []
@@ -56,6 +60,9 @@ export function filterPullRequestActivity(activity: PullRequestActivity, filter:
       : activity.comments.filter(
           (comment) =>
             !allDiscussionIds.has(comment.id) &&
+            (!options?.hideMacroscope ||
+              (comment.author?.login !== "macroscopeapp" &&
+                comment.author?.login !== "macroscope-app[bot]")) &&
             (filter.bots || !isBot(comment.author) || isVerdict(comment.reviewState)) &&
             (filter.resolved || comment.reviewState?.trim().toLowerCase() !== "dismissed"),
         );

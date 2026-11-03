@@ -14,7 +14,7 @@ import type {
 } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import * as Dialog from "../../components/ui/Dialog";
@@ -124,7 +124,8 @@ export function PullRequestReactions(props: { readonly params: PullRequestParams
   const activity = useEnvironmentQuery(composerPullRequests.activity(target));
   const { canReact } = usePullRequestPermissions(props.params, detail.data);
   const reactions = activity.data?.reactions ?? [];
-  if (!activity.data || (reactions.length === 0 && !canReact)) return null;
+  if (Platform.OS === "android" || !activity.data || (reactions.length === 0 && !canReact))
+    return null;
   return (
     <View className="flex-row flex-wrap items-center gap-1.5">
       <ReactionPills
@@ -152,10 +153,10 @@ export function PullRequestCommentFooter(props: {
 }) {
   const navigation = useNavigation();
   const { comment } = props;
-  const reactions = comment.reactions ?? [];
+  const reactions = Platform.OS === "android" ? [] : (comment.reactions ?? []);
   const editableKind = comment.kind === "review" ? null : comment.kind;
   const canEdit = editableKind !== null && props.permissions.canEditComment(comment);
-  const { canReact } = props.permissions;
+  const canReact = Platform.OS !== "android" && props.permissions.canReact;
   if (reactions.length === 0 && !canReact && !canEdit) return null;
   return (
     <View className="flex-row flex-wrap items-center gap-1.5">

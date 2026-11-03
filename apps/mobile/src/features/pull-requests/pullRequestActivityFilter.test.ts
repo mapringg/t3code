@@ -59,17 +59,32 @@ describe("mobile activity filters", () => {
   });
 
   it("keeps bot review verdicts when bot comments are hidden", () => {
-    const result = filterPullRequestActivity(
-      {
-        ...activity,
-        comments: [
-          comment("approved", bot, "APPROVED"),
-          comment("changes", bot, "CHANGES_REQUESTED"),
-          comment("commented", bot, "COMMENTED"),
-        ],
-      },
-      DEFAULT_ACTIVITY_FILTER,
-    );
-    expect(result.activity.comments.map((entry) => entry.id)).toEqual(["approved", "changes"]);
+    const verdicts = {
+      ...activity,
+      comments: [
+        comment("approved", bot, "APPROVED"),
+        comment("changes", bot, "CHANGES_REQUESTED"),
+        comment("commented", bot, "COMMENTED"),
+        comment("macroscope", { ...bot, login: "macroscopeapp" }, "APPROVED"),
+        comment("macroscope-app", { ...bot, login: "macroscope-app[bot]" }, "APPROVED"),
+        comment("human", human, "APPROVED"),
+      ],
+    };
+    const result = filterPullRequestActivity(verdicts, DEFAULT_ACTIVITY_FILTER);
+    expect(result.activity.comments.map((entry) => entry.id)).toEqual([
+      "approved",
+      "changes",
+      "macroscope",
+      "macroscope-app",
+      "human",
+    ]);
+    const android = filterPullRequestActivity(verdicts, DEFAULT_ACTIVITY_FILTER, {
+      hideMacroscope: true,
+    });
+    expect(android.activity.comments.map((entry) => entry.id)).toEqual([
+      "approved",
+      "changes",
+      "human",
+    ]);
   });
 });

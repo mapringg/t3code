@@ -5,7 +5,7 @@ import IconGitCommit from "@tabler/icons-react-native/IconGitCommit";
 import type { PullRequestActivity, PullRequestComment } from "@t3tools/contracts";
 import { StackActions, type NavigationProp } from "@react-navigation/native";
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { parseMarkdownDocument } from "../../lib/markdownDocument";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
@@ -93,7 +93,7 @@ function TimelineComment({
       <View className="flex-row items-center gap-2">
         <PullRequestAvatar actor={comment.author} size={22} />
         <View className="min-w-0 flex-1">
-          <Text className="text-sm">
+          <Text className="text-sm" numberOfLines={Platform.OS === "android" ? 1 : undefined}>
             <Text className="font-t3-medium">{comment.author?.login ?? "Unknown author"}</Text>
             <Text className="text-foreground-muted">
               {approved ? " approved" : changes ? " requested changes" : " commented"}
