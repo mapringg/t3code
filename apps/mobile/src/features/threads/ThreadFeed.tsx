@@ -362,6 +362,8 @@ export interface ThreadFeedProps {
   readonly contentPresentation: ThreadContentPresentation;
   // Until the first catch-up lands the list stays unmounted, then mounts once at the final end.
   readonly awaitsCatchUp?: boolean;
+  // The list also waits for the opening transition to end.
+  readonly awaitsEntry?: boolean;
   readonly latestRun: ThreadFeedLatestRun | null;
   readonly activeWorkStartedAt: string | null;
   readonly runlessWorkActive?: boolean;
@@ -3754,7 +3756,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           pointerEvents={listAwaitsLanding ? "none" : "auto"}
           style={listAwaitsLanding ? { opacity: 0 } : undefined}
         >
-          {holdsForCatchUp ? null : (
+          {holdsForCatchUp || props.awaitsEntry ? null : (
             /* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */
             <KeyboardAwareLegendList
               ref={attachList}

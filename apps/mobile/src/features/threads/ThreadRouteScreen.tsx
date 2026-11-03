@@ -116,6 +116,8 @@ import {
   useWorkspaceBackNavigation,
 } from "../workspace/useAndroidWorkspaceNavigation";
 import { openSettings } from "../settings/settings-navigation";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { usePullRequestDiffEntry } from "../pull-requests/usePullRequestDiff";
 import {
   InspectorContentScope,
   ThreadInspectorHeader,
@@ -436,6 +438,10 @@ function ThreadRouteContent(
     };
   })();
   const navigation = useNavigation();
+  const entered =
+    usePullRequestDiffEntry(
+      useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "Thread">>(),
+    );
   const selectDetail = useSelectWorkspaceDetail();
   const openPullRequest = useOpenPullRequest();
   const mergeBack = useAtomCommand(threadEnvironment.mergeBack, "merge thread back");
@@ -1098,6 +1104,8 @@ function ThreadRouteContent(
               connectionState: routeConnectionState,
             })
           }
+          // Mounting and landing the feed during the push drops frames on Android.
+          feedAwaitsEntry={Platform.OS === "android" && !entered}
           historyControls={historyControls}
           activeThreadBusy={composer.activeThreadBusy}
           canStopThread={awaitingBootstrapTurn || composer.interruptibleRunId !== null}
