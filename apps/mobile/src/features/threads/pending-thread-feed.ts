@@ -58,6 +58,8 @@ export type ThreadFeedRow = PendingThreadFeedEntry | GuestPendingFeedEntry;
 
 export type GroupedThreadFeedRow = ThreadFeedRow & {
   readonly userMessageGrouping: ReturnType<typeof resolveUserMessageGrouping>;
+  /** The next row is a user message, which always sits a full gap below. */
+  readonly precedesUserMessage: boolean;
 };
 
 export function createThreadFeedGrouping() {
@@ -86,14 +88,22 @@ export function createThreadFeedGrouping() {
               index - 1 === options.setupAnchorIndex ? undefined : groupingMessage(index - 1),
               index === options.setupAnchorIndex ? undefined : groupingMessage(index + 1),
             );
+      const next = feed[index + 1];
+      const precedesUserMessage =
+        entry.type !== "message" ||
+        entry.message.role !== "user" ||
+        isCompactionCommandFeedEntry(entry)
+          ? next?.type === "message" && next.message.role === "user"
+          : false;
       const previous = rows.get(entry);
       if (
-        previous?.userMessageGrouping.groupedWithPrevious === grouping.groupedWithPrevious &&
+        previous?.precedesUserMessage === precedesUserMessage &&
+        previous.userMessageGrouping.groupedWithPrevious === grouping.groupedWithPrevious &&
         previous.userMessageGrouping.groupedWithNext === grouping.groupedWithNext &&
         previous.userMessageGrouping.continuesSteer === grouping.continuesSteer
       )
         return previous;
-      const row = { ...entry, userMessageGrouping: grouping };
+      const row = { ...entry, userMessageGrouping: grouping, precedesUserMessage };
       rows.set(entry, row);
       return row;
     });

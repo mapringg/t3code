@@ -1826,6 +1826,7 @@ function renderFeedEntry(
     readonly threadTitle: string;
     readonly workflowOpening: WorkflowOpening | null;
     readonly userMessageGrouping: GroupedThreadFeedRow["userMessageGrouping"];
+    readonly precedesUserMessage: boolean;
   },
 ) {
   const entry = info.item;
@@ -1852,7 +1853,9 @@ function renderFeedEntry(
 
   if (entry.type === "run-fold") {
     return (
-      <View className="mb-3 flex-row items-center px-2">
+      <View
+        className={cn("flex-row items-center px-2", props.precedesUserMessage ? "mb-5" : "mb-3")}
+      >
         <RunFoldButton
           entry={entry}
           onOpen={() => props.onOpenRun(entry.runId, entry.label)}
@@ -2481,7 +2484,8 @@ function AssistantMessageRow({
   return (
     <Animated.View
       className={cn(
-        showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))
+        (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
+          props.precedesUserMessage
           ? "mb-5 px-1"
           : "mb-1 px-1",
         hasWideBlock && "w-full",
@@ -3687,6 +3691,7 @@ export const ThreadFeed = memo(function ThreadFeed({
       <ThreadMediaVisibility>
         {renderFeedEntry(info, {
           userMessageGrouping: info.item.userMessageGrouping,
+          precedesUserMessage: info.item.precedesUserMessage,
           environmentId: props.environmentId,
           dispatchingMessageId: props.dispatchingMessageId,
           onEditPendingMessage: props.onEditPendingMessage,
