@@ -6,75 +6,7 @@ import {
   resolveThreadFeedReflowOffset,
   resolveThreadFeedReflowScroll,
   resolveThreadFeedSubmissionAnchor,
-  resolveThreadWorkGroupInitialScroll,
-  shouldFollowThreadWorkGroupAppend,
 } from "./thread-feed-live-follow";
-
-describe("tool-group scroll restoration", () => {
-  const position = {
-    rowId: "read-output",
-    offsetWithinRow: 80,
-    scrollOffset: 600,
-    contentHeight: 1_000,
-  };
-
-  it("restores the visible row and its detail offset rather than stale absolute pixels", () => {
-    const before = [{ id: "first" }, { id: "read-output" }, { id: "last" }];
-    const after = [{ id: "older" }, ...before];
-    expect(resolveThreadWorkGroupInitialScroll(before, position)).toEqual({
-      index: 1,
-      viewOffset: -80,
-    });
-    expect(resolveThreadWorkGroupInitialScroll(after, position)).toEqual({
-      index: 2,
-      viewOffset: -80,
-    });
-  });
-});
-
-describe("tool-group append following", () => {
-  const previousRows = Array.from({ length: 10 }, (_, index) => ({ id: `call-${index}` }));
-  const appendedRows = [...previousRows, { id: "new-call" }];
-  const atEnd = {
-    previousRows,
-    rows: appendedRows,
-    previousContentHeight: 289,
-    contentHeight: 318,
-    viewportHeight: 256,
-    scrollOffset: 33,
-    detailsChanged: false,
-    userScrolling: false,
-  };
-
-  it("follows a new call when the reader was at the end", () => {
-    expect(shouldFollowThreadWorkGroupAppend(atEnd)).toBe(true);
-  });
-
-  it("follows the first overflowing append as a short group reaches its height cap", () => {
-    expect(
-      shouldFollowThreadWorkGroupAppend({
-        ...atEnd,
-        previousRows: previousRows.slice(0, 8),
-        rows: previousRows.slice(0, 9),
-        previousContentHeight: 231,
-        contentHeight: 260,
-        viewportHeight: 231,
-        scrollOffset: 0,
-      }),
-    ).toBe(true);
-  });
-
-  it.each([
-    { name: "reading earlier calls", changes: { scrollOffset: 20 } },
-    { name: "streaming a result", changes: { rows: previousRows, contentHeight: 600 } },
-    {
-      name: "replacing a call while appending",
-      changes: { rows: [{ id: "replacement" }, ...appendedRows.slice(1)] },
-    },
-  ])("does not steal the reader's position when $name", ({ changes }) => {
-    expect(shouldFollowThreadWorkGroupAppend({ ...atEnd, ...changes })).toBe(false);
-  });
-});
 
 describe("resolveThreadFeedSubmissionAnchor", () => {
   it("keeps an offline first message at the end", () => {
@@ -168,17 +100,6 @@ describe("resolveThreadFeedLiveFollow", () => {
         userScrollSessionActive: true,
       }),
     ).toBe(false);
-  });
-
-  it.each([
-    { isAtEnd: false, userScrollSessionActive: false, expected: false },
-    { isAtEnd: true, userScrollSessionActive: false, expected: true },
-    { isAtEnd: false, userScrollSessionActive: true, expected: false },
-    { isAtEnd: true, userScrollSessionActive: true, expected: false },
-  ])("reconciles follow after a disclosure settles: %j", ({ expected, ...state }) => {
-    expect(resolveThreadFeedLiveFollow(!expected, { type: "disclosure-settled", ...state })).toBe(
-      expected,
-    );
   });
 
   it("re-arms at the actual end only after the user scroll session ends", () => {

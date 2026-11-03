@@ -38,11 +38,11 @@ const { StackRouter, StackActions } = requireNavigation("@react-navigation/route
   StackActions: typeof import("@react-navigation/native").StackActions;
 };
 
-function setup(fromAgents: boolean, fullscreen = false) {
+function setup(fromSheet: boolean, fullscreen = false) {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const router = StackRouter({});
   const options = {
-    routeNames: ["Home", "Thread", "ThreadAgents", "ThreadInspectorFullscreen"],
+    routeNames: ["Home", "Thread", "ThreadQueue", "ThreadInspectorFullscreen"],
     routeParamList: {},
     routeGetIdList: {},
   };
@@ -60,9 +60,9 @@ function setup(fromAgents: boolean, fullscreen = false) {
   const parentKey = state.routes.at(-1)!.key;
   if (fullscreen)
     dispatch(StackActions.push("ThreadInspectorFullscreen", { ...source, threadId: "child" }));
-  if (fromAgents)
+  if (fromSheet)
     dispatch(
-      StackActions.push("ThreadAgents", fullscreen ? { ...source, threadId: "child" } : source),
+      StackActions.push("ThreadQueue", fullscreen ? { ...source, threadId: "child" } : source),
     );
   let openInspector: ReturnType<typeof useOpenThreadInspector>;
   let openLinkedThread: ReturnType<typeof useOpenLinkedThread>;
@@ -100,7 +100,7 @@ function setup(fromAgents: boolean, fullscreen = false) {
   };
 }
 
-it("opens a subagent from the Agents sheet without replacing the parent thread", () => {
+it("opens a subagent from a sheet over the thread without replacing the parent thread", () => {
   using screen = setup(true);
   const inspector = {
     type: "thread",
@@ -162,7 +162,7 @@ it.each(["thread", "device"] as const)(
   },
 );
 
-it("keeps the parent when the maximized child's Agents sheet opens another child", () => {
+it("keeps the parent when the maximized child's sheet opens another child", () => {
   using screen = setup(true, true);
   const child = { ...screen.source, threadId: "child" };
   const originalState = screen.state;

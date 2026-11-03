@@ -240,6 +240,7 @@ vi.mock("../components/FilePreviewModal", () => ({
 }));
 vi.mock("../components/VideoPreviewModal", () => ({ VideoPreviewModal: () => null }));
 vi.mock("../components/ComposerContextSheet", () => ({}));
+vi.mock("../components/ui/Sheet", () => ({ Sheet: () => null }));
 vi.mock("../native/useOpenPullRequest", () => ({ useOpenPullRequest: () => vi.fn() }));
 vi.mock("../native/useMarkdownImageSource", () => ({ useMarkdownImageSource: () => vi.fn() }));
 vi.mock("../native/useEnrichedLinkVariants", () => ({
@@ -275,7 +276,8 @@ vi.mock("../features/threads/SecretRequestCard", () => ({}));
 vi.mock("../features/threads/LinkRequestCard", () => ({ LinkRequestCard: () => null }));
 vi.mock("../features/threads/worktree-setup-card", () => ({}));
 vi.mock("../features/threads/CopyTextButton", () => ({ CopyTextButton: () => null }));
-vi.mock("../features/threads/thread-work-log", () => ({ THREAD_DISCLOSURE_TRANSITION_MS: 100 }));
+vi.mock("../features/threads/thread-work-log", () => ({}));
+vi.mock("../features/threads/thread-run-sheet", () => ({}));
 vi.mock("../features/threads/HtmlRenderWebView", () => ({}));
 vi.mock("../features/threads/McpAppWebView", () => ({}));
 vi.mock("../features/layout/AdaptiveWorkspaceLayout", () => ({

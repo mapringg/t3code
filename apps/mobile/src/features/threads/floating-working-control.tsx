@@ -1,4 +1,3 @@
-import type { SubagentPillSegment } from "@t3tools/client-runtime/state/thread-subagents";
 import { formatDuration } from "@t3tools/shared/orchestrationTiming";
 import { GlassContainer, GlassView } from "expo-glass-effect";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -73,8 +72,6 @@ export function FloatingWorkingControl(props: {
   readonly browserPreview: { readonly count: number; readonly onPress: () => void } | null;
   readonly showScrollToEnd: boolean;
   readonly onScrollToEnd: () => void;
-  readonly agents: SubagentPillSegment | null;
-  readonly onOpenAgents: () => void;
   readonly queuedCount: number;
   readonly onOpenQueue: () => void;
   readonly lift?: SharedValue<number>;
@@ -90,12 +87,9 @@ export function FloatingWorkingControl(props: {
     props.status?.kind === "stop"
       ? props.status.action
       : null;
-  const [agentsWidth, setAgentsWidth] = useState(0);
   const hasQueue = props.queuedCount > 0;
   const hasPreview = props.devicePreview !== null || props.browserPreview !== null;
   const [previewWidth, setPreviewWidth] = useState(0);
-  const agents = props.agents;
-  const hasAgents = agents !== null;
   const labelWidth = Math.max(
     0,
     Math.min(overlayWidth, windowWidth) -
@@ -103,7 +97,6 @@ export function FloatingWorkingControl(props: {
       32 -
       (action !== null ? actionWidth : 0) -
       (hasQueue ? queueWidth : 0) -
-      (hasAgents ? agentsWidth : 0) -
       (hasPreview ? previewWidth : 0),
   );
   const separationProgress = useSharedValue(props.showScrollToEnd ? 1 : 0);
@@ -149,7 +142,7 @@ export function FloatingWorkingControl(props: {
     capsuleWidth.set(first ? width : withTiming(width, CONTROL_TIMING));
   };
   const hasStatus = props.status !== null;
-  const hasCapsule = hasStatus || hasQueue || hasAgents || hasPreview;
+  const hasCapsule = hasStatus || hasQueue || hasPreview;
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the Reanimated capsule width value and measured width when the status goes away
   useEffect(() => {
     if (!hasStatus) {
@@ -169,16 +162,12 @@ export function FloatingWorkingControl(props: {
   }
 
   const previewCompact =
-    hasStatus ||
-    hasAgents ||
-    hasQueue ||
-    (props.devicePreview !== null && props.browserPreview !== null);
+    hasStatus || hasQueue || (props.devicePreview !== null && props.browserPreview !== null);
   const statusInteractive =
     props.status?.kind === "connection" ||
     props.status?.kind === "child-input" ||
     props.status?.kind === "background";
-  const capsuleInteractive =
-    statusInteractive || action !== null || hasQueue || hasAgents || hasPreview;
+  const capsuleInteractive = statusInteractive || action !== null || hasQueue || hasPreview;
   const statusContent =
     props.status !== null ? (
       <View
@@ -240,22 +229,6 @@ export function FloatingWorkingControl(props: {
           ) : null}
         </View>
       ) : null}
-      {agents !== null ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Open agents, ${agents.accessibilityLabel}`}
-          accessibilityHint="Opens this turn's subagents"
-          onPress={props.onOpenAgents}
-          onLayout={(event) => setAgentsWidth(settleWidth(event.nativeEvent.layout.width))}
-          className="h-11 flex-row items-center gap-1.5 px-3 active:opacity-70"
-        >
-          {hasStatus || hasPreview ? <View className="absolute left-0 h-4 w-px bg-border" /> : null}
-          <SymbolView name="person.2" size={13} tintColorClassName="accent-foreground-muted" />
-          <Text className="font-t3-medium text-xs tabular-nums" numberOfLines={1}>
-            {agents.label}
-          </Text>
-        </Pressable>
-      ) : null}
       {hasQueue ? (
         <Pressable
           accessibilityRole="button"
@@ -266,9 +239,7 @@ export function FloatingWorkingControl(props: {
           style={{ maxWidth: Math.min(overlayWidth, windowWidth) * 0.45 }}
           className="h-11 flex-row items-center gap-2 px-3 active:opacity-70"
         >
-          {hasStatus || hasPreview || hasAgents ? (
-            <View className="absolute left-0 h-4 w-px bg-border" />
-          ) : null}
+          {hasStatus || hasPreview ? <View className="absolute left-0 h-4 w-px bg-border" /> : null}
           <SymbolView name="list.number" size={13} tintColorClassName="accent-foreground-muted" />
           <Text className="shrink font-t3-medium text-xs tabular-nums" numberOfLines={1}>
             {props.queuedCount} queued

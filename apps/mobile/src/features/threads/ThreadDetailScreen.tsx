@@ -1472,14 +1472,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     }
                     showScrollToEnd={showScrollToEndButton}
                     onScrollToEnd={handleScrollToEnd}
-                    agents={null}
-                    onOpenAgents={() => {
-                      Keyboard.dismiss();
-                      navigation.navigate("ThreadAgents", {
-                        environmentId: props.environmentId,
-                        threadId: props.selectedThread.id,
-                      });
-                    }}
                     queuedCount={queuedCount}
                     onOpenQueue={() => {
                       Keyboard.dismiss();
