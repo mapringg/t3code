@@ -1006,7 +1006,13 @@ function TaskForm({
                   : []),
                 { value: "interval", label: "Interval" },
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
-                  ? [{ value: "webhook" as const, label: "On webhook" }]
+                  ? // Android's segments share the row equally, and "On webhook" wrapped to two lines.
+                    [
+                      {
+                        value: "webhook" as const,
+                        label: Platform.OS === "android" ? "Webhook" : "On webhook",
+                      },
+                    ]
                   : []),
               ]}
               selected={draft.schedule.mode}
