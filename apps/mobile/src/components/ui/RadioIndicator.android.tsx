@@ -17,7 +17,7 @@ export function RadioIndicator({ selected }: { readonly selected: boolean }) {
             systemColorsActive
               ? {}
               : {
-                  selectedColor: colors["--color-primary-text"],
+                  selectedColor: colors["--color-foreground"],
                   unselectedColor: colors["--color-foreground-muted"],
                 }
           }
