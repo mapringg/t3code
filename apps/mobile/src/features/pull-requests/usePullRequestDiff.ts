@@ -2,6 +2,7 @@ import type { ChangeRequestTerminology } from "@t3tools/client-runtime/source-co
 import { EnvironmentId, ProjectId, type PullRequestListEntry } from "@t3tools/contracts";
 import { useAtomRefresh } from "@effect/atom-react";
 import { useLayoutEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 
 import { composerPullRequests } from "../../state/pull-requests";
 import { useEnvironmentQuery } from "../../state/query";
@@ -61,9 +62,11 @@ export function usePullRequestDiffEntry(navigation: {
       if (!closing) finish();
     });
     // Initial and unanimated presentations may have no transition events; let the shell paint first.
+    // Android holds a push until the screen has drawn, so its start lands after these frames; its
+    // pushes, unanimated ones included, end with transitionEnd.
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
-        if (!opening) finish();
+        if (!opening && Platform.OS !== "android") finish();
       });
     });
     // A missing native completion must not strand the route on its loading state.
