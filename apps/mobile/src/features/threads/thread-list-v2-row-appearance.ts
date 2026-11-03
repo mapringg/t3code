@@ -1,4 +1,4 @@
-import type { ViewStyle } from "react-native";
+import type { PressableProps, ViewStyle } from "react-native";
 import type { MobileThemeVariables } from "../../lib/mobileTheme";
 
 export const THREAD_LIST_V2_MONO_FONT = "Menlo";
@@ -67,5 +67,6 @@ export function getThreadListV2RowAppearance(
         ? selectedBackgroundColor
         : theme["--color-drawer"]
       : theme["--color-screen"],
+    pressFeedback: {} satisfies PressableProps,
   };
 }

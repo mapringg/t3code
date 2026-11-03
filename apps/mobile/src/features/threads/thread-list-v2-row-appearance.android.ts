@@ -1,4 +1,4 @@
-import type { ViewStyle } from "react-native";
+import type { PressableProps, ViewStyle } from "react-native";
 import type { MobileThemeVariables } from "../../lib/mobileTheme";
 
 export const THREAD_LIST_V2_MONO_FONT = "monospace";
@@ -62,5 +62,11 @@ export function getThreadListV2RowAppearance(
     swipeContainerStyle,
     swipeBackgroundColor: backgroundColor,
     providerIconSurfaceColor: selected ? selectedBackgroundColor : backgroundColor,
+    // A native ripple shows the touch at once, like Settings rows; the short delay keeps a
+    // scroll that starts on a row from flashing it.
+    pressFeedback: {
+      android_ripple: { color: theme["--color-subtle-strong"] },
+      unstable_pressDelay: 50,
+    } satisfies PressableProps,
   };
 }

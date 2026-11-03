@@ -548,6 +548,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
               className={rowAppearance.className}
               interactionClassName={rowAppearance.interactionClassName}
               interactionOpacity={rowAppearance.interactionOpacity}
+              {...rowAppearance.pressFeedback}
               onPress={() => onSelectPendingTask(pendingTask)}
               style={rowAppearance.cardStyle}
             >
@@ -1303,6 +1304,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         key={`${thread.environmentId}:${thread.id}`}
         interactionClassName={rowAppearance.interactionClassName}
         interactionOpacity={rowAppearance.interactionOpacity}
+        {...rowAppearance.pressFeedback}
         className={rowAppearance.className}
         accessibilityHint={swipeAccessibilityHint}
         accessibilityLabel={rowAccessibilityLabel}
@@ -1335,6 +1337,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         key={`${thread.environmentId}:${thread.id}`}
         interactionClassName={rowAppearance.interactionClassName}
         interactionOpacity={rowAppearance.interactionOpacity}
+        {...rowAppearance.pressFeedback}
         accessibilityHint={swipeAccessibilityHint}
         accessibilityLabel={rowAccessibilityLabel}
         accessibilityRole="button"
