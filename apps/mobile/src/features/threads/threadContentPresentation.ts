@@ -70,3 +70,19 @@ export function lockThreadSyncLabel(
 ): string | null {
   return shown ? (locked ?? label) : null;
 }
+
+/**
+ * Catch-up applies missed events in batches, and a revealed feed follows the end through each one.
+ * Hold it until the thread is live, unless the environment is unreachable and the cache is all there is.
+ */
+export function feedAwaitsThreadCatchUp(input: {
+  readonly syncStatus: EnvironmentThreadStatus | undefined;
+  readonly detailError: string | null;
+  readonly connectionState: EnvironmentConnectionPhase;
+}): boolean {
+  return (
+    (input.syncStatus === "cached" || input.syncStatus === "synchronizing") &&
+    input.detailError === null &&
+    (input.connectionState === "connected" || input.connectionState === "connecting")
+  );
+}

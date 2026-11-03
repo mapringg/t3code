@@ -248,6 +248,7 @@ export interface ThreadDetailScreenProps {
   readonly respondingUserInputId: RuntimeRequestId | null;
   readonly connectionStateLabel: EnvironmentConnectionPhase;
   readonly threadSyncStatus?: EnvironmentThreadStatus;
+  readonly feedAwaitsCatchUp?: boolean;
   readonly historyControls?: ThreadFeedHistoryControls;
   readonly activeThreadBusy: boolean;
   readonly canStopThread: boolean;
@@ -1279,6 +1280,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                 isProviderSubagent || pendingMessageEditBlocked ? null : handleEditPendingMessage
               }
               contentPresentation={props.contentPresentation}
+              awaitsCatchUp={props.feedAwaitsCatchUp}
               threadTitle={props.selectedThread.title}
               latestRun={props.activityRun}
               activeWorkStartedAt={props.activeWorkStartedAt}

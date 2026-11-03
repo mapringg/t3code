@@ -88,7 +88,10 @@ import { resolveLatestMergeBackRun } from "@t3tools/client-runtime/state/thread-
 import { threadEnvironment } from "../../state/threads";
 import { EMPTY_ENVIRONMENT_THREAD_STATE } from "@t3tools/client-runtime/state/threads";
 import { useProjects } from "../../state/entities";
-import { projectThreadContentPresentation } from "./threadContentPresentation";
+import {
+  feedAwaitsThreadCatchUp,
+  projectThreadContentPresentation,
+} from "./threadContentPresentation";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import {
   useAdaptiveWorkspaceLayout,
@@ -1086,6 +1089,15 @@ function ThreadRouteContent(
           respondingUserInputId={requests.respondingUserInputId}
           connectionStateLabel={routeConnectionState}
           threadSyncStatus={selectedThreadDetailState.status}
+          feedAwaitsCatchUp={
+            Platform.OS === "android" &&
+            creationState === null &&
+            feedAwaitsThreadCatchUp({
+              syncStatus: selectedThreadDetailState.status,
+              detailError: Option.getOrNull(selectedThreadDetailState.error),
+              connectionState: routeConnectionState,
+            })
+          }
           historyControls={historyControls}
           activeThreadBusy={composer.activeThreadBusy}
           canStopThread={awaitingBootstrapTurn || composer.interruptibleRunId !== null}
