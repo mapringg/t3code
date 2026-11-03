@@ -67,10 +67,11 @@ export function returnToAndroidWorkspaceList(
   resetAndroidWorkspace(navigation);
 }
 
-// Pages slide in from the right, like Android's own Settings. In the split view these
-// destinations swap the detail pane beside the sidebar instead, so they don't animate.
+// The new page slides over the old one, which drifts left, like HyperOS and Android 14
+// Settings. The system default cross-fades both pages, which ghosts while the page mounts.
+// In the split view these destinations swap the detail pane beside the sidebar instead.
 export function androidWorkspaceDestinationAnimation(routeName: string, usesSplitView: boolean) {
   return usesSplitView && (routeName === "Thread" || routeName === "PullRequest")
     ? ("none" as const)
-    : ("slide_from_right" as const);
+    : ("ios_from_right" as const);
 }
