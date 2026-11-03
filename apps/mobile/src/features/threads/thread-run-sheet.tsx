@@ -11,7 +11,9 @@ import type { ThreadFeedActivity, ThreadFeedRunWorkItem } from "../../lib/thread
 import type { MarkdownImageRenderer } from "../../native/SelectableMarkdownText";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { THREAD_WORK_ROW_MIN_HEIGHT } from "../../lib/layout";
 import { ThreadWorkLog } from "./thread-work-log";
+import { WorkLogIconSlot, WorkLogRows } from "./work-log-layout";
 
 /** A run's work, opened from its line in the feed. Rows expand here, never in the feed. */
 export function ThreadRunSheet(props: {
@@ -123,13 +125,21 @@ export function ThreadRunSheet(props: {
           ),
         )}
         {history === "loading" ? (
-          <View accessible accessibilityLabel="Loading work" className="gap-2 px-1 pb-2">
-            {(["40%", "60%", "33%"] as const).map((width) => (
-              <View key={width} className="flex-row items-center gap-2">
-                <View className="size-3 rounded bg-subtle-strong" />
-                <View className="h-2.5 rounded-full bg-subtle-strong" style={{ width }} />
-              </View>
-            ))}
+          <View accessible accessibilityLabel="Loading work" className="pb-2">
+            <WorkLogRows>
+              {(["40%", "60%", "33%"] as const).map((width) => (
+                <View
+                  key={width}
+                  className="flex-row items-center gap-1.5 px-0.5"
+                  style={{ minHeight: THREAD_WORK_ROW_MIN_HEIGHT }}
+                >
+                  <WorkLogIconSlot>
+                    <View className="size-3 rounded bg-subtle-strong" />
+                  </WorkLogIconSlot>
+                  <View className="h-2.5 rounded-full bg-subtle-strong" style={{ width }} />
+                </View>
+              ))}
+            </WorkLogRows>
           </View>
         ) : history === "failed" ? (
           <View className="items-start gap-2 px-1">

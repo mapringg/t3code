@@ -5,6 +5,7 @@ import {
   EnvironmentId,
   MessageId,
   ProjectId,
+  RunId,
   ThreadId,
 } from "@t3tools/contracts";
 import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
@@ -12,6 +13,7 @@ import {
   appendPendingThreadMessages,
   createThreadFeedGrouping,
   isCompactionCommandFeedEntry,
+  resolveFooterMessageIds,
   selectPendingAcknowledgedMessages,
 } from "./pending-thread-feed";
 
@@ -197,5 +199,38 @@ describe("pending timeline messages", () => {
     expect(appendPendingThreadMessages([], [], shown).map((entry) => entry.id)).toEqual([
       "waiting",
     ]);
+  });
+
+  it("keeps the reply footer on the last settled run while the next reply streams", () => {
+    const [prompt, followUp] = appendPendingThreadMessages(
+      [],
+      [],
+      [pending("prompt"), pending("follow-up")],
+    );
+    if (prompt?.type !== "message" || followUp?.type !== "message") {
+      throw new Error("Expected message rows");
+    }
+    const reply = (id: string, runId: string, streaming: boolean) => ({
+      ...prompt,
+      id,
+      pendingMessage: undefined,
+      message: {
+        ...prompt.message,
+        id: MessageId.make(id),
+        role: "assistant" as const,
+        runId: RunId.make(runId),
+        streaming,
+      },
+    });
+    const settled = [prompt, reply("first", "run-1", false), followUp];
+    expect(resolveFooterMessageIds(settled, null)).toEqual({
+      user: "follow-up",
+      assistant: "first",
+    });
+    const streaming = [...settled, reply("second", "run-2", true)];
+    expect(resolveFooterMessageIds(streaming, RunId.make("run-2")).assistant).toBe("first");
+    const between = [...settled, reply("second", "run-2", false)];
+    expect(resolveFooterMessageIds(between, RunId.make("run-2")).assistant).toBe("first");
+    expect(resolveFooterMessageIds(between, null).assistant).toBe("second");
   });
 });
