@@ -28,12 +28,12 @@ function ImagePreviewHeader(header: { readonly imageIndex: number }) {
         <AppText className="flex-1 text-base text-white" numberOfLines={2}>
           {source.name ?? "Image"}
         </AppText>
-        <MediaActionsMenu media={mediaActions} inModal />
+        <MediaActionsMenu media={mediaActions} inModal variant="plain" />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close image"
           onPress={props.onRequestClose}
-          className="min-h-11 min-w-11 items-center justify-center"
+          className="size-[44px] items-center justify-center"
         >
           <SymbolView name="xmark" size={20} tintColor="#ffffff" type="monochrome" />
         </Pressable>

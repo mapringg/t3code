@@ -3,12 +3,14 @@ import type { ReactElement } from "react";
 import { Platform, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 
 import type { useMediaActions } from "../state/mediaActions";
+import { cn } from "../lib/cn";
 import { SymbolView } from "./ui/AppSymbol";
 import { Menu } from "./ui/Menu";
 
 export function MediaActionsMenu(props: {
   readonly media: ReturnType<typeof useMediaActions>;
   readonly inModal?: boolean;
+  readonly variant?: "overlay" | "plain";
   readonly children?: ReactElement<PressableProps>;
   readonly style?: StyleProp<ViewStyle>;
 }) {
@@ -35,7 +37,10 @@ export function MediaActionsMenu(props: {
           accessible
           accessibilityRole="button"
           accessibilityLabel="Media actions"
-          className="min-h-11 min-w-11 items-center justify-center rounded-md bg-black/60"
+          className={cn(
+            "items-center justify-center",
+            props.variant === "plain" ? "size-[44px]" : "min-h-11 min-w-11 rounded-md bg-black/60",
+          )}
         >
           <SymbolView name="ellipsis" size={20} tintColor="#ffffff" type="monochrome" />
         </View>
