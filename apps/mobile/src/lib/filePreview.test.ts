@@ -231,6 +231,9 @@ vi.mock("../components/ui/NativePresentation", () => ({
 vi.mock("../components/ui/Menu", () => ({
   Menu: ({ children }: { children?: ReactNode }) => children,
 }));
+vi.mock("../features/threads/MessageActionsMenu", () => ({
+  MessageActionsMenu: ({ children }: { children?: ReactNode }) => children,
+}));
 vi.mock("../components/FilePreviewGallery", () => ({
   FilePreviewGallery: ({ children }: { children?: ReactNode }) => children,
 }));

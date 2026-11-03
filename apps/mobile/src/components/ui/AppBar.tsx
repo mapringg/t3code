@@ -150,7 +150,7 @@ export function AppBar(props: AppBarProps) {
         props.trailing) &&
       props.options?.unstable_headerRightItems === undefined ? (
         <Toolbar placement="right">
-          {props.actions?.map(({ loading, ...action }) =>
+          {props.actions?.map(({ loading, overflowOnly: _overflowOnly, ...action }) =>
             loading ? (
               <Toolbar.Custom key={action.accessibilityLabel}>
                 <View
