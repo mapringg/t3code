@@ -15,6 +15,7 @@ import {
   threadRuntimeHasInterruptibleRun,
 } from "@t3tools/client-runtime/state/thread-execution";
 import { useRef, useState } from "react";
+import { Platform } from "react-native";
 
 import {
   CommandId,
@@ -50,6 +51,8 @@ import type { DraftComposerImageAttachment } from "../lib/composerImages";
 import { scopedThreadKey } from "../lib/scopedEntities";
 import { buildThreadFeed, createThreadFeedCache } from "../lib/threadActivity";
 import { acknowledgedThreadMessagesAtom } from "./acknowledged-thread-messages";
+import { createAcknowledgmentSequenceAtom } from "./acknowledgment-sequence";
+import { parseThreadKey, threadKey } from "@t3tools/client-runtime/state/entities";
 import {
   appendPendingThreadMessages,
   selectPendingAcknowledgedMessages,
@@ -99,7 +102,7 @@ import {
 import { setPendingConnectionError } from "../state/use-remote-environment-registry";
 import { clearThreadComposerError, setThreadComposerError } from "./thread-composer-error";
 import {
-  useSelectedThreadProjection,
+  useSelectedThreadRenderProjection,
   useSelectedThreadVisibleTurnItems,
 } from "../state/use-thread-detail";
 import { useThreadSelection } from "../state/use-thread-selection";
@@ -113,6 +116,14 @@ const EMPTY_QUEUE_WORKFLOW_ATOM = Atom.make<null>(null).pipe(
 );
 const EMPTY_CHECKPOINT_SUMMARIES_ATOM = Atom.make<ReadonlyArray<ThreadCheckpointSummary>>([]);
 const EMPTY_THREAD_SEQUENCE_ATOM = Atom.make(0);
+const acknowledgmentSequenceFamily = Atom.family((key: string) => {
+  const ref = parseThreadKey(key);
+  return createAcknowledgmentSequenceAtom(
+    acknowledgedThreadMessagesAtom,
+    environmentThreadDetails.sequenceAtom(ref),
+    ref,
+  );
+});
 
 export function appendReviewCommentToDraft(input: {
   readonly environmentId: EnvironmentId;
@@ -192,7 +203,7 @@ export function useThreadComposerState() {
     selectedThreadDetailRef,
     selectedEnvironmentRuntime,
   } = useThreadSelection();
-  const selectedThreadProjection = useSelectedThreadProjection();
+  const selectedThreadProjection = useSelectedThreadRenderProjection();
   const selectedThreadVisibleTurnItems = useSelectedThreadVisibleTurnItems();
   const acknowledgedMessages = useAtomValue(acknowledgedThreadMessagesAtom);
   const queuedMessagesByThreadKey = useThreadOutboxMessages();
@@ -234,7 +245,9 @@ export function useThreadComposerState() {
   const selectedThreadSequence = useAtomValue(
     selectedThreadDetailRef === null
       ? EMPTY_THREAD_SEQUENCE_ATOM
-      : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
+      : Platform.OS === "android"
+        ? acknowledgmentSequenceFamily(threadKey(selectedThreadDetailRef))
+        : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
   );
   const checkpointSummaries = useAtomValue(
     selectedThreadDetailRef === null

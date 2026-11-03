@@ -1412,7 +1412,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                       threadRef={props.selectedThreadDetailRef}
                       canOperateThread={props.canOperateThread}
                     />
-                    {props.draftMode ? null : (
+                    {props.draftMode || Platform.OS === "android" ? null : (
                       <ThreadSideChatsRow
                         environmentId={props.environmentId}
                         threadId={props.selectedThread.id}

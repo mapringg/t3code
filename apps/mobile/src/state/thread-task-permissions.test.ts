@@ -94,6 +94,7 @@ vi.mock("./use-thread-selection", () => ({
   useThreadSelection: () => ({
     selectedThread: state.thread,
     selectedThreadCreation: null,
+    selectedThreadDetailRef: null,
     selectedEnvironmentRuntime: {
       connectionState: state.connectionState,
       serverConfig: state.serverConfig,
@@ -101,7 +102,7 @@ vi.mock("./use-thread-selection", () => ({
   }),
 }));
 vi.mock("./use-thread-detail", () => ({
-  useSelectedThreadProjection: () =>
+  useSelectedThreadRenderProjection: () =>
     state.projection === null ? null : { projection: state.projection },
   useSelectedThreadVisibleTurnItems: () => [],
   useSelectedThreadPendingRequests: () => state.pendingRequests,

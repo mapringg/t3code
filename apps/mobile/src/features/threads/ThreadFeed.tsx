@@ -15,6 +15,7 @@ import {
   enrichedSkillReference,
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
+import { minimalChatFeed } from "./minimal-chat-feed";
 import { rememberedThreadFeedRowSizes } from "./threadFeedRowSizes";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
 import { GuestBubbleTint, GuestMessageName } from "./guestMessageStyle";
@@ -210,6 +211,7 @@ import {
   isLinkRequestActivityGroup,
   isSecretRequestActivityGroup,
   type ThreadFeedEntry,
+  type ThreadFeedMessage,
   type ThreadFeedLatestRun,
   messageFoldRunId,
 } from "../../lib/threadActivity";
@@ -259,6 +261,7 @@ import {
   useThreadChipIcons,
 } from "../../state/entities";
 import { useThreadSelection } from "../../state/use-thread-selection";
+import { useThreadAssistantMessageText } from "../../state/use-thread-detail";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { composerDocumentAttachmentRecord } from "../../lib/composerContext";
@@ -1980,15 +1983,6 @@ function renderFeedEntry(
     const hasReviewCommentContext = presentation.text.includes("<review_comment");
     // Android does not reposition children after maxWidth clamps bubbles; definite width prevents wide-block overlap.
     const hasWideBlock = hasWideMarkdownBlock(renderedText, WIDE_MARKDOWN_BLOCK_OPTIONS);
-    const assistantTurnStillInProgress =
-      message.role === "assistant" &&
-      props.unsettledTurnId !== null &&
-      message.runId === props.unsettledTurnId;
-    const showAssistantMeta =
-      message.role === "assistant" &&
-      props.terminalAssistantMessageIds.has(message.id) &&
-      !assistantTurnStillInProgress &&
-      !message.streaming;
 
     if (isUser && props.workflowOpening?.messageId === message.id) {
       return (
@@ -2397,104 +2391,7 @@ function renderFeedEntry(
       );
     }
 
-    if (renderedText.trim().length === 0 && attachments.length === 0) {
-      return null;
-    }
-
-    const enterAnimated = isFreshTimestamp(message.createdAt);
-    // Android keeps the footer on the newest settled reply; older replies move it into their
-    // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
-    const replyActionsMenu =
-      props.messageActionsInMenu && showAssistantMeta && renderedText.trim().length > 0;
-    const replyActionsInMenu = replyActionsMenu && message.id !== props.footerAssistantMessageId;
-    const assistantMarkdown = (
-      <AssistantMarkdownContent
-        markdown={renderedText}
-        environmentId={props.environmentId}
-        markdownStyles={styles}
-        linkHandlers={props.markdownLinkHandlers}
-        onUseArtifactTemplate={props.onUseArtifactTemplate}
-        renderImage={props.renderMarkdownImage}
-        skills={props.skills}
-      />
-    );
-    return (
-      <Animated.View
-        className={cn(
-          showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))
-            ? "mb-5 px-1"
-            : "mb-1 px-1",
-          hasWideBlock && "w-full",
-        )}
-        {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
-      >
-        {renderedText.trim().length > 0 ? (
-          <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
-            {replyActionsMenu ? (
-              <AssistantReplyActionsMenu
-                environmentId={props.environmentId}
-                text={renderedText}
-                timestampLabel={timestampLabel}
-                projectedItem={message.projectedItem}
-                sourceTitle={props.threadTitle}
-              >
-                {assistantMarkdown}
-              </AssistantReplyActionsMenu>
-            ) : (
-              assistantMarkdown
-            )}
-          </MarkdownImageAvailableWidthContext>
-        ) : null}
-        <MessageAttachmentList
-          attachments={attachments}
-          environmentId={props.environmentId}
-          onPressPreview={props.onPressPreview}
-          onPlaybackStart={props.onPlaybackStart}
-        />
-        {showAssistantMeta && message.checkpointSummary ? (
-          <TurnDiffStat
-            checkpoint={message.checkpointSummary}
-            onOpenTurnDiff={props.onOpenTurnDiff}
-          />
-        ) : null}
-        {showAssistantMeta && !replyActionsInMenu ? (
-          <View
-            className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
-            style={
-              Platform.OS === "android" ? { marginLeft: -props.replyActionSize.inset } : undefined
-            }
-          >
-            <CopyTextButton
-              accessibilityLabel="Copy message"
-              text={renderedText}
-              tintColor={iconSubtleColor}
-              buttonSize={props.replyActionSize.button}
-              buttonWidth={props.replyActionSize.width}
-              iconSize={props.replyActionSize.icon}
-            />
-            {message.projectedItem ? (
-              <AssistantForkButton
-                environmentId={props.environmentId}
-                iconColor={iconSubtleColor}
-                buttonSize={props.replyActionSize.button}
-                buttonWidth={props.replyActionSize.width}
-                iconSize={props.replyActionSize.icon}
-                projectedItem={message.projectedItem}
-                sourceTitle={props.threadTitle}
-              />
-            ) : null}
-            <Text
-              className="font-t3-medium text-xs tabular-nums text-foreground-secondary"
-              style={
-                Platform.OS === "android" ? { marginLeft: props.replyActionSize.inset } : undefined
-              }
-            >
-              {timestampLabel}
-            </Text>
-          </View>
-        ) : null}
-      </Animated.View>
-    );
+    return <AssistantMessageRow message={message} rowProps={props} />;
   }
 
   return (
@@ -2513,6 +2410,131 @@ function renderFeedEntry(
       renderReasoning={props.renderReasoning}
       onPressPreview={props.onPressPreview}
     />
+  );
+}
+
+function AssistantMessageRow({
+  message,
+  rowProps: props,
+}: {
+  readonly message: ThreadFeedMessage;
+  readonly rowProps: Parameters<typeof renderFeedEntry>[1];
+}) {
+  const text = useThreadAssistantMessageText(
+    Platform.OS === "android" && message.streaming
+      ? scopeThreadRef(props.environmentId, props.threadId)
+      : null,
+    message.projectedItem?.item.id,
+  );
+  const renderedText = renderAssistantCitationsAsText(text ?? message.text);
+  const { iconSubtleColor } = props;
+  const styles = props.markdownStyles.assistant;
+  const timestampLabel = formatMessageTime(message.updatedAt);
+  const attachments = message.attachments;
+  const hasWideBlock = hasWideMarkdownBlock(renderedText, WIDE_MARKDOWN_BLOCK_OPTIONS);
+  const assistantTurnStillInProgress =
+    props.unsettledTurnId !== null && message.runId === props.unsettledTurnId;
+  const showAssistantMeta =
+    props.terminalAssistantMessageIds.has(message.id) &&
+    !assistantTurnStillInProgress &&
+    !message.streaming;
+  if (renderedText.trim().length === 0 && attachments.length === 0) {
+    return null;
+  }
+
+  const enterAnimated = isFreshTimestamp(message.createdAt);
+  // Android keeps the footer on the newest settled reply; older replies move it into their
+  // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
+  const replyActionsMenu =
+    props.messageActionsInMenu && showAssistantMeta && renderedText.trim().length > 0;
+  const replyActionsInMenu = replyActionsMenu && message.id !== props.footerAssistantMessageId;
+  const assistantMarkdown = (
+    <AssistantMarkdownContent
+      markdown={renderedText}
+      environmentId={props.environmentId}
+      markdownStyles={styles}
+      linkHandlers={props.markdownLinkHandlers}
+      onUseArtifactTemplate={props.onUseArtifactTemplate}
+      renderImage={props.renderMarkdownImage}
+      skills={props.skills}
+    />
+  );
+  return (
+    <Animated.View
+      className={cn(
+        showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))
+          ? "mb-5 px-1"
+          : "mb-1 px-1",
+        hasWideBlock && "w-full",
+      )}
+      {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
+    >
+      {renderedText.trim().length > 0 ? (
+        <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
+          {replyActionsMenu ? (
+            <AssistantReplyActionsMenu
+              environmentId={props.environmentId}
+              text={renderedText}
+              timestampLabel={timestampLabel}
+              projectedItem={message.projectedItem}
+              sourceTitle={props.threadTitle}
+            >
+              {assistantMarkdown}
+            </AssistantReplyActionsMenu>
+          ) : (
+            assistantMarkdown
+          )}
+        </MarkdownImageAvailableWidthContext>
+      ) : null}
+      <MessageAttachmentList
+        attachments={attachments}
+        environmentId={props.environmentId}
+        onPressPreview={props.onPressPreview}
+        onPlaybackStart={props.onPlaybackStart}
+      />
+      {Platform.OS !== "android" && showAssistantMeta && message.checkpointSummary ? (
+        <TurnDiffStat
+          checkpoint={message.checkpointSummary}
+          onOpenTurnDiff={props.onOpenTurnDiff}
+        />
+      ) : null}
+      {showAssistantMeta && !replyActionsInMenu ? (
+        <View
+          className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
+          style={
+            Platform.OS === "android" ? { marginLeft: -props.replyActionSize.inset } : undefined
+          }
+        >
+          <CopyTextButton
+            accessibilityLabel="Copy message"
+            text={renderedText}
+            tintColor={iconSubtleColor}
+            buttonSize={props.replyActionSize.button}
+            buttonWidth={props.replyActionSize.width}
+            iconSize={props.replyActionSize.icon}
+          />
+          {Platform.OS !== "android" && message.projectedItem ? (
+            <AssistantForkButton
+              environmentId={props.environmentId}
+              iconColor={iconSubtleColor}
+              buttonSize={props.replyActionSize.button}
+              buttonWidth={props.replyActionSize.width}
+              iconSize={props.replyActionSize.icon}
+              projectedItem={message.projectedItem}
+              sourceTitle={props.threadTitle}
+            />
+          ) : null}
+          <Text
+            className="font-t3-medium text-xs tabular-nums text-foreground-secondary"
+            style={
+              Platform.OS === "android" ? { marginLeft: props.replyActionSize.inset } : undefined
+            }
+          >
+            {timestampLabel}
+          </Text>
+        </View>
+      ) : null}
+    </Animated.View>
   );
 }
 
@@ -2757,18 +2779,19 @@ function ThreadFeedPlaceholder(props: {
 // hooks can't drag this derivation into an uncached scope.
 function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
-  return appendPendingThreadMessages(
-    deriveThreadFeedPresentation(
-      props.feed.filter(
-        (entry) =>
-          entry.type !== "activity-group" ||
-          entry.activities[0]?.projectedItem.item.type !== "subagent",
-      ),
-      props.latestRun,
-      props.activeWorkStartedAt,
-      props.runlessWorkActive ?? false,
-      feedCache,
+  const presented = deriveThreadFeedPresentation(
+    props.feed.filter(
+      (entry) =>
+        entry.type !== "activity-group" ||
+        entry.activities[0]?.projectedItem.item.type !== "subagent",
     ),
+    props.latestRun,
+    props.activeWorkStartedAt,
+    props.runlessWorkActive ?? false,
+    feedCache,
+  );
+  return appendPendingThreadMessages(
+    Platform.OS === "android" ? minimalChatFeed(presented) : presented,
     props.feed,
     props.queuedMessages,
   );
