@@ -116,10 +116,9 @@ export interface ThreadFeedActivity {
   readonly status: "success" | "failure" | "neutral" | null;
   readonly lifecycleStatus: WorkLogToolLifecycleStatus;
   readonly workEntry: WorkLogPresentationEntry;
-  readonly groupedToolDetail?: boolean;
   readonly live?: boolean;
-  /** Lone calls carry the group header's label and id until a second call joins. */
-  readonly groupStandIn?: { readonly groupId: string; readonly label: string };
+  /** Lone calls carry the group header's label until a second call joins. */
+  readonly groupStandIn?: { readonly label: string };
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
 }
 
@@ -208,9 +207,9 @@ type ThreadFeedEntryContent =
       readonly id: string;
       readonly createdAt: string;
       readonly runId: RunId | null;
-      readonly groupId: string;
+      /** An activity of the group, which finds its run for the run sheet. */
+      readonly activityId: string;
       readonly hiddenCount: number;
-      readonly expanded: boolean;
       readonly summary: string;
       readonly summaryKind: ToolGroupSummaryKind;
       readonly toolSurface?: WorkLogPresentationEntry["toolSurface"];
@@ -223,12 +222,10 @@ type ThreadFeedEntryContent =
     }
   | {
       readonly type: "run-fold";
-      readonly deferredWorkItemIds?: ReadonlyArray<string>;
       readonly id: string;
       readonly createdAt: string;
       readonly runId: RunId;
       readonly label: string;
-      readonly expanded: boolean;
     }
   | {
       readonly type: "thinking";
@@ -851,11 +848,9 @@ function toFeedActivity(
   };
 }
 
-function singleToolCallLabel(activity: ThreadFeedActivity, expanded: boolean): string {
+function singleToolCallLabel(activity: ThreadFeedActivity): string {
   if (activity.workEntry.itemType === "reasoning")
-    return expanded
-      ? "Thought"
-      : compactWorkEntryText(activity.workEntry.detail ?? "") || "Thought";
+    return compactWorkEntryText(activity.workEntry.detail ?? "") || "Thought";
   const presentation = resolveWorkEntryToolPresentation(activity.workEntry, "completed");
   if (presentation) return presentation.displayName;
   const command = activity.workEntry.command?.trim();
@@ -1009,7 +1004,6 @@ function threadFeedActivityIsVisible(
 }
 
 interface ThreadFeedRunFold {
-  readonly deferredWorkItemIds?: ReadonlyArray<string>;
   readonly runId: RunId;
   readonly createdAt: string;
   readonly hiddenEntryIds: ReadonlySet<string>;
@@ -1060,15 +1054,18 @@ export function messageFoldRunId(
   return null;
 }
 
-function deriveThreadFeedRunFolds(
-  feed: ReadonlyArray<ThreadFeedEntry>,
-  latestRun: ThreadFeedLatestRun | null,
-  runlessWorkActive: boolean,
-  feedFailedRunIds: ReadonlySet<RunId>,
-): ReadonlyMap<string, ThreadFeedRunFold> {
-  const terminalAssistantMessageIdByRun = new Map<RunId, string>();
-  const interruptedRunIds = new Set<RunId>();
-  const failedRunIds = new Set(feedFailedRunIds);
+interface ThreadFeedRunGroup {
+  readonly entries: ThreadFeedEntry[];
+  readonly startBoundary: string | null;
+}
+
+const DEFERRED_WORK_RUN_PREFIX = "deferred-work:";
+
+/**
+ * Each run's response entries, keyed by run, or for imported work with no run,
+ * by the runless key of the user message before it.
+ */
+function groupThreadFeedRuns(feed: ReadonlyArray<ThreadFeedEntry>) {
   const promptIndexByRunId = new Map<RunId, number>();
   for (const [index, entry] of feed.entries()) {
     if (
@@ -1082,10 +1079,7 @@ function deriveThreadFeedRunFolds(
     const runId = entry.message.runId;
     if (runId != null && !promptIndexByRunId.has(runId)) promptIndexByRunId.set(runId, index);
   }
-  const groupsByRunId = new Map<
-    RunId,
-    { entries: ThreadFeedEntry[]; startBoundary: string | null }
-  >();
+  const groupsByRunId = new Map<RunId, ThreadFeedRunGroup>();
   let runlessKey: RunId | null = null;
   let responseKey: RunId | null = null;
   let pendingUserBoundary: string | null = null;
@@ -1117,20 +1111,88 @@ function deriveThreadFeedRunFolds(
       groupsByRunId.set(runId, group);
     }
     group.entries.push(entry);
-    if (entry.type === "message") {
-      terminalAssistantMessageIdByRun.set(runId, entry.id);
-    }
-    if (entry.type !== "activity-group") continue;
-    for (const activity of entry.activities) {
-      const item = activity.projectedItem.item;
-      if (item.type === "run_interrupt_result") interruptedRunIds.add(runId);
-      if (
-        runId === runlessKey &&
-        item.type === "error" &&
-        item.status === "failed" &&
-        item.parentItemId === null
-      ) {
-        failedRunIds.add(runId);
+  }
+  return { groupsByRunId, runlessKey };
+}
+
+export type ThreadFeedRunWorkItem =
+  | { readonly type: "activity"; readonly activity: ThreadFeedActivity }
+  | {
+      readonly type: "message";
+      readonly entry: Extract<ThreadFeedEntry, { readonly type: "message" }>;
+    };
+
+function isThreadFeedCardGroup(entry: ThreadFeedActivityGroup): boolean {
+  return (
+    isContextCompactionActivityGroup(entry) ||
+    isContextHandoffActivityGroup(entry) ||
+    entry.activities[0]?.projectedItem.item.type === "subagent"
+  );
+}
+
+/**
+ * What the run sheet lists for the run keyed by `anchor`, or holding the
+ * activity `anchor`: its work and its assistant messages, in order. Cards the
+ * feed always shows stay out.
+ */
+export function threadFeedRunWork(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+  anchor: string,
+): ReadonlyArray<ThreadFeedRunWorkItem> {
+  const { groupsByRunId } = groupThreadFeedRuns(feed);
+  const deferredEntryId = anchor.startsWith(DEFERRED_WORK_RUN_PREFIX)
+    ? anchor.slice(DEFERRED_WORK_RUN_PREFIX.length)
+    : null;
+  const group =
+    groupsByRunId.get(RunId.make(anchor)) ??
+    [...groupsByRunId.values()].find((candidate) =>
+      candidate.entries.some(
+        (entry) =>
+          entry.id === deferredEntryId ||
+          (entry.type === "activity-group" &&
+            entry.activities.some((activity) => activity.id === anchor)),
+      ),
+    );
+  if (!group) return [];
+  return group.entries.flatMap((entry): ThreadFeedRunWorkItem[] => {
+    if (entry.type === "message") return [{ type: "message", entry }];
+    if (entry.type !== "activity-group" || isThreadFeedCardGroup(entry)) return [];
+    const settled = settleSupersededReasoning(entry, entry === feed.at(-1));
+    if (settled.type !== "activity-group") return [];
+    return settled.activities.flatMap((activity): ThreadFeedRunWorkItem[] =>
+      !activity.prominent &&
+      (threadFeedActivityIsVisible(activity) || activity.lifecycleStatus === "inProgress")
+        ? [{ type: "activity", activity }]
+        : [],
+    );
+  });
+}
+
+function deriveThreadFeedRunFolds(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+  latestRun: ThreadFeedLatestRun | null,
+  runlessWorkActive: boolean,
+  feedFailedRunIds: ReadonlySet<RunId>,
+): ReadonlyMap<string, ThreadFeedRunFold> {
+  const { groupsByRunId, runlessKey } = groupThreadFeedRuns(feed);
+  const terminalAssistantMessageIdByRun = new Map<RunId, string>();
+  const interruptedRunIds = new Set<RunId>();
+  const failedRunIds = new Set(feedFailedRunIds);
+  for (const [runId, group] of groupsByRunId) {
+    for (const entry of group.entries) {
+      if (entry.type === "message") terminalAssistantMessageIdByRun.set(runId, entry.id);
+      if (entry.type !== "activity-group") continue;
+      for (const activity of entry.activities) {
+        const item = activity.projectedItem.item;
+        if (item.type === "run_interrupt_result") interruptedRunIds.add(runId);
+        if (
+          runId.startsWith("runless:") &&
+          item.type === "error" &&
+          item.status === "failed" &&
+          item.parentItemId === null
+        ) {
+          failedRunIds.add(runId);
+        }
       }
     }
   }
@@ -1201,17 +1263,7 @@ function deriveThreadFeedRunFolds(
     const duration = elapsedMs === null ? null : formatDuration(elapsedMs);
     const interrupted =
       latestRunMatches && (latestRun.status === "interrupted" || latestRun.status === "cancelled");
-    const deferredWorkItemIds = group.entries.flatMap((entry) =>
-      entry.type === "activity-group"
-        ? entry.activities.flatMap((activity) =>
-            activity.projectedItem.item.deferredWork
-              ? [String(activity.projectedItem.sourceItemId)]
-              : [],
-          )
-        : [],
-    );
     foldsByAnchorId.set(firstHiddenEntry.id, {
-      ...(deferredWorkItemIds.length > 0 ? { deferredWorkItemIds } : {}),
       runId,
       createdAt: firstHiddenEntry.createdAt,
       hiddenEntryIds,
@@ -1229,16 +1281,12 @@ function deriveThreadFeedRunFolds(
   );
   for (const entry of feed) {
     if (entry.type !== "activity-group" || covered.has(entry.id)) continue;
-    const deferredWorkItemIds = entry.activities.flatMap((activity) =>
-      activity.projectedItem.item.deferredWork ? [String(activity.projectedItem.sourceItemId)] : [],
-    );
-    if (deferredWorkItemIds.length === 0) continue;
+    if (!entry.activities.some((activity) => activity.projectedItem.item.deferredWork)) continue;
     foldsByAnchorId.set(entry.id, {
-      runId: RunId.make(`deferred-work:${entry.id}`),
+      runId: RunId.make(`${DEFERRED_WORK_RUN_PREFIX}${entry.id}`),
       createdAt: entry.createdAt,
       hiddenEntryIds: new Set([entry.id]),
       label: "Earlier work",
-      deferredWorkItemIds,
     });
   }
   return foldsByAnchorId;
@@ -1277,8 +1325,6 @@ function settleSupersededReasoning(
 interface ThreadFeedPresentationBuild {
   readonly feed: ReadonlyArray<ThreadFeedEntry>;
   readonly latestRun: ThreadFeedLatestRun | null;
-  readonly expandedRunIds: ReadonlySet<RunId>;
-  readonly expandedWorkGroupIds: ReadonlySet<string>;
   readonly activeWorkStartedAt: string | null;
   readonly runlessWorkActive: boolean;
   readonly rows: ReadonlyArray<ThreadFeedEntry>;
@@ -1319,8 +1365,6 @@ function presentationRestart(
   previous: ThreadFeedPresentationBuild | null,
   feed: ReadonlyArray<ThreadFeedEntry>,
   latestRun: ThreadFeedLatestRun | null,
-  expandedRunIds: ReadonlySet<RunId>,
-  expandedWorkGroupIds: ReadonlySet<string>,
   activeWorkStartedAt: string | null,
   runlessWorkActive: boolean,
 ): { readonly entry: number; readonly rowsLength: number; readonly index: number } | null {
@@ -1328,9 +1372,7 @@ function presentationRestart(
     previous === null ||
     !latestRunsEqual(previous.latestRun, latestRun) ||
     previous.activeWorkStartedAt !== activeWorkStartedAt ||
-    previous.runlessWorkActive !== runlessWorkActive ||
-    !setsEqual(previous.expandedRunIds, expandedRunIds) ||
-    !setsEqual(previous.expandedWorkGroupIds, expandedWorkGroupIds)
+    previous.runlessWorkActive !== runlessWorkActive
   ) {
     return null;
   }
@@ -1350,8 +1392,6 @@ function presentationRestart(
 export function deriveThreadFeedPresentation(
   feed: ReadonlyArray<ThreadFeedEntry>,
   latestRun: ThreadFeedLatestRun | null,
-  expandedRunIds: ReadonlySet<RunId>,
-  expandedWorkGroupIds: ReadonlySet<string> = new Set(),
   activeWorkStartedAt: string | null = null,
   runlessWorkActive = false,
   cache?: ThreadFeedCache,
@@ -1361,8 +1401,6 @@ export function deriveThreadFeedPresentation(
     previous,
     feed,
     latestRun,
-    expandedRunIds,
-    expandedWorkGroupIds,
     activeWorkStartedAt,
     runlessWorkActive,
   );
@@ -1425,9 +1463,7 @@ export function deriveThreadFeedPresentation(
   );
   const collapsedEntryIds = new Set<string>();
   for (const fold of foldsByAnchorId.values()) {
-    if (!expandedRunIds.has(fold.runId)) {
-      for (const entryId of fold.hiddenEntryIds) collapsedEntryIds.add(entryId);
-    }
+    for (const entryId of fold.hiddenEntryIds) collapsedEntryIds.add(entryId);
   }
   for (let sourceIndex = 0; sourceIndex < sourceFeed.length; sourceIndex += 1) {
     const entry = sourceFeed[sourceIndex]!;
@@ -1449,24 +1485,19 @@ export function deriveThreadFeedPresentation(
       entry.runId === activeRunId;
     const fold = foldsByAnchorId.get(entry.id);
     if (fold) {
-      const expanded = expandedRunIds.has(fold.runId);
       let row = runFoldRowsCache.get(entry);
       if (
         !row ||
         row.runId !== fold.runId ||
         row.createdAt !== fold.createdAt ||
-        row.label !== fold.label ||
-        row.expanded !== expanded ||
-        row.deferredWorkItemIds?.join("|") !== fold.deferredWorkItemIds?.join("|")
+        row.label !== fold.label
       ) {
         row = {
           type: "run-fold",
           id: `run-fold:${fold.runId}`,
-          ...(fold.deferredWorkItemIds ? { deferredWorkItemIds: fold.deferredWorkItemIds } : {}),
           createdAt: fold.createdAt,
           runId: fold.runId,
           label: fold.label,
-          expanded,
         };
         runFoldRowsCache.set(entry, row);
       }
@@ -1507,14 +1538,7 @@ export function deriveThreadFeedPresentation(
         result.push(...rows);
         continue;
       }
-      appendPresentedFeedEntry(
-        result,
-        entry,
-        expandedWorkGroupIds,
-        activeRunId,
-        isWorking,
-        isActiveTailGroup,
-      );
+      appendPresentedFeedEntry(result, entry, activeRunId, isWorking, isActiveTailGroup);
     }
   }
   if (
@@ -1613,8 +1637,6 @@ export function deriveThreadFeedPresentation(
     cache.presentation = {
       feed,
       latestRun,
-      expandedRunIds,
-      expandedWorkGroupIds,
       activeWorkStartedAt,
       runlessWorkActive,
       rows: result,
@@ -1663,7 +1685,6 @@ function thinkingRow(createdAt: string, runId: RunId | null) {
 function appendPresentedFeedEntry(
   result: ThreadFeedEntry[],
   entry: Exclude<ThreadFeedEntry, { readonly type: "run-fold" | "work-toggle" | "thinking" }>,
-  expandedWorkGroupIds: ReadonlySet<string>,
   activeRunId: RunId | null,
   isWorking: boolean,
   activeTail: boolean,
@@ -1687,13 +1708,10 @@ function appendPresentedFeedEntry(
     !cached ||
     cached.activeRunId !== activeRunId ||
     cached.isWorking !== isWorking ||
-    cached.activeTail !== activeTail ||
-    cached.rows.some(
-      (row) => row.type === "work-toggle" && expandedWorkGroupIds.has(row.groupId) !== row.expanded,
-    )
+    cached.activeTail !== activeTail
   ) {
     const rows: ThreadFeedEntry[] = [];
-    appendActivityGroupRows(rows, entry, expandedWorkGroupIds, activeRunId, isWorking, activeTail);
+    appendActivityGroupRows(rows, entry, activeRunId, isWorking, activeTail);
     cached = { activeRunId, isWorking, activeTail, rows };
     presentedActivityGroupsCache.set(entry, cached);
   }
@@ -1705,7 +1723,6 @@ function appendPresentedFeedEntry(
 function appendActivityGroupRows(
   result: ThreadFeedEntry[],
   entry: ThreadFeedActivityGroup,
-  expandedWorkGroupIds: ReadonlySet<string>,
   activeRunId: RunId | null,
   isWorking: boolean,
   activeTail: boolean,
@@ -1737,8 +1754,7 @@ function appendActivityGroupRows(
       result,
       entry,
       groupableRun,
-      `work-group:${groupAnchorIdByActivityId.get(groupableRun[0]!.id) ?? groupableRun[0]!.id}`,
-      expandedWorkGroupIds,
+      groupAnchorIdByActivityId.get(groupableRun[0]!.id) ?? groupableRun[0]!.id,
       activeRunId,
       isWorking,
       activeTail && isTrailingRun,
@@ -1768,13 +1784,12 @@ function appendToolGroupRows(
   result: ThreadFeedEntry[],
   sourceGroup: Extract<ThreadFeedEntry, { readonly type: "activity-group" }>,
   activities: ReadonlyArray<ThreadFeedActivity>,
-  groupId: string,
-  expandedWorkGroupIds: ReadonlySet<string>,
+  anchorActivityId: string,
   activeRunId: RunId | null,
   isWorking: boolean,
   activeTail: boolean,
 ): void {
-  const expanded = expandedWorkGroupIds.has(groupId);
+  const groupId = `work-group:${anchorActivityId}`;
   const latestActiveActivity = activities.findLast(
     (activity) =>
       isWorking && activity.lifecycleStatus === "inProgress" && activity.runId === activeRunId,
@@ -1785,17 +1800,16 @@ function appendToolGroupRows(
   const shimmer = activeTail && (active || latestActivity.status === "success");
   const singleActivity = activities.length === 1 ? latestActivity : null;
   const groupSummary = summarizeToolGroup(activities.map((activity) => activity.workEntry));
-  const latestThought =
-    live && !expanded
-      ? activities.findLast(
-          (activity) =>
-            activity.workEntry.itemType === "reasoning" &&
-            (activity.workEntry.detail?.trim() ?? "") !== "",
-        )?.workEntry.detail
-      : undefined;
+  const latestThought = live
+    ? activities.findLast(
+        (activity) =>
+          activity.workEntry.itemType === "reasoning" &&
+          (activity.workEntry.detail?.trim() ?? "") !== "",
+      )?.workEntry.detail
+    : undefined;
   const thought = latestThought ? compactWorkEntryText(liveThoughtLine(latestThought)) : "";
   const summary = live
-    ? (expanded || thought) && latestActivity.workEntry.itemType === "reasoning"
+    ? thought && latestActivity.workEntry.itemType === "reasoning"
       ? latestActivity.lifecycleStatus === "inProgress"
         ? "Thinking"
         : "Thought"
@@ -1803,19 +1817,19 @@ function appendToolGroupRows(
     : singleActivity !== null &&
         singleActivity.toolLike &&
         toolGroupAction(singleActivity.workEntry) !== "edit"
-      ? singleToolCallLabel(singleActivity, expanded)
+      ? singleToolCallLabel(singleActivity)
       : singleActivity !== null && !singleActivity.toolLike
         ? singleActivity.workEntry.label
         : groupSummary.summary;
   const id = shimmer ? LIVE_ACTIVITY_ROW_ID : `${live ? "work-live" : "work-toggle"}:${groupId}`;
-  // Lone calls replace the header and disclose directly; lone thoughts retain the header to show text on expansion.
+  // A lone call stands in for its group header; a lone thought keeps the header for its thought line.
   if (singleActivity !== null && singleActivity.workEntry.itemType !== "reasoning") {
     result.push({
       type: "activity-group",
       id,
       createdAt: singleActivity.createdAt,
       runId: singleActivity.runId,
-      activities: [{ ...singleActivity, live: shimmer, groupStandIn: { groupId, label: summary } }],
+      activities: [{ ...singleActivity, live: shimmer, groupStandIn: { label: summary } }],
       // No trailing margin lets Thinking or a growing group replace the row without shifting the feed.
       continuesWorkLog: true,
     });
@@ -1850,9 +1864,8 @@ function appendToolGroupRows(
     id,
     createdAt: sourceGroup.createdAt,
     runId: sourceGroup.runId,
-    groupId,
+    activityId: anchorActivityId,
     hiddenCount: activities.length,
-    expanded,
     summary,
     summaryKind: toolGroupSummaryKind(
       (live ? [latestActivity] : activities).map((activity) => activity.workEntry),
@@ -1869,22 +1882,6 @@ function appendToolGroupRows(
     })(),
     live,
     shimmer,
-  });
-  if (!expanded) return;
-  result.push({
-    type: "activity-group",
-    id: `work-details:${groupId}`,
-    createdAt: activities[0]!.createdAt,
-    runId: activities[0]!.runId,
-    activities: activities.map((activity) => ({
-      ...activity,
-      groupedToolDetail: true,
-      live:
-        isWorking &&
-        activity.id === latestActivity.id &&
-        activity.lifecycleStatus === "inProgress" &&
-        activity.runId === activeRunId,
-    })),
   });
 }
 

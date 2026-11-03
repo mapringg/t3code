@@ -98,6 +98,7 @@ import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspace
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { isDuoDevice } from "../../lib/device-type";
 import {
+  createContext,
   memo,
   useCallback,
   useContext,
@@ -121,6 +122,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   type ColorValue,
   useWindowDimensions,
@@ -140,6 +142,7 @@ import { inlineFilePreviewKind, isPdfFile } from "../../lib/filePreview";
 import { ThreadInlineFilePreview } from "./ThreadInlineFilePreview";
 import { flattenThemeColor } from "../../lib/mobileTheme";
 import { PresentationSource } from "../../components/ui/NativePresentation";
+import { Sheet } from "../../components/ui/Sheet";
 import { NativeScrollViewMarker } from "../../native/NativeScrollViewMarker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown, type SharedValue } from "react-native-reanimated";
@@ -182,7 +185,6 @@ import {
   deriveCenteredContentHorizontalPadding,
   deriveThreadFeedInitialContentInset,
   deriveThreadWorkLogSizing,
-  THREAD_WORK_LOG_END_GAP,
   type LayoutVariant,
 } from "../../lib/layout";
 import { uuidv4 } from "../../lib/uuid";
@@ -199,6 +201,7 @@ import {
   failedFeedRunIds,
   deriveThreadFeedPresentation,
   threadFeedRunIsUnsettled,
+  threadFeedRunWork,
   isContextCompactionActivityGroup,
   isContextHandoffActivityGroup,
   isLinkRequestActivityGroup,
@@ -215,17 +218,14 @@ import {
   resolveThreadFeedReflowScroll,
   type ThreadFeedLiveFollowEvent,
   type ThreadFeedReflowAnchor,
-  type ThreadWorkGroupScrollPosition,
 } from "./thread-feed-live-follow";
 import {
-  collapsedWorkLogHeight,
   ThreadDisclosureChevron,
-  THREAD_DISCLOSURE_TRANSITION_MS,
   ThreadWorkGroupToggle,
   ThreadThinkingRow,
   ThreadWorkLog,
-  WORK_GROUP_TOGGLE_HEIGHT,
 } from "./thread-work-log";
+import { ThreadRunSheet } from "./thread-run-sheet";
 import {
   appendGuestPendingMessages,
   appendPendingThreadMessages,
@@ -311,10 +311,9 @@ const FEED_REFLOW_SETTLE_MS = 200;
 // across all of them keeps a passing moment off the end from re-anchoring the rest to a row.
 const FEED_REFLOW_HOLD_MS = 600;
 const USER_BUBBLE_HORIZONTAL_PADDING = 3.5 * 3.5;
+const RUN_SHEET_TITLE = "Work";
+const MAINTAIN_VISIBLE_CONTENT_POSITION = { data: true, size: true } as const;
 const ASSISTANT_ROW_HORIZONTAL_PADDING = 3.5;
-const THREAD_FEED_DISCLOSURE_ENTER_TRANSITION = FadeIn.delay(
-  THREAD_DISCLOSURE_TRANSITION_MS,
-).duration(140);
 
 // Virtualization remounts old rows; only newly created content should replay an entrance.
 const FRESH_ENTRY_WINDOW_MS = 3_000;
@@ -1263,38 +1262,87 @@ function AssistantMarkdownBlocks(props: {
   });
 }
 
+// Inside a sheet, folds open in place; in the feed they open a sheet so rows keep their height.
+const InlineFoldsContext = createContext(false);
+
 function MarkdownDetailsFold(props: {
   readonly summary: string;
   readonly initiallyOpen: boolean;
   readonly children: ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(props.initiallyOpen);
+  const inline = useContext(InlineFoldsContext);
+  const [open, setOpen] = useState(inline && props.initiallyOpen);
   const iconSubtleColor = useUniwindTheme()["--color-icon-subtle"];
+  if (!inline && props.initiallyOpen) {
+    return <View className="my-2 border-y border-border py-2">{props.children}</View>;
+  }
   return (
     <View className="my-2 border-y border-border">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={props.summary}
-        accessibilityState={{ expanded }}
+        accessibilityHint={inline ? undefined : "Opens the hidden section"}
+        accessibilityState={inline ? { expanded: open } : undefined}
         hitSlop={4}
         className="min-h-10 flex-row items-center gap-2 py-2"
         onPress={() => {
           void Haptics.selectionAsync();
-          setExpanded((value) => !value);
+          setOpen((value) => !value);
         }}
       >
-        <ThreadDisclosureChevron
-          expanded={expanded}
-          collapsedDirection="right"
-          size={12}
-          tintColor={iconSubtleColor}
-        />
+        {inline ? (
+          <ThreadDisclosureChevron
+            expanded={open}
+            collapsedDirection="right"
+            size={12}
+            tintColor={iconSubtleColor}
+          />
+        ) : null}
         <Text className="min-w-0 shrink font-t3-medium text-sm text-foreground">
           {props.summary}
         </Text>
+        {inline ? null : (
+          <SymbolView
+            name="chevron.right"
+            size={12}
+            tintColor={iconSubtleColor}
+            type="monochrome"
+          />
+        )}
       </Pressable>
-      {expanded ? <View className="pb-3 pl-5">{props.children}</View> : null}
+      {open && inline ? <View className="pb-3 pl-5">{props.children}</View> : null}
+      {open && !inline ? (
+        <FeedContentSheet title={props.summary} onClose={() => setOpen(false)}>
+          {props.children}
+        </FeedContentSheet>
+      ) : null}
     </View>
+  );
+}
+
+/** Content a feed row folds away, in a sheet so the row keeps one height. */
+function FeedContentSheet(props: {
+  readonly title: string;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Sheet title={props.title} onClose={props.onClose}>
+      <ScrollView
+        nestedScrollEnabled
+        className="flex-1"
+        contentInsetAdjustmentBehavior={Platform.OS === "ios" ? "automatic" : "never"}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          gap: 12,
+          paddingBottom: Math.max(20, insets.bottom),
+        }}
+      >
+        <InlineFoldsContext value>{props.children}</InlineFoldsContext>
+      </ScrollView>
+    </Sheet>
   );
 }
 
@@ -1372,54 +1420,60 @@ function useMarkdownStyles(): MarkdownStyleSets {
 }
 
 /** Messages from other agents fold to one line so the user's own messages stay easy to find. */
-function AgentMessageFoldHeader(props: {
+function AgentMessageFold(props: {
   readonly environmentId: EnvironmentId;
   readonly senderThreadId?: ThreadId;
   readonly summary: string;
-  readonly expanded: boolean;
-  readonly onToggle: () => void;
   readonly iconSubtleColor: ColorValue;
+  readonly renderContent: () => ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   const senderShell = useQuietThreadShell(
     props.senderThreadId ? scopeThreadRef(props.environmentId, props.senderThreadId) : null,
   );
   const label = senderShell?.title.trim() || "Agent";
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${props.summary}`}
-      accessibilityHint={`Double tap to ${props.expanded ? "hide" : "show"} the message.`}
-      accessibilityState={{ expanded: props.expanded }}
-      hitSlop={4}
-      className="min-h-10 flex-row items-center gap-1.5 px-3.5 py-2"
-      onPress={() => {
-        void Haptics.selectionAsync();
-        props.onToggle();
-      }}
-    >
-      <SymbolView
-        name="bubble.left.and.bubble.right"
-        size={14}
-        weight="medium"
-        tintColorClassName="accent-user-bubble-foreground-muted"
-        type="monochrome"
-      />
-      <Text
-        numberOfLines={1}
-        className="max-w-[50%] shrink-0 font-t3-medium text-sm text-user-bubble-foreground-muted"
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${props.summary}`}
+        accessibilityHint="Opens the message"
+        hitSlop={4}
+        className="min-h-10 flex-row items-center gap-1.5 px-3.5 py-2"
+        onPress={() => {
+          void Haptics.selectionAsync();
+          setOpen(true);
+        }}
       >
-        {label}
-      </Text>
-      <Text numberOfLines={1} className="min-w-0 shrink text-sm text-user-bubble-foreground">
-        {props.summary}
-      </Text>
-      <ThreadDisclosureChevron
-        expanded={props.expanded}
-        collapsedDirection="down"
-        size={11}
-        tintColor={props.iconSubtleColor}
-      />
-    </Pressable>
+        <SymbolView
+          name="bubble.left.and.bubble.right"
+          size={14}
+          weight="medium"
+          tintColorClassName="accent-user-bubble-foreground-muted"
+          type="monochrome"
+        />
+        <Text
+          numberOfLines={1}
+          className="max-w-[50%] shrink-0 font-t3-medium text-sm text-user-bubble-foreground-muted"
+        >
+          {label}
+        </Text>
+        <Text numberOfLines={1} className="min-w-0 shrink text-sm text-user-bubble-foreground">
+          {props.summary}
+        </Text>
+        <SymbolView
+          name="chevron.right"
+          size={11}
+          tintColor={props.iconSubtleColor}
+          type="monochrome"
+        />
+      </Pressable>
+      {open ? (
+        <FeedContentSheet title={label} onClose={() => setOpen(false)}>
+          {props.renderContent()}
+        </FeedContentSheet>
+      ) : null}
+    </>
   );
 }
 
@@ -1451,11 +1505,8 @@ function ThreadAutomationMessageRow(props: {
   readonly context?: OrchestrationMessageContext;
   readonly scheduledTaskId: ScheduledTaskId | undefined;
   readonly timestampLabel: string;
-  readonly expanded: boolean;
-  readonly onToggle: () => void;
   readonly bubbleColor: ColorValue;
   readonly bubbleMaxWidth: number | "85%";
-  readonly contentMaxWidth: number;
   readonly iconSubtleColor: ColorValue;
   readonly markdownStyles: MarkdownStyleSet;
   readonly reviewCommentColors: ReviewCommentColors;
@@ -1464,6 +1515,7 @@ function ThreadAutomationMessageRow(props: {
   readonly renderImage: MarkdownImageRenderer;
 }) {
   const navigation = useNavigation();
+  const [open, setOpen] = useState(false);
   const tasks = useEnvironmentQuery(
     props.scheduledTaskId
       ? serverEnvironment.scheduledTasksLive({ environmentId: props.environmentId, input: {} })
@@ -1476,22 +1528,17 @@ function ThreadAutomationMessageRow(props: {
     <View className="mb-5 items-end">
       <View
         className="min-w-0 rounded-[20px]"
-        style={{
-          backgroundColor: props.bubbleColor,
-          maxWidth: props.bubbleMaxWidth,
-          ...(props.expanded ? { width: props.bubbleMaxWidth } : null),
-        }}
+        style={{ backgroundColor: props.bubbleColor, maxWidth: props.bubbleMaxWidth }}
       >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Automation: ${summary}`}
-          accessibilityHint={`Double tap to ${props.expanded ? "hide" : "show"} the prompt.`}
-          accessibilityState={{ expanded: props.expanded }}
+          accessibilityHint="Opens the prompt"
           hitSlop={4}
           className="min-h-10 flex-row items-center gap-1.5 px-3.5 py-2"
           onPress={() => {
             void Haptics.selectionAsync();
-            props.onToggle();
+            setOpen(true);
           }}
         >
           <SymbolView
@@ -1507,52 +1554,51 @@ function ThreadAutomationMessageRow(props: {
           <Text numberOfLines={1} className="min-w-0 shrink text-sm text-user-bubble-foreground">
             {summary}
           </Text>
-          <ThreadDisclosureChevron
-            expanded={props.expanded}
-            collapsedDirection="down"
+          <SymbolView
+            name="chevron.right"
             size={11}
             tintColor={props.iconSubtleColor}
+            type="monochrome"
           />
         </Pressable>
-        {props.expanded ? (
-          <View className="px-3.5 pb-2.5">
-            <MarkdownImageAvailableWidthContext value={props.contentMaxWidth}>
-              <UserMessageContent
-                text={renderAssistantCitationsAsText(props.text)}
-                environmentId={props.environmentId}
-                context={props.context}
-                markdownStyles={props.markdownStyles}
-                reviewCommentColors={props.reviewCommentColors}
-                skills={props.skills}
-                linkHandlers={props.linkHandlers}
-                renderImage={props.renderImage}
-              />
-            </MarkdownImageAvailableWidthContext>
-          </View>
-        ) : null}
       </View>
-      {props.expanded ? (
-        <View className="mt-1 flex-row items-center justify-end gap-2 pr-0.5">
-          {props.scheduledTaskId ? (
-            <Pressable
-              accessibilityRole="link"
-              hitSlop={6}
-              onPress={() => openSettings(navigation, "SettingsScheduledTasks")}
-            >
-              <Text className="font-t3-medium text-xs text-foreground-secondary">
-                Open automation
-              </Text>
-            </Pressable>
-          ) : null}
-          <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
-            {props.timestampLabel}
-          </Text>
-          <UserMessageCopyButton
-            text={props.text}
-            onCopy={undefined}
-            tintColor={props.iconSubtleColor}
+      {open ? (
+        <FeedContentSheet title={taskTitle ?? "Automation"} onClose={() => setOpen(false)}>
+          <UserMessageContent
+            text={renderAssistantCitationsAsText(props.text)}
+            environmentId={props.environmentId}
+            context={props.context}
+            markdownStyles={props.markdownStyles}
+            reviewCommentColors={props.reviewCommentColors}
+            skills={props.skills}
+            linkHandlers={props.linkHandlers}
+            renderImage={props.renderImage}
           />
-        </View>
+          <View className="flex-row items-center justify-end gap-2">
+            {props.scheduledTaskId ? (
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={6}
+                onPress={() => {
+                  setOpen(false);
+                  openSettings(navigation, "SettingsScheduledTasks");
+                }}
+              >
+                <Text className="font-t3-medium text-xs text-foreground-secondary">
+                  Open automation
+                </Text>
+              </Pressable>
+            ) : null}
+            <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+              {props.timestampLabel}
+            </Text>
+            <UserMessageCopyButton
+              text={props.text}
+              onCopy={undefined}
+              tintColor={props.iconSubtleColor}
+            />
+          </View>
+        </FeedContentSheet>
       ) : null}
     </View>
   );
@@ -1567,88 +1613,37 @@ function compactionLabel(label: string, title: string | undefined) {
 
 function RunFoldButton({
   entry,
-  environmentId,
-  threadId,
-  onToggle,
+  onOpen,
   rowSizing,
   iconColor,
 }: {
   entry: Extract<ThreadFeedEntry, { type: "run-fold" }>;
-  environmentId: EnvironmentId;
-  threadId: ThreadId;
-  onToggle: (runId: RunId) => void;
+  onOpen: () => void;
   rowSizing: ReturnType<typeof deriveThreadWorkLogSizing>;
   iconColor: ColorValue;
 }) {
-  const loadWork = useAtomCommand(threadEnvironment.loadEarlierHistory, { reportFailure: false });
-  const anchorsKey = entry.deferredWorkItemIds?.join("\n") ?? "";
-  const [failed, setFailed] = useState(false);
-  const load = () => {
-    if (!anchorsKey) return;
-    void Promise.all(
-      anchorsKey
-        .split("\n")
-        .map((workAnchorId) => loadWork({ environmentId, input: { threadId, workAnchorId } })),
-    ).then((results) =>
-      setFailed(
-        results.some((result) => result._tag === "Failure" || result.value._tag === "error"),
-      ),
-    );
-  };
-  const loadOnExpand = useEffectEvent(load);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Restored expanded folds load their deferred server history on mount.
-  useEffect(() => {
-    if (entry.expanded && anchorsKey && environmentId && threadId) loadOnExpand();
-  }, [entry.expanded, anchorsKey, environmentId, threadId]);
-  const error = anchorsKey && failed ? "Couldn't load work. Tap to retry." : null;
-  const loading = entry.expanded && anchorsKey !== "" && !failed;
-  const toggle = () => {
-    setFailed(false);
-    if (error && entry.expanded) load();
-    else onToggle(entry.runId);
-  };
-
   return (
-    <View className="min-w-0 flex-1">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: entry.expanded, busy: loading }}
-        onPress={toggle}
-        // Sized like the work rows it heads; the slop keeps a 44dp target.
-        hitSlop={8}
-        className="min-w-0 flex-1 flex-row items-center gap-2"
-        style={{ minHeight: rowSizing.estimatedRowHeight }}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Opens this run's work"
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onOpen();
+      }}
+      // Sized like the work rows it heads; the slop keeps a 44dp target.
+      hitSlop={8}
+      className="min-w-0 flex-1 flex-row items-center gap-2"
+      style={{ minHeight: rowSizing.estimatedRowHeight }}
+    >
+      <Text
+        key={rowSizing.textSizeKey}
+        numberOfLines={1}
+        className="shrink font-t3-medium text-sm tabular-nums text-foreground-muted"
       >
-        <Text
-          key={rowSizing.textSizeKey}
-          numberOfLines={1}
-          className="shrink font-t3-medium text-sm tabular-nums text-foreground-muted"
-        >
-          {entry.label}
-          {error ? ` · ${error}` : ""}
-        </Text>
-        <ThreadDisclosureChevron
-          expanded={entry.expanded}
-          collapsedDirection="right"
-          size={15}
-          tintColor={iconColor}
-        />
-      </Pressable>
-      {loading ? (
-        <View
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-          className="gap-2 px-1 pb-2"
-        >
-          {(["40%", "60%", "33%"] as const).map((width) => (
-            <View key={width} className="flex-row items-center gap-2">
-              <View className="size-3 rounded bg-subtle-strong" />
-              <View className="h-2.5 rounded-full bg-subtle-strong" style={{ width }} />
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </View>
+        {entry.label}
+      </Text>
+      <SymbolView name="chevron.right" size={15} tintColor={iconColor} type="monochrome" />
+    </Pressable>
   );
 }
 
@@ -1665,17 +1660,14 @@ function renderFeedEntry(
     | "workspaceRoot"
   > & {
     readonly copiedRowId: string | null;
-    readonly expandedWorkRows: Record<string, boolean>;
     readonly workRowSizing: ReturnType<typeof deriveThreadWorkLogSizing>;
-    readonly workGroupScrollPositions: Map<string, ThreadWorkGroupScrollPosition>;
     readonly terminalAssistantMessageIds: ReadonlySet<string>;
     readonly unsettledTurnId: RunId | null;
     readonly compactionLabelsByEntryId: ReadonlyMap<string, { title: string; compacting: string }>;
     readonly failedRunIds: ReadonlySet<RunId>;
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
-    readonly onToggleWorkGroup: (groupId: string, anchorKey?: string) => void;
-    readonly onToggleWorkRow: (rowId: string, anchorKey?: string, groupId?: string) => void;
-    readonly onToggleTurnFold: (runId: RunId) => void;
+    /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
+    readonly onOpenRun: (anchor: string, title: string) => void;
     readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
     readonly onPressPreview: (source: FilePreviewSource) => void;
     readonly onPlaybackStart: () => void;
@@ -1724,13 +1716,10 @@ function renderFeedEntry(
 
   if (entry.type === "run-fold") {
     return (
-      <View className={cn("flex-row items-center px-2", entry.expanded ? "mb-1" : "mb-3")}>
+      <View className="mb-3 flex-row items-center px-2">
         <RunFoldButton
-          key={entry.id}
           entry={entry}
-          environmentId={props.environmentId}
-          threadId={props.threadId}
-          onToggle={props.onToggleTurnFold}
+          onOpen={() => props.onOpenRun(entry.runId, entry.label)}
           rowSizing={props.workRowSizing}
           iconColor={iconSubtleColor}
         />
@@ -1780,7 +1769,6 @@ function renderFeedEntry(
       <ThreadWorkGroupToggle
         environmentId={props.environmentId}
         rowSizing={props.workRowSizing}
-        expanded={entry.expanded}
         hiddenCount={entry.hiddenCount}
         iconSubtleColor={iconSubtleColor}
         summary={entry.summary}
@@ -1800,7 +1788,7 @@ function renderFeedEntry(
             />
           ) : null
         }
-        onToggle={() => props.onToggleWorkGroup(entry.groupId, entry.id)}
+        onPress={() => props.onOpenRun(entry.activityId, RUN_SHEET_TITLE)}
       />
     );
   }
@@ -1915,7 +1903,6 @@ function renderFeedEntry(
       );
     }
     if (isUser && presentation.attribution === "automation") {
-      const rowId = `automation:${message.id}`;
       return (
         <ThreadAutomationMessageRow
           environmentId={props.environmentId}
@@ -1923,13 +1910,10 @@ function renderFeedEntry(
           context={message.context}
           scheduledTaskId={presentation.scheduledTaskId}
           timestampLabel={timestampLabel}
-          expanded={props.expandedWorkRows[rowId] ?? false}
-          onToggle={() => props.onToggleWorkRow(rowId, entry.id)}
           bubbleColor={userBubbleColor}
           bubbleMaxWidth={props.duoColumns ? "85%" : props.userBubbleMaxWidth}
-          contentMaxWidth={props.userBubbleMaxWidth - USER_BUBBLE_HORIZONTAL_PADDING * 2}
           iconSubtleColor={iconSubtleColor}
-          markdownStyles={markdownStyles.user}
+          markdownStyles={markdownStyles.assistant}
           reviewCommentColors={props.reviewCommentColors}
           skills={props.skills}
           linkHandlers={props.markdownLinkHandlers}
@@ -1939,9 +1923,8 @@ function renderFeedEntry(
     }
     if (isUser) {
       const enterAnimated = isFreshTimestamp(message.createdAt);
-      const foldRowId = presentation.attribution === "agent" ? `agent:${message.id}` : null;
-      const foldExpanded = foldRowId !== null && (props.expandedWorkRows[foldRowId] ?? false);
-      const bubbleBodyVisible = foldRowId === null || foldExpanded;
+      const agentFold = presentation.attribution === "agent";
+      const bubbleBodyVisible = !agentFold;
       const intentBadge = props.userMessageGrouping.continuesSteer
         ? null
         : resolveUserMessageIntentBadge(message.inputIntent);
@@ -1955,7 +1938,7 @@ function renderFeedEntry(
             : [],
         ),
       );
-      const standaloneMedia = foldRowId === null && presentation.attribution !== "guest";
+      const standaloneMedia = !agentFold && presentation.attribution !== "guest";
       const mediaAttachments = standaloneMedia ? attachments.filter(isMediaAttachment) : [];
       const visibleAttachments = attachments.filter(
         (attachment) =>
@@ -1979,7 +1962,7 @@ function renderFeedEntry(
         : null;
       const hasBubble =
         fileCards === null &&
-        (foldRowId !== null ||
+        (agentFold ||
           presentation.text.trim().length > 0 ||
           visibleAttachments.length + pendingBubbleAttachments.length > 0);
       return (
@@ -2049,14 +2032,14 @@ function renderFeedEntry(
                   ? null
                   : hasReviewCommentContext
                     ? { width: props.reviewCommentBubbleWidth }
-                    : hasWideBlock || foldExpanded
+                    : hasWideBlock
                       ? { width: props.duoColumns ? "85%" : props.userBubbleMaxWidth }
                       : null),
               }}
             >
               {presentation.attribution === "guest" ? <GuestBubbleTint /> : null}
-              {foldRowId !== null ? (
-                <AgentMessageFoldHeader
+              {agentFold ? (
+                <AgentMessageFold
                   environmentId={props.environmentId}
                   senderThreadId={message.senderThreadId}
                   summary={
@@ -2065,13 +2048,47 @@ function renderFeedEntry(
                       .find((line) => line.trim().length > 0)
                       ?.trim() ?? ""
                   }
-                  expanded={foldExpanded}
-                  onToggle={() => props.onToggleWorkRow(foldRowId, entry.id)}
                   iconSubtleColor={iconSubtleColor}
+                  renderContent={() => (
+                    <>
+                      <UserMessageContent
+                        text={renderedText}
+                        environmentId={props.environmentId}
+                        context={message.context}
+                        markdownStyles={markdownStyles.assistant}
+                        reviewCommentColors={props.reviewCommentColors}
+                        skills={props.skills}
+                        linkHandlers={props.markdownLinkHandlers}
+                        renderImage={props.renderMarkdownImage}
+                      />
+                      <MessageAttachmentList
+                        attachments={attachments}
+                        environmentId={props.environmentId}
+                        onPressPreview={props.onPressPreview}
+                        onPlaybackStart={props.onPlaybackStart}
+                      />
+                      <View className="flex-row items-center justify-end gap-2">
+                        {message.senderThreadId ? (
+                          <OpenSenderThreadButton
+                            environmentId={props.environmentId}
+                            senderThreadId={message.senderThreadId}
+                          />
+                        ) : null}
+                        <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+                          {timestampLabel}
+                        </Text>
+                        <UserMessageCopyButton
+                          text={presentation.text}
+                          onCopy={undefined}
+                          tintColor={iconSubtleColor}
+                        />
+                      </View>
+                    </>
+                  )}
                 />
               ) : null}
               {bubbleBodyVisible ? (
-                <View className={cn("gap-2 px-3.5 pb-2.5", foldRowId === null && "pt-2.5")}>
+                <View className="gap-2 px-3.5 pb-2.5 pt-2.5">
                   {pendingBubbleAttachments.map((attachment) =>
                     attachment.type === "image" && attachment.uploadedAttachmentId ? (
                       <MessageAttachmentImage
@@ -2165,12 +2182,6 @@ function renderFeedEntry(
           ) : null}
           {bubbleBodyVisible ? (
             <View className="mt-1 flex-row items-center justify-end gap-1 pr-0.5">
-              {foldRowId !== null && message.senderThreadId ? (
-                <OpenSenderThreadButton
-                  environmentId={props.environmentId}
-                  senderThreadId={message.senderThreadId}
-                />
-              ) : null}
               {intentBadge ? (
                 <View
                   accessible
@@ -2312,16 +2323,11 @@ function renderFeedEntry(
       continuesWorkLog={entry.continuesWorkLog}
       environmentId={props.environmentId}
       workspaceRoot={props.workspaceRoot}
-      anchorKey={entry.id}
       copiedRowId={props.copiedRowId}
-      expandedRows={props.expandedWorkRows}
-      rowSizing={props.workRowSizing}
-      scrollPositions={props.workGroupScrollPositions}
       iconSubtleColor={iconSubtleColor}
-      edgeFadeColor={props.screenColor}
       themeAppearance={props.themeAppearance}
       onCopyRow={props.onCopyWorkRow}
-      onToggleRow={props.onToggleWorkRow}
+      onPressRow={(row) => props.onOpenRun(row.id, RUN_SHEET_TITLE)}
       renderImage={props.renderViewedImage}
       renderReasoning={props.renderReasoning}
       onPressPreview={props.onPressPreview}
@@ -2568,11 +2574,7 @@ function ThreadFeedPlaceholder(props: {
 
 // A hook's return value is frozen to the compiler, so ThreadFeed's later
 // hooks can't drag this derivation into an uncached scope.
-function useThreadFeedPresentation(
-  props: ThreadFeedProps,
-  expandedTurnIds: ReadonlySet<RunId>,
-  expandedWorkGroups: Record<string, boolean>,
-) {
+function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
   return appendPendingThreadMessages(
     deriveThreadFeedPresentation(
@@ -2582,12 +2584,6 @@ function useThreadFeedPresentation(
           entry.activities[0]?.projectedItem.item.type !== "subagent",
       ),
       props.latestRun,
-      expandedTurnIds,
-      new Set(
-        Object.entries(expandedWorkGroups)
-          .filter(([, expanded]) => expanded)
-          .map(([groupId]) => groupId),
-      ),
       props.activeWorkStartedAt,
       props.runlessWorkActive ?? false,
       feedCache,
@@ -2624,9 +2620,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   );
   const { themeAppearance } = useAppearancePreferences();
   const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const disclosureSettleFrameRef = useRef<number | null>(null);
-  const disclosureSettleSecondFrameRef = useRef<number | null>(null);
-  const disclosureAnchorKeyRef = useRef<string | null>(null);
   const userScrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerMaterialVisibleRef = useRef(false);
   const { width: windowWidth, fontScale } = useWindowDimensions();
@@ -2642,7 +2635,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   const viewportWidth =
     settledPaneWidth !== null ? Math.round(settledPaneWidth) : measuredViewportWidth;
   const [viewportHeight, setViewportHeight] = useState(0);
-  const [disclosureToggleSettling, setDisclosureToggleSettling] = useState(false);
   // LegendList's geometric follow threshold can reclaim users reading history when streamed rows grow.
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   const endFollowEnabledRef = useRef(true);
@@ -2673,18 +2665,12 @@ export const ThreadFeed = memo(function ThreadFeed({
     reflowAnchorRef.current = undefined;
     setReflowFollowsEnd(false);
   };
-  const [interactionState, setInteractionState] = useState<{
-    readonly copiedRowId: string | null;
-    readonly expandedWorkGroups: Record<string, boolean>;
-    readonly expandedWorkRows: Record<string, boolean>;
-    readonly expandedTurnIds: ReadonlySet<RunId>;
-  }>({
-    copiedRowId: null,
-    expandedWorkGroups: {},
-    expandedWorkRows: {},
-    expandedTurnIds: new Set(),
-  });
-  const { copiedRowId, expandedWorkGroups, expandedWorkRows, expandedTurnIds } = interactionState;
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
+  // Keyed by a run or one of its activities, so it follows a live run as its rows fold.
+  const [runSheet, setRunSheet] = useState<{
+    readonly anchor: string;
+    readonly title: string;
+  } | null>(null);
   const markdownLinkRequest = useRef<AbortController | null>(null);
   const onInlinePlaybackStart = () => {
     markdownLinkRequest.current?.abort();
@@ -3152,8 +3138,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     dispatchingMessageId: props.dispatchingMessageId,
     unsettledTurnId,
     copiedRowId,
-    expandedWorkGroups,
-    expandedWorkRows,
     workRowSizing,
     iconSubtleColor,
     markdownStyles,
@@ -3225,7 +3209,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const feedThreadKey = scopedThreadKey(props.environmentId, props.threadId);
-  const workGroupScrollPositions = new Map<string, ThreadWorkGroupScrollPosition>();
   // ThreadDetailScreen remounts the feed per thread, so only a send resets following.
   useImperativeHandle(ref, () => ({
     resetEndFollow: () => {
@@ -3237,26 +3220,20 @@ export const ThreadFeed = memo(function ThreadFeed({
   }));
 
   // Opening at a message: once the filled list has loaded, the render that sees
-  // the jump unfolds a run hiding the message and stops following the end, so
-  // the committed list holds the target row with end maintenance off.
+  // the jump stops following the end, so the committed list lands on the target
+  // row, or on the run line folding it, with end maintenance off.
   const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
   const { jumpToMessageId } = props;
   const jumpReady = !!jumpToMessageId && loadedListKey === `${feedThreadKey}:filled`;
-  const presentedFeed = appendGuestPendingMessages(
-    useThreadFeedPresentation(props, expandedTurnIds, expandedWorkGroups),
-    guestShare,
-  );
-  const jumpRunId =
-    jumpReady &&
-    !presentedFeed.some((entry) => entry.type === "message" && entry.id === jumpToMessageId)
-      ? messageFoldRunId(props.feed, jumpToMessageId)
-      : null;
-  if (jumpRunId && !expandedTurnIds.has(jumpRunId)) {
-    setInteractionState((current) => ({
-      ...current,
-      expandedTurnIds: new Set(current.expandedTurnIds).add(jumpRunId),
-    }));
-  }
+  const presentedFeed = appendGuestPendingMessages(useThreadFeedPresentation(props), guestShare);
+  // The feed already shows its own rows, such as a run's final answer.
+  const runSheetItems = (() => {
+    if (runSheet === null) return null;
+    const shownIds = new Set(presentedFeed.map((entry) => entry.id));
+    return threadFeedRunWork(props.feed, runSheet.anchor).filter(
+      (item) => item.type !== "message" || !shownIds.has(item.entry.id),
+    );
+  })();
   const setupAnchorIndex = presentedFeed.findIndex(
     (entry) => entry.type === "message" && entry.message.role === "user",
   );
@@ -3279,9 +3256,17 @@ export const ThreadFeed = memo(function ThreadFeed({
     const bottom = contentInsetEndAdjustment.get();
     if (list && bottom > 0) list.reportContentInset({ bottom });
   };
-  const jumpIndex = jumpReady
-    ? presentedFeed.findIndex((entry) => entry.type === "message" && entry.id === jumpToMessageId)
-    : null;
+  const jumpIndex = (() => {
+    if (!jumpReady) return null;
+    const index = presentedFeed.findIndex(
+      (entry) => entry.type === "message" && entry.id === jumpToMessageId,
+    );
+    if (index !== -1) return index;
+    const foldRunId = messageFoldRunId(props.feed, jumpToMessageId);
+    return presentedFeed.findIndex(
+      (entry) => entry.type === "run-fold" && entry.runId === foldRunId,
+    );
+  })();
   const followsEnd = endFollowEnabled && !jumpReady;
   const landJump = useEffectEvent((index: number) => {
     if (index !== -1) {
@@ -3374,102 +3359,19 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
     return new Set(terminalIdsByTurn.values());
   })();
-  // An interrupted run unfolds; a run that is no longer latest folds back.
-  const [previousLatestRun, setPreviousLatestRun] = useState(props.latestRun);
-  if (previousLatestRun !== props.latestRun) {
-    setPreviousLatestRun(props.latestRun);
-    const latest = props.latestRun;
-    const previous = previousLatestRun;
-    if (latest && previous) {
-      if (latest.runId !== previous.runId) {
-        if (expandedTurnIds.has(previous.runId)) {
-          setInteractionState((current) => {
-            const next = new Set(current.expandedTurnIds);
-            next.delete(previous.runId);
-            return { ...current, expandedTurnIds: next };
-          });
-        }
-      } else if (previous.status === "running" && latest.status === "interrupted") {
-        setInteractionState((current) => ({
-          ...current,
-          expandedTurnIds: new Set(current.expandedTurnIds).add(latest.runId),
-        }));
-      }
-    }
-  }
-
-  // Timers and frames the feed schedules die with it.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers and disclosure animation frames on unmount
+  // Timers the feed schedules die with it.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
   useEffect(
     () => () => {
       if (userScrollSettleTimerRef.current !== null) clearTimeout(userScrollSettleTimerRef.current);
       if (reflowSettleTimerRef.current !== null) clearTimeout(reflowSettleTimerRef.current);
       if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
-      if (disclosureSettleFrameRef.current !== null) {
-        cancelAnimationFrame(disclosureSettleFrameRef.current);
-      }
-      if (disclosureSettleSecondFrameRef.current !== null) {
-        cancelAnimationFrame(disclosureSettleSecondFrameRef.current);
-      }
     },
     [],
   );
 
-  const settleDisclosureAfterLayout = () => {
-    if (disclosureSettleFrameRef.current !== null) {
-      cancelAnimationFrame(disclosureSettleFrameRef.current);
-    }
-    if (disclosureSettleSecondFrameRef.current !== null) {
-      cancelAnimationFrame(disclosureSettleSecondFrameRef.current);
-    }
-    disclosureSettleFrameRef.current = requestAnimationFrame(() => {
-      disclosureSettleSecondFrameRef.current = requestAnimationFrame(() => {
-        const listState = listRef.current?.getState();
-        if (listState) {
-          transitionEndFollow({
-            type: "disclosure-settled",
-            isAtEnd: listState.isAtEnd,
-            userScrollSessionActive: userScrollSessionRef.current,
-          });
-        }
-        disclosureAnchorKeyRef.current = null;
-        setDisclosureToggleSettling(false);
-        disclosureSettleFrameRef.current = null;
-        disclosureSettleSecondFrameRef.current = null;
-      });
-    });
-  };
-
-  // The quiet-frame countdown's first frame lands after the disclosure's commit.
-  // Every measured item-size change restarts it, so end maintenance cannot
-  // wake between the data mutation and LegendList's final layout correction.
-  const suspendEndScrollMaintenanceForDisclosure = (anchorKey: string | null) => {
-    cancelReflow();
-    disclosureAnchorKeyRef.current = anchorKey;
-    setDisclosureToggleSettling(true);
-    settleDisclosureAfterLayout();
-  };
-
-  const handleItemSizeChanged = (info: {
-    readonly itemKey: string;
-    readonly previous: number;
-    readonly size: number;
-  }) => {
+  const handleItemSizeChanged = (info: { readonly itemKey: string; readonly size: number }) => {
     rememberedRowSizes.set(info.itemKey, info.size);
-    if (disclosureAnchorKeyRef.current !== null) {
-      settleDisclosureAfterLayout();
-    }
-  };
-
-  const shouldRestoreVisibleContentPosition = (entry: ThreadFeedRow) => {
-    const disclosureAnchorKey = disclosureAnchorKeyRef.current;
-    return disclosureAnchorKey === null || entry.id === disclosureAnchorKey;
-  };
-
-  const maintainVisibleContentPosition = {
-    data: true,
-    size: true,
-    shouldRestorePosition: shouldRestoreVisibleContentPosition,
   };
 
   const onCopyWorkRow = (rowId: string, value: string) => {
@@ -3477,56 +3379,17 @@ export const ThreadFeed = memo(function ThreadFeed({
       target: "thread-work-row",
       feedback: "selection",
     });
-    setInteractionState((current) => ({ ...current, copiedRowId: rowId }));
+    setCopiedRowId(rowId);
     if (copyFeedbackTimeoutRef.current) {
       clearTimeout(copyFeedbackTimeoutRef.current);
     }
     copyFeedbackTimeoutRef.current = setTimeout(() => {
-      setInteractionState((current) =>
-        current.copiedRowId === rowId ? { ...current, copiedRowId: null } : current,
-      );
+      setCopiedRowId((current) => (current === rowId ? null : current));
       copyFeedbackTimeoutRef.current = null;
     }, 1200);
   };
 
-  const onToggleWorkGroup = (groupId: string, anchorKey?: string) => {
-    suspendEndScrollMaintenanceForDisclosure(anchorKey ?? `work-toggle:${groupId}`);
-    setInteractionState((current) => ({
-      ...current,
-      expandedWorkGroups: {
-        ...current.expandedWorkGroups,
-        [groupId]: !(current.expandedWorkGroups[groupId] ?? false),
-      },
-    }));
-  };
-
-  // Lone rows share their group's disclosure state so opened details survive a second call joining.
-  const onToggleWorkRow = (rowId: string, anchorKey?: string, groupId?: string) => {
-    suspendEndScrollMaintenanceForDisclosure(anchorKey ?? null);
-    setInteractionState((current) => {
-      const expanded = !(current.expandedWorkRows[rowId] ?? false);
-      return {
-        ...current,
-        expandedWorkRows: { ...current.expandedWorkRows, [rowId]: expanded },
-        ...(groupId === undefined
-          ? {}
-          : { expandedWorkGroups: { ...current.expandedWorkGroups, [groupId]: expanded } }),
-      };
-    });
-  };
-
-  const onToggleTurnFold = (runId: RunId) => {
-    suspendEndScrollMaintenanceForDisclosure(`run-fold:${runId}`);
-    setInteractionState((current) => {
-      const next = new Set(current.expandedTurnIds);
-      if (next.has(runId)) {
-        next.delete(runId);
-      } else {
-        next.add(runId);
-      }
-      return { ...current, expandedTurnIds: next };
-    });
-  };
+  const onOpenRun = (anchor: string, title: string) => setRunSheet({ anchor, title });
 
   const onPressPreview = (source: FilePreviewSource) => {
     markdownLinkRequest.current?.abort();
@@ -3541,40 +3404,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     if (entry.type === "html-render") {
       return htmlRenderRowHeight(htmlRenderFrameHeight(entry.render, contentWidth));
     }
-    if (workRowSizing.fixedRowHeight === undefined || entry.checkpointSummary) {
-      return undefined;
-    }
-    switch (entry.type) {
-      case "run-fold":
-        return resolveThreadFeedFixedItemSize(entry);
-      case "work-toggle":
-        if (entry.thought) return undefined;
-        return entry.expanded
-          ? WORK_GROUP_TOGGLE_HEIGHT
-          : WORK_GROUP_TOGGLE_HEIGHT + THREAD_WORK_LOG_END_GAP;
-      case "thinking":
-        return WORK_GROUP_TOGGLE_HEIGHT;
-      case "activity-group":
-        if (entry.activities[0]?.projectedItem.item.type === "subagent") {
-          return undefined;
-        }
-        if (isContextCompactionActivityGroup(entry) || isContextHandoffActivityGroup(entry)) {
-          return undefined;
-        }
-        if (
-          entry.activities[0]?.groupedToolDetail &&
-          entry.activities.every((activity) => activity.workEntry.itemType === "reasoning")
-        ) {
-          return undefined;
-        }
-        return entry.activities.some(
-          (activity) => activity.prominent || expandedWorkRows[activity.id],
-        )
-          ? undefined
-          : collapsedWorkLogHeight(entry.activities, entry.continuesWorkLog);
-      default:
-        return undefined;
-    }
+    return resolveThreadFeedFixedItemSize(entry, workRowSizing.fixedRowHeight);
   };
   // Row geometry inputs mostly arrive as props with no handler here. LegendList
   // reads getFixedItemSize only when it renders, so its size cache is cleared
@@ -3599,68 +3429,59 @@ export const ThreadFeed = memo(function ThreadFeed({
   }, [textSizeKey, contentWidth, hasHtmlRenders, beginReflow, listRef]);
 
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
-    <Animated.View
-      key={info.item.id}
-      entering={disclosureToggleSettling ? THREAD_FEED_DISCLOSURE_ENTER_TRANSITION : undefined}
+    <MessageImageGalleryScope
+      entry={info.item}
+      environmentId={props.environmentId}
+      threadId={props.threadId}
+      workspaceRoot={props.workspaceRoot}
     >
-      <MessageImageGalleryScope
-        entry={info.item}
-        environmentId={props.environmentId}
-        threadId={props.threadId}
-        workspaceRoot={props.workspaceRoot}
-      >
-        <ThreadMediaVisibility>
-          {renderFeedEntry(info, {
-            userMessageGrouping: info.item.userMessageGrouping,
-            environmentId: props.environmentId,
-            dispatchingMessageId: props.dispatchingMessageId,
-            onEditPendingMessage: props.onEditPendingMessage,
-            onUseArtifactTemplate: props.onUseArtifactTemplate,
-            threadId: props.threadId,
-            copiedRowId,
-            expandedWorkRows,
-            workRowSizing,
-            workGroupScrollPositions,
-            terminalAssistantMessageIds,
-            unsettledTurnId,
-            compactionLabelsByEntryId,
-            failedRunIds,
-            onCopyWorkRow,
-            onToggleWorkGroup,
-            onToggleWorkRow,
-            onToggleTurnFold,
-            onOpenTurnDiff,
-            onPressPreview,
-            onPlaybackStart: onInlinePlaybackStart,
-            markdownLinkHandlers,
-            renderMarkdownImage,
-            renderViewedImage,
-            renderReasoning,
-            iconSubtleColor,
-            replyActionSize,
-            screenColor,
-            userBubbleColor,
-            markdownStyles,
-            reviewCommentColors,
-            reviewCommentBubbleWidth,
-            themeAppearance,
-            duoColumns,
-            userBubbleMaxWidth,
-            markdownContentWidth,
-            contentWidth,
-            threadTitle: props.threadTitle,
-            skills: props.skills,
-            workspaceRoot: props.workspaceRoot,
-            workflowOpening,
-          })}
-          {props.worktreeSetup && info.index === setupAnchorIndex ? (
-            <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />
-          ) : props.setupWorkingStartedAt && info.index === setupAnchorIndex ? (
-            <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
-          ) : null}
-        </ThreadMediaVisibility>
-      </MessageImageGalleryScope>
-    </Animated.View>
+      <ThreadMediaVisibility>
+        {renderFeedEntry(info, {
+          userMessageGrouping: info.item.userMessageGrouping,
+          environmentId: props.environmentId,
+          dispatchingMessageId: props.dispatchingMessageId,
+          onEditPendingMessage: props.onEditPendingMessage,
+          onUseArtifactTemplate: props.onUseArtifactTemplate,
+          threadId: props.threadId,
+          copiedRowId,
+          workRowSizing,
+          terminalAssistantMessageIds,
+          unsettledTurnId,
+          compactionLabelsByEntryId,
+          failedRunIds,
+          onCopyWorkRow,
+          onOpenRun,
+          onOpenTurnDiff,
+          onPressPreview,
+          onPlaybackStart: onInlinePlaybackStart,
+          markdownLinkHandlers,
+          renderMarkdownImage,
+          renderViewedImage,
+          renderReasoning,
+          iconSubtleColor,
+          replyActionSize,
+          screenColor,
+          userBubbleColor,
+          markdownStyles,
+          reviewCommentColors,
+          reviewCommentBubbleWidth,
+          themeAppearance,
+          duoColumns,
+          userBubbleMaxWidth,
+          markdownContentWidth,
+          contentWidth,
+          threadTitle: props.threadTitle,
+          skills: props.skills,
+          workspaceRoot: props.workspaceRoot,
+          workflowOpening,
+        })}
+        {props.worktreeSetup && info.index === setupAnchorIndex ? (
+          <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />
+        ) : props.setupWorkingStartedAt && info.index === setupAnchorIndex ? (
+          <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
+        ) : null}
+      </ThreadMediaVisibility>
+    </MessageImageGalleryScope>
   );
 
   if (props.contentPresentation.kind === "unavailable" && props.queuedMessages.length === 0) {
@@ -3721,7 +3542,7 @@ export const ThreadFeed = memo(function ThreadFeed({
             freeze={props.freeze}
             // Follow the measured end immediately; animating estimates races row measurement on acknowledgement.
             maintainScrollAtEnd={
-              disclosureToggleSettling || !followsEnd
+              !followsEnd
                 ? false
                 : {
                     animated: false,
@@ -3736,9 +3557,7 @@ export const ThreadFeed = memo(function ThreadFeed({
             // that otherwise lets a status-bar tap leave the end.
             maintainScrollAtEndThreshold={reflowFollowsEnd ? Number.POSITIVE_INFINITY : undefined}
             sizeChangeAnchor={reflowAnchorsSizeChanges ? holdReflowAnchor : undefined}
-            maintainVisibleContentPosition={
-              followsEnd && !disclosureToggleSettling ? false : maintainVisibleContentPosition
-            }
+            maintainVisibleContentPosition={followsEnd ? false : MAINTAIN_VISIBLE_CONTENT_POSITION}
             data={groupedFeed}
             extraData={listAppearanceData}
             renderItem={renderItem}
@@ -3829,6 +3648,25 @@ export const ThreadFeed = memo(function ThreadFeed({
               horizontalPadding={horizontalPadding}
             />
           </View>
+        ) : null}
+        {runSheet && runSheetItems ? (
+          <InlineFoldsContext value>
+            <ThreadRunSheet
+              title={runSheet.title}
+              environmentId={props.environmentId}
+              threadId={props.threadId}
+              workspaceRoot={props.workspaceRoot}
+              items={runSheetItems}
+              copiedRowId={copiedRowId}
+              iconSubtleColor={iconSubtleColor}
+              themeAppearance={themeAppearance}
+              onCopyRow={onCopyWorkRow}
+              renderImage={renderViewedImage}
+              renderMarkdown={(text) => renderReasoning(renderAssistantCitationsAsText(text))}
+              onPressPreview={onPressPreview}
+              onClose={() => setRunSheet(null)}
+            />
+          </InlineFoldsContext>
         ) : null}
         <VideoPreviewModal source={expandedVideo} onRequestClose={closeVideoPreview} />
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />
