@@ -3,7 +3,7 @@ import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScroll
 import Constants from "expo-constants";
 import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -99,18 +99,35 @@ function AppSettingsSection() {
               ? "Up to date"
               : null;
 
+  const android = Platform.OS === "android";
   const versionRow = (
-    <View className="flex-row items-center gap-4 p-4">
-      <SymbolView
-        name="info.circle"
-        size={22}
-        tintColorClassName="accent-icon"
-        type="monochrome"
-        weight="regular"
-      />
-      <Text className="flex-1 text-lg text-foreground">Version</Text>
+    <View
+      className={
+        android
+          ? "min-h-14 flex-row items-center gap-3 px-4 py-3"
+          : "flex-row items-center gap-4 p-4"
+      }
+    >
+      {android ? null : (
+        <SymbolView
+          name="info.circle"
+          size={22}
+          tintColorClassName="accent-icon"
+          type="monochrome"
+          weight="regular"
+        />
+      )}
+      <Text
+        className={android ? "flex-1 text-base text-foreground" : "flex-1 text-lg text-foreground"}
+      >
+        Version
+      </Text>
       <View className="items-end">
-        <Text className="text-lg text-foreground-muted">{versionLabel}</Text>
+        <Text
+          className={android ? "text-sm text-foreground-muted" : "text-lg text-foreground-muted"}
+        >
+          {versionLabel}
+        </Text>
         {statusLabel ? (
           <Text className="text-xs text-foreground-muted/70">{statusLabel}</Text>
         ) : null}

@@ -24,6 +24,8 @@ export function ListRowLayout({
 }: ListRowContentProps & { readonly accessory?: ReactNode; readonly tone?: "default" | "danger" }) {
   const { fontScale } = useWindowDimensions();
   const stackDetail = fontScale >= 1.5;
+  // Android rows are text-only; the label already names the row.
+  const showIcon = icon !== undefined && Platform.OS !== "android";
   return (
     <View
       className={cn(
@@ -32,11 +34,11 @@ export function ListRowLayout({
         disabled && "opacity-45",
       )}
     >
-      {icon ? (
+      {showIcon ? (
         <View className="size-6 items-center justify-center">
           <SymbolView
             name={icon}
-            size={Platform.OS === "android" ? 24 : 22}
+            size={22}
             tintColorClassName={tone === "danger" ? "accent-danger-foreground" : "accent-icon"}
             type="monochrome"
             weight="regular"
