@@ -11,6 +11,7 @@ import { AppText as Text, AppTextInput as TextInput } from "../../components/ui/
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
 import { ControlPill } from "../../components/ui/ControlPill";
+import * as Dialog from "../../components/ui/Dialog";
 import { cn } from "../../lib/cn";
 import type { DraftComposerImageAttachment } from "../../lib/composerImages";
 import { convertPastedImagesToAttachments, pickComposerImages } from "../../lib/composerImages";
@@ -98,6 +99,10 @@ export function ReviewCommentComposerSheet(props: ReviewCommentComposerSheetProp
         }
       } catch (error) {
         console.error("[review comment] error converting pasted images", error);
+        Dialog.alert(
+          "Could not paste image",
+          error instanceof Error ? error.message : "Try again.",
+        );
       }
     })();
   });
@@ -233,6 +238,7 @@ export function ReviewCommentComposerSheet(props: ReviewCommentComposerSheetProp
                   <View className="min-h-0 flex-1 px-4 pt-3.5">
                     <TextInputWrapper onPaste={handleNativePaste} style={{ flex: 1, minHeight: 0 }}>
                       <TextInput
+                        accessibilityLabel="Review comment"
                         autoFocus
                         multiline
                         scrollEnabled

@@ -30,6 +30,7 @@ import {
   Animated as NativeAnimated,
   type ColorValue,
   Easing,
+  Platform,
   ScrollView,
   StyleSheet,
   useAnimatedValue,
@@ -232,7 +233,17 @@ function ShimmerWorkContent(props: {
   );
 }
 
-export function ShimmeringWorkContent(props: {
+export function ShimmeringWorkContent(props: Parameters<typeof AnimatedShimmeringWorkContent>[0]) {
+  return Platform.OS === "android" ? (
+    <View className={cn("min-w-0 flex-1 overflow-hidden", props.className)}>
+      <ShimmerWorkContent {...props} highlighted={false} />
+    </View>
+  ) : (
+    <AnimatedShimmeringWorkContent {...props} />
+  );
+}
+
+function AnimatedShimmeringWorkContent(props: {
   readonly className?: string;
   readonly textClassName?: string;
   readonly compact?: boolean;

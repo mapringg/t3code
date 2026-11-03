@@ -666,7 +666,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     ) {
       return props.lifecycleStatus;
     }
-    if (props.selectedThread.goal !== null && contentPresentationKind === "ready") {
+    if (
+      Platform.OS !== "android" &&
+      props.selectedThread.goal !== null &&
+      contentPresentationKind === "ready"
+    ) {
       const goal = presentProviderGoal(props.selectedThread.goal, false);
       return {
         kind: "goal",
@@ -680,8 +684,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   const showFloatingStatus =
     showWorkingControl ||
     queuedCount > 0 ||
-    devicePreviews.length > 0 ||
-    browserTabs.tabs.length > 0 ||
+    (Platform.OS !== "android" && (devicePreviews.length > 0 || browserTabs.tabs.length > 0)) ||
     props.connectionStateLabel !== "connected" ||
     props.queuedMessages.length > 0 ||
     props.selectedThreadFeed.some(
@@ -1305,7 +1308,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
         <View className="flex-1" />
       )}
 
-      {showContent ? (
+      {Platform.OS !== "android" && showContent ? (
         <ThreadBrowserFloat
           key={selectedThreadKey}
           environmentId={props.environmentId}
@@ -1354,12 +1357,12 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     status={floatingStatus}
                     lift={floatingControlLift}
                     devicePreview={
-                      devicePreviews.length > 0
+                      Platform.OS !== "android" && devicePreviews.length > 0
                         ? { count: devicePreviews.length, onPress: openDevicePreview }
                         : null
                     }
                     browserPreview={
-                      browserTabs.tabs.length > 0
+                      Platform.OS !== "android" && browserTabs.tabs.length > 0
                         ? { count: browserTabs.tabs.length, onPress: () => openBrowserPreview() }
                         : null
                     }
@@ -1383,8 +1386,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     {props.queuedRunEdit !== null ? (
                       <Animated.View
                         className="shrink-0"
-                        entering={FadeInDown.duration(180)}
-                        exiting={FadeOut.duration(120)}
+                        entering={Platform.OS === "android" ? undefined : FadeInDown.duration(180)}
+                        exiting={Platform.OS === "android" ? undefined : FadeOut.duration(120)}
                       >
                         <ComposerQueuedEditBanner
                           saving={props.isSavingQueuedEdit}
@@ -1412,7 +1415,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                       threadRef={props.selectedThreadDetailRef}
                       canOperateThread={props.canOperateThread}
                     />
-                    {props.draftMode ? null : (
+                    {props.draftMode || Platform.OS === "android" ? null : (
                       <ThreadSideChatsRow
                         environmentId={props.environmentId}
                         threadId={props.selectedThread.id}
@@ -1442,8 +1445,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     {composerError !== null ? (
                       <Animated.View
                         className="shrink-0"
-                        entering={FadeInDown.duration(180)}
-                        exiting={FadeOut.duration(120)}
+                        entering={Platform.OS === "android" ? undefined : FadeInDown.duration(180)}
+                        exiting={Platform.OS === "android" ? undefined : FadeOut.duration(120)}
                       >
                         <ComposerErrorNotice
                           message={composerError}
@@ -1456,8 +1459,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                         className="shrink-0 px-4"
                         style={{ paddingBottom: USAGE_LIMITS_PANEL_GAP }}
                         onLayout={handleUsageLimitsLayout}
-                        entering={FadeInDown.duration(220)}
-                        exiting={FadeOut.duration(140)}
+                        entering={Platform.OS === "android" ? undefined : FadeInDown.duration(220)}
+                        exiting={Platform.OS === "android" ? undefined : FadeOut.duration(140)}
                       >
                         <ComposerUsageLimits
                           report={usageLimitsReport}
@@ -1471,8 +1474,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                       <Animated.View
                         className="shrink-0 px-4"
                         style={{ paddingBottom: composerBottomInset }}
-                        entering={FadeInDown.duration(220)}
-                        exiting={FadeOut.duration(140)}
+                        entering={Platform.OS === "android" ? undefined : FadeInDown.duration(220)}
+                        exiting={Platform.OS === "android" ? undefined : FadeOut.duration(140)}
                       >
                         <ThreadCreationFailedCard
                           reason={props.creationState.reason}
@@ -1488,8 +1491,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                             ? { paddingBottom: composerBottomInset }
                             : undefined
                         }
-                        entering={FadeInDown.duration(220)}
-                        exiting={FadeOut.duration(140)}
+                        entering={Platform.OS === "android" ? undefined : FadeInDown.duration(220)}
+                        exiting={Platform.OS === "android" ? undefined : FadeOut.duration(140)}
                       >
                         {props.activePendingApproval ? (
                           <PendingApprovalCard

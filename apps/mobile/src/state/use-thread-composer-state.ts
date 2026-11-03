@@ -4,7 +4,11 @@ import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
 import { readEnvironmentScope } from "./session";
 import { useAtomValue } from "@effect/atom-react";
 import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
-import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
+import {
+  deriveThreadCheckpointSummaries,
+  type ThreadCheckpointSummary,
+} from "@t3tools/client-runtime/state/thread-checkpoints";
+import { deriveThreadQueueWorkflowState } from "@t3tools/client-runtime/state/thread-workflows";
 import { resolvePendingHandoff } from "@t3tools/client-runtime/handoff";
 import {
   deriveProviderSubagentStatus,
@@ -14,7 +18,8 @@ import {
   deriveThreadRuntime,
   threadRuntimeHasInterruptibleRun,
 } from "@t3tools/client-runtime/state/thread-execution";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 
 import {
   CommandId,
@@ -50,6 +55,8 @@ import type { DraftComposerImageAttachment } from "../lib/composerImages";
 import { scopedThreadKey } from "../lib/scopedEntities";
 import { buildThreadFeed, createThreadFeedCache } from "../lib/threadActivity";
 import { acknowledgedThreadMessagesAtom } from "./acknowledged-thread-messages";
+import { createAcknowledgmentSequenceAtom } from "./acknowledgment-sequence";
+import { parseThreadKey, threadKey } from "@t3tools/client-runtime/state/entities";
 import {
   appendPendingThreadMessages,
   selectPendingAcknowledgedMessages,
@@ -99,7 +106,7 @@ import {
 import { setPendingConnectionError } from "../state/use-remote-environment-registry";
 import { clearThreadComposerError, setThreadComposerError } from "./thread-composer-error";
 import {
-  useSelectedThreadProjection,
+  useSelectedThreadRenderProjection,
   useSelectedThreadVisibleTurnItems,
 } from "../state/use-thread-detail";
 import { useThreadSelection } from "../state/use-thread-selection";
@@ -113,6 +120,14 @@ const EMPTY_QUEUE_WORKFLOW_ATOM = Atom.make<null>(null).pipe(
 );
 const EMPTY_CHECKPOINT_SUMMARIES_ATOM = Atom.make<ReadonlyArray<ThreadCheckpointSummary>>([]);
 const EMPTY_THREAD_SEQUENCE_ATOM = Atom.make(0);
+const acknowledgmentSequenceFamily = Atom.family((key: string) => {
+  const ref = parseThreadKey(key);
+  return createAcknowledgmentSequenceAtom(
+    acknowledgedThreadMessagesAtom,
+    environmentThreadDetails.sequenceAtom(ref),
+    ref,
+  );
+});
 
 export function appendReviewCommentToDraft(input: {
   readonly environmentId: EnvironmentId;
@@ -192,7 +207,7 @@ export function useThreadComposerState() {
     selectedThreadDetailRef,
     selectedEnvironmentRuntime,
   } = useThreadSelection();
-  const selectedThreadProjection = useSelectedThreadProjection();
+  const selectedThreadProjection = useSelectedThreadRenderProjection();
   const selectedThreadVisibleTurnItems = useSelectedThreadVisibleTurnItems();
   const acknowledgedMessages = useAtomValue(acknowledgedThreadMessagesAtom);
   const queuedMessagesByThreadKey = useThreadOutboxMessages();
@@ -234,12 +249,23 @@ export function useThreadComposerState() {
   const selectedThreadSequence = useAtomValue(
     selectedThreadDetailRef === null
       ? EMPTY_THREAD_SEQUENCE_ATOM
-      : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
+      : Platform.OS === "android"
+        ? acknowledgmentSequenceFamily(threadKey(selectedThreadDetailRef))
+        : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
   );
-  const checkpointSummaries = useAtomValue(
-    selectedThreadDetailRef === null
+  const liveCheckpointSummaries = useAtomValue(
+    Platform.OS === "android" || selectedThreadDetailRef === null
       ? EMPTY_CHECKPOINT_SUMMARIES_ATOM
       : environmentThreadDetails.checkpointSummariesAtom(selectedThreadDetailRef),
+  );
+  const checkpointSummaries = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? selectedThreadProjection === null
+          ? []
+          : deriveThreadCheckpointSummaries(selectedThreadProjection.projection)
+        : liveCheckpointSummaries,
+    [selectedThreadProjection, liveCheckpointSummaries],
   );
   // A thread whose creation has not delivered its turn yet: the prompt only
   // exists in the outbox, so it is appended to whatever the server has. The
@@ -276,10 +302,19 @@ export function useThreadComposerState() {
   const followUpBehavior = AsyncResult.isSuccess(preferencesResult)
     ? (preferencesResult.value.followUpBehavior ?? DEFAULT_FOLLOW_UP_BEHAVIOR)
     : DEFAULT_FOLLOW_UP_BEHAVIOR;
-  const queueWorkflow = useAtomValue(
-    selectedThreadDetailRef === null
+  const liveQueueWorkflow = useAtomValue(
+    Platform.OS === "android" || selectedThreadDetailRef === null
       ? EMPTY_QUEUE_WORKFLOW_ATOM
       : environmentThreadDetails.queueWorkflowAtom(selectedThreadDetailRef),
+  );
+  const queueWorkflow = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? selectedThreadProjection === null
+          ? null
+          : deriveThreadQueueWorkflowState(selectedThreadProjection.projection)
+        : liveQueueWorkflow,
+    [selectedThreadProjection, liveQueueWorkflow],
   );
   const queuedRunEdit = useQueuedRunEdit(selectedThreadKey);
   const composerDraftKey =

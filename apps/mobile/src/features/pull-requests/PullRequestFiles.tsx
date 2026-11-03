@@ -442,12 +442,12 @@ export function PullRequestFilesSheet({ route }: StaticScreenProps<PullRequestDi
           data={parsed.kind === "files" ? groupByDirectory(parsed.files, collapsed) : []}
           keyExtractor={(item) => item.key}
           getItemType={(item) => item.kind}
-          itemLayoutAnimation={PR_ROW_LAYOUT}
+          itemLayoutAnimation={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}
           onLoad={() => setAnimationsReady(true)}
           renderItem={({ item }) => (
             <Animated.View
-              entering={animationsReady ? PR_ROW_ENTER : undefined}
-              exiting={animationsReady ? PR_ROW_EXIT : undefined}
+              entering={Platform.OS !== "android" && animationsReady ? PR_ROW_ENTER : undefined}
+              exiting={Platform.OS !== "android" && animationsReady ? PR_ROW_EXIT : undefined}
             >
               {item.kind === "directory" ? (
                 <DirectoryRow

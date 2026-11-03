@@ -14,13 +14,14 @@ import {
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useState } from "react";
-import { Linking, Pressable, StyleSheet, View } from "react-native";
+import { Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "../../lib/cn";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { SettingsScreen } from "../settings/components/SettingsScreen";
+import { SettingsSection } from "../settings/components/SettingsSection";
 import { AppText as Text, AppTextInput, type AppTextInputProps } from "../../components/ui/AppText";
 import { FrostedCutout } from "../../components/ui/FrostedCutout";
 import { buildPairingUrl, extractPairingUrlFromQrPayload, parsePairingUrl } from "./pairing";
@@ -215,11 +216,13 @@ function PairingForm({
           />
 
           <View collapsable={false} className="gap-2">
-            <Text className="px-4 text-sm font-t3-medium text-foreground-muted">Or enter it</Text>
+            <Text className="px-4 text-sm android:text-[13px] font-t3-medium text-foreground-muted">
+              Or enter it
+            </Text>
             <View
               collapsable={false}
               className={cn(
-                "overflow-hidden rounded-[26px] border-continuous border bg-grouped-card",
+                "overflow-hidden rounded-[26px] android:rounded-xl border-continuous border bg-grouped-card",
                 pairingConnectionError ? "border-danger-foreground" : "border-transparent",
               )}
             >
@@ -245,7 +248,7 @@ function PairingForm({
             <Text
               accessibilityLiveRegion="polite"
               className={cn(
-                "px-4 text-sm leading-normal",
+                "px-4 text-sm android:text-[13px] leading-normal",
                 pairingConnectionError ? "text-danger-foreground" : "text-foreground-muted",
               )}
             >
@@ -272,6 +275,13 @@ function PairingScanCard(props: {
   readonly onScanPress: () => void;
 }) {
   const light = useAppearancePreferences().themeAppearance === "light";
+  if (Platform.OS === "android" && !props.cameraActive) {
+    return (
+      <SettingsSection footer="Scan the code from t3 pair or desktop Connections settings">
+        <ListRow label="Scan QR code" onPress={props.onScanPress} />
+      </SettingsSection>
+    );
+  }
   return (
     <Pressable
       accessibilityRole={props.cameraActive ? undefined : "button"}
@@ -279,20 +289,22 @@ function PairingScanCard(props: {
       disabled={props.cameraActive}
       onPress={props.onScanPress}
       className={cn(
-        "overflow-hidden rounded-[26px] border-continuous",
+        "overflow-hidden rounded-[26px] android:rounded-xl border-continuous",
         light ? "bg-white" : "bg-black",
       )}
       style={{ height: SCAN_CARD_HEIGHT }}
     >
-      <Svg accessibilityElementsHidden height="100%" style={StyleSheet.absoluteFill} width="100%">
-        <Defs>
-          <RadialGradient id="pairing-scan-backdrop" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={light ? "#f4f4f5" : "#2e2e2e"} />
-            <Stop offset="100%" stopColor={light ? "#d9d9dc" : "#0e0e0e"} />
-          </RadialGradient>
-        </Defs>
-        <Rect fill="url(#pairing-scan-backdrop)" height="100%" width="100%" />
-      </Svg>
+      {Platform.OS !== "android" ? (
+        <Svg accessibilityElementsHidden height="100%" style={StyleSheet.absoluteFill} width="100%">
+          <Defs>
+            <RadialGradient id="pairing-scan-backdrop" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={light ? "#f4f4f5" : "#2e2e2e"} />
+              <Stop offset="100%" stopColor={light ? "#d9d9dc" : "#0e0e0e"} />
+            </RadialGradient>
+          </Defs>
+          <Rect fill="url(#pairing-scan-backdrop)" height="100%" width="100%" />
+        </Svg>
+      ) : null}
 
       {props.cameraActive ? (
         <>
@@ -365,7 +377,7 @@ function T3ConnectSection() {
 
   return (
     <View collapsable={false} className="gap-2">
-      <Text className="px-4 text-sm font-t3-medium text-foreground-muted">
+      <Text className="px-4 text-sm android:text-[13px] font-t3-medium text-foreground-muted">
         Or use the managed relay
       </Text>
       {isSignedIn ? (
@@ -407,7 +419,7 @@ function PairingInputRow({
         accessibilityLabel={label}
         autoCapitalize="none"
         autoCorrect={false}
-        className="min-h-0 flex-1 rounded-none border-0 bg-transparent p-0 text-base leading-[23px]"
+        className="min-h-0 flex-1 rounded-none border-0 bg-transparent p-0 text-base android:font-mono leading-[23px]"
       />
     </View>
   );

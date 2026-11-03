@@ -844,18 +844,26 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                     row.key.endsWith(":body") ? row.key : row.key.split(":")[0]
                   }
                   // Animating overview fights clipped markdown and collapse scroll correction; file rows can still fade.
-                  itemLayoutAnimation={tab === "overview" ? undefined : PR_ROW_LAYOUT}
+                  itemLayoutAnimation={
+                    Platform.OS === "android" || tab === "overview" ? undefined : PR_ROW_LAYOUT
+                  }
                   onLoad={() => setListAnimationsReady(true)}
                   renderItem={({ item }) => (
                     <Animated.View
                       key={item.key}
                       entering={
-                        listAnimationsReady && entryStage === 2 && !item.key.endsWith(":body")
+                        Platform.OS !== "android" &&
+                        listAnimationsReady &&
+                        entryStage === 2 &&
+                        !item.key.endsWith(":body")
                           ? PR_ROW_ENTER
                           : undefined
                       }
                       exiting={
-                        listAnimationsReady && entryStage === 2 && !item.key.endsWith(":body")
+                        Platform.OS !== "android" &&
+                        listAnimationsReady &&
+                        entryStage === 2 &&
+                        !item.key.endsWith(":body")
                           ? PR_ROW_EXIT
                           : undefined
                       }

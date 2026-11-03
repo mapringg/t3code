@@ -14,14 +14,17 @@ export function ConnectionFormField({ label, className, ...inputProps }: Connect
       <AppText
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        className="text-2xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted"
+        className="text-2xs font-t3-bold tracking-[0.8px] uppercase android:text-[13px] android:font-t3-medium android:tracking-normal android:normal-case text-foreground-muted"
       >
         {label}
       </AppText>
       <AppTextInput
         {...inputProps}
         accessibilityLabel={label}
-        className="rounded-[14px] px-4 py-3.5"
+        className={cn(
+          "rounded-[14px] android:rounded-xl px-4 py-3.5",
+          inputProps.keyboardType === "url" && "android:font-mono",
+        )}
       />
     </View>
   );

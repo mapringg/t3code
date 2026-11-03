@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -149,36 +149,40 @@ export function ComposerToolbarScroller(props: {
   readonly fadeSurface?: "card" | "sheet";
   readonly contentPaddingRight?: number;
 }) {
-  const [metrics, setMetrics] = useState({
+  const metrics = useRef({
     contentWidth: 0,
     offsetX: 0,
     viewportWidth: 0,
   });
 
-  const maxOffset = Math.max(0, metrics.contentWidth - metrics.viewportWidth);
-  const scrollEdges = {
-    showLeftFade: metrics.offsetX > COMPOSER_TOOLBAR_SCROLL_EPSILON,
-    showRightFade: metrics.offsetX < maxOffset - COMPOSER_TOOLBAR_SCROLL_EPSILON,
+  const [scrollEdges, setScrollEdges] = useState({
+    showLeftFade: false,
+    showRightFade: false,
+  });
+
+  const updateMetrics = (next: Partial<typeof metrics.current>) => {
+    const current = { ...metrics.current, ...next };
+    metrics.current = current;
+    const maxOffset = Math.max(0, current.contentWidth - current.viewportWidth);
+    const showLeftFade = current.offsetX > COMPOSER_TOOLBAR_SCROLL_EPSILON;
+    const showRightFade = current.offsetX < maxOffset - COMPOSER_TOOLBAR_SCROLL_EPSILON;
+    setScrollEdges((previous) =>
+      previous.showLeftFade === showLeftFade && previous.showRightFade === showRightFade
+        ? previous
+        : { showLeftFade, showRightFade },
+    );
   };
 
   const handleLayout = (event: LayoutChangeEvent) => {
-    const viewportWidth = event.nativeEvent.layout.width;
-    setMetrics((current) =>
-      current.viewportWidth === viewportWidth ? current : { ...current, viewportWidth },
-    );
+    updateMetrics({ viewportWidth: event.nativeEvent.layout.width });
   };
 
   const handleContentSizeChange = (contentWidth: number) => {
-    setMetrics((current) =>
-      current.contentWidth === contentWidth ? current : { ...current, contentWidth },
-    );
+    updateMetrics({ contentWidth });
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    setMetrics((current) =>
-      Math.abs(current.offsetX - offsetX) < 1 ? current : { ...current, offsetX },
-    );
+    updateMetrics({ offsetX: event.nativeEvent.contentOffset.x });
   };
 
   return (

@@ -1,5 +1,5 @@
 import { Button } from "../../../components/ui/Button";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 import { AppText as Text } from "../../../components/ui/AppText";
 import { SymbolView } from "../../../components/ui/AppSymbol";
@@ -17,11 +17,13 @@ export function GuideNotice({ state }: { readonly state: ReturnType<typeof useRe
   const busy = notice.kind === "loading" || notice.kind === "writing";
   return (
     <Animated.View
-      layout={PR_ROW_LAYOUT}
-      entering={compact ? NOTICE_ENTER : undefined}
-      exiting={PR_ROW_EXIT}
+      layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}
+      entering={Platform.OS !== "android" && compact ? NOTICE_ENTER : undefined}
+      exiting={Platform.OS === "android" ? undefined : PR_ROW_EXIT}
       className={
-        compact ? "mb-5 rounded-2xl bg-grouped-card p-4" : "rounded-2xl bg-grouped-card p-5"
+        compact
+          ? "mb-5 rounded-2xl android:rounded-xl bg-grouped-card p-4"
+          : "rounded-2xl android:rounded-xl bg-grouped-card p-5"
       }
       accessibilityLiveRegion="polite"
       accessibilityState={{ busy }}
@@ -36,7 +38,10 @@ export function GuideNotice({ state }: { readonly state: ReturnType<typeof useRe
           {compact ? notice.title : "Review guide"}
         </Text>
       </View>
-      <View style={compact ? undefined : { minHeight: 100 }} className="pt-3 pb-4">
+      <View
+        style={compact || Platform.OS === "android" ? undefined : { minHeight: 100 }}
+        className="pt-3 pb-4"
+      >
         <Text className="text-sm leading-6 text-foreground-muted">{notice.description}</Text>
       </View>
       <View className="min-h-12 flex-row flex-wrap items-center justify-between gap-3">

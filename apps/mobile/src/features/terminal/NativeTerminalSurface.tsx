@@ -151,6 +151,7 @@ const FallbackTerminalSurface = memo(function FallbackTerminalSurface({
         }}
       >
         <TextInput
+          accessibilityLabel="Terminal command"
           ref={inputRef}
           autoCapitalize="none"
           autoCorrect={false}

@@ -9,9 +9,14 @@ import type {
   ThreadId,
 } from "@t3tools/contracts";
 import { Atom } from "effect/reactivity";
+import { parseThreadKey, threadKey } from "@t3tools/client-runtime/state/entities";
+import { Platform } from "react-native";
 
-import { environmentThreadDetails, useEnvironmentThread } from "./threads";
+import { environmentThreadDetails, environmentThreads, useEnvironmentThread } from "./threads";
 import { useThreadSelection } from "./use-thread-selection";
+import { createThreadRenderStateAtom } from "./thread-render-state";
+import { EMPTY_ENVIRONMENT_THREAD_STATE } from "@t3tools/client-runtime/state/threads";
+import * as Option from "effect/Option";
 
 const EMPTY_THREAD_PROJECTION_ATOM = Atom.make<EnvironmentThread | null>(null).pipe(
   Atom.withLabel("mobile-thread-projection:empty"),
@@ -22,6 +27,21 @@ const EMPTY_THREAD_STRUCTURE_ATOM = Atom.make<EnvironmentThreadStructure | null>
 const EMPTY_VISIBLE_TURN_ITEMS_ATOM = Atom.make<
   OrchestrationV2ThreadProjection["visibleTurnItems"]
 >(Object.freeze([])).pipe(Atom.withLabel("mobile-thread-visible-turn-items:empty"));
+const EMPTY_ASSISTANT_MESSAGE_TEXT_ATOM = Atom.make<string | null>(null);
+const EMPTY_RENDER_STATE_ATOM = Atom.make(EMPTY_ENVIRONMENT_THREAD_STATE);
+
+const threadRenderStateFamily = Atom.family((key: string) => {
+  const ref = parseThreadKey(key);
+  return createThreadRenderStateAtom(environmentThreads.stateAtom(ref.environmentId, ref.threadId));
+});
+const threadRenderProjectionFamily = Atom.family((key: string) =>
+  Atom.map(threadRenderStateFamily(key), (state): EnvironmentThread | null => {
+    const projection = Option.getOrNull(state.data);
+    return projection === null
+      ? null
+      : { environmentId: parseThreadKey(key).environmentId, projection };
+  }),
+);
 
 export interface ThreadDetailTarget {
   readonly environmentId: EnvironmentId | null;
@@ -30,10 +50,42 @@ export interface ThreadDetailTarget {
 
 export function useSelectedThreadDetailState() {
   const { selectedThreadDetailRef } = useThreadSelection();
-  return useEnvironmentThread(
-    selectedThreadDetailRef?.environmentId ?? null,
-    selectedThreadDetailRef?.threadId ?? null,
+  const renderState = useAtomValue(
+    Platform.OS !== "android" || selectedThreadDetailRef === null
+      ? EMPTY_RENDER_STATE_ATOM
+      : threadRenderStateFamily(threadKey(selectedThreadDetailRef)),
   );
+  const fullState = useEnvironmentThread(
+    Platform.OS !== "android" ? (selectedThreadDetailRef?.environmentId ?? null) : null,
+    Platform.OS !== "android" ? (selectedThreadDetailRef?.threadId ?? null) : null,
+  );
+  return Platform.OS === "android" ? renderState : fullState;
+}
+
+export function useThreadAssistantMessageText(
+  ref: ScopedThreadRef | null,
+  itemId: string | undefined,
+): string | null {
+  return useAtomValue(
+    ref === null || itemId === undefined
+      ? EMPTY_ASSISTANT_MESSAGE_TEXT_ATOM
+      : environmentThreadDetails.assistantMessageTextAtom(ref, itemId),
+  );
+}
+
+export function useSelectedThreadRenderProjection() {
+  const { selectedThreadDetailRef } = useThreadSelection();
+  const renderProjection = useAtomValue(
+    Platform.OS !== "android" || selectedThreadDetailRef === null
+      ? EMPTY_THREAD_PROJECTION_ATOM
+      : threadRenderProjectionFamily(threadKey(selectedThreadDetailRef)),
+  );
+  const fullProjection = useThreadProjection({
+    environmentId:
+      Platform.OS !== "android" ? (selectedThreadDetailRef?.environmentId ?? null) : null,
+    threadId: Platform.OS !== "android" ? (selectedThreadDetailRef?.threadId ?? null) : null,
+  });
+  return Platform.OS === "android" ? renderProjection : fullProjection;
 }
 
 function useThreadProjection(target: ThreadDetailTarget): EnvironmentThread | null {
@@ -70,7 +122,9 @@ function useThreadVisibleTurnItems(
   return useAtomValue(
     target.environmentId === null || target.threadId === null
       ? EMPTY_VISIBLE_TURN_ITEMS_ATOM
-      : environmentThreadDetails.visibleTurnItemsAtom({
+      : (Platform.OS === "android"
+          ? environmentThreadDetails.timelineVisibleTurnItemsAtom
+          : environmentThreadDetails.visibleTurnItemsAtom)({
           environmentId: target.environmentId,
           threadId: target.threadId,
         }),

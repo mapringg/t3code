@@ -8,6 +8,7 @@ import { resolveProviderOptionDescriptors } from "../lib/providerOptions";
 import { AppText as Text } from "./ui/AppText";
 import { ComposerInlineControl } from "./ComposerToolbar";
 import { ProviderIcon, ProviderInstanceIcon } from "./ProviderIcon";
+import { Platform } from "react-native";
 
 export function ComposerModelControl(props: {
   readonly modelOption: ModelOption | null;
@@ -51,29 +52,32 @@ export function ComposerModelControl(props: {
       size={props.size}
       disabled={props.disabled}
       emphasized
-      renderIcon={(size) =>
-        badge?.showBadge ? (
-          <ProviderInstanceIcon
-            iconUrl={props.modelOption?.providerIconUrl}
-            provider={props.modelOption?.providerDriver}
-            displayName={badge.displayName}
-            accentColor={badge.accentColor}
-            showBadge
-            surfaceColor={props.surfaceColor}
-            size={size}
-          />
-        ) : (
-          <ProviderIcon
-            iconUrl={props.modelOption?.providerIconUrl}
-            provider={props.modelOption?.providerDriver}
-            size={size}
-          />
-        )
+      renderIcon={
+        Platform.OS === "android" && !props.iconOnly
+          ? undefined
+          : (size) =>
+              badge?.showBadge ? (
+                <ProviderInstanceIcon
+                  iconUrl={props.modelOption?.providerIconUrl}
+                  provider={props.modelOption?.providerDriver}
+                  displayName={badge.displayName}
+                  accentColor={badge.accentColor}
+                  showBadge
+                  surfaceColor={props.surfaceColor}
+                  size={size}
+                />
+              ) : (
+                <ProviderIcon
+                  iconUrl={props.modelOption?.providerIconUrl}
+                  provider={props.modelOption?.providerDriver}
+                  size={size}
+                />
+              )
       }
       label={props.modelOption?.shortName ?? label}
       iconOnly={props.iconOnly}
       suffix={
-        summary ? (
+        Platform.OS !== "android" && summary ? (
           <Text
             className={
               props.size === "large"

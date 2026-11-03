@@ -80,7 +80,7 @@ vi.mock("./preferences", async () => {
   const { Atom, AsyncResult } = await import("effect/reactivity");
   return { mobilePreferencesAtom: Atom.make(AsyncResult.success({})) };
 });
-vi.mock("react-native", () => ({ Alert: { alert: vi.fn() } }));
+vi.mock("react-native", () => ({ Alert: { alert: vi.fn() }, Platform: { OS: "android" } }));
 vi.mock("@effect/atom-react", async () => {
   const { appAtomRegistry } = await import("./atom-registry");
   return { useAtomValue: <A>(atom: Atom.Atom<A>) => appAtomRegistry.get(atom) };
@@ -94,6 +94,7 @@ vi.mock("./use-thread-selection", () => ({
   useThreadSelection: () => ({
     selectedThread: state.thread,
     selectedThreadCreation: null,
+    selectedThreadDetailRef: null,
     selectedEnvironmentRuntime: {
       connectionState: state.connectionState,
       serverConfig: state.serverConfig,
@@ -101,7 +102,7 @@ vi.mock("./use-thread-selection", () => ({
   }),
 }));
 vi.mock("./use-thread-detail", () => ({
-  useSelectedThreadProjection: () =>
+  useSelectedThreadRenderProjection: () =>
     state.projection === null ? null : { projection: state.projection },
   useSelectedThreadVisibleTurnItems: () => [],
   useSelectedThreadPendingRequests: () => state.pendingRequests,

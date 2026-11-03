@@ -29,10 +29,11 @@ export function ConnectionsRouteScreen() {
   };
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1 bg-sheet android:bg-screen">
       {Platform.OS === "android" ? (
         <AndroidScreenHeader
           title="Environments"
+          hideBottomBorder
           onBack={() => navigation.goBack()}
           actions={[
             {

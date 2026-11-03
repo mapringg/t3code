@@ -39,7 +39,7 @@ export function ThreadHeader(
         onPress: props.onReturnToThread,
       });
     }
-    if (props.hasThreadCwd) {
+    if (Platform.OS !== "android" && props.hasThreadCwd) {
       const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;
       actions.push({
         accessibilityLabel: filesVisible ? "Close files" : "Open files",
@@ -49,7 +49,7 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (props.hasWorkspaceRoot && props.gitControls.canOpenTerminal) {
+    if (Platform.OS !== "android" && props.hasWorkspaceRoot && props.gitControls.canOpenTerminal) {
       actions.push({
         accessibilityLabel: "Open terminal",
         icon: "terminal",
@@ -57,13 +57,15 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    actions.push({
-      accessibilityLabel: "Open git controls",
-      icon: "point.topleft.down.curvedto.point.bottomright.up",
-      onPress: props.onOpenGitInspector,
-      overflowOnly: true,
-    });
-    if (onMergeBack) {
+    if (Platform.OS !== "android") {
+      actions.push({
+        accessibilityLabel: "Open git controls",
+        icon: "point.topleft.down.curvedto.point.bottomright.up",
+        onPress: props.onOpenGitInspector,
+        overflowOnly: true,
+      });
+    }
+    if (Platform.OS !== "android" && onMergeBack) {
       actions.push({
         accessibilityLabel: "Merge back to source",
         icon: PullRequestGlyph.merged,
@@ -107,7 +109,7 @@ export function ThreadHeader(
         options={native.options}
         optionsVersion={native.optionsVersion}
         trailing={
-          props.fileInspectorSupported && props.hasThreadCwd ? (
+          Platform.OS !== "android" && props.fileInspectorSupported && props.hasThreadCwd ? (
             <ScreenHeaderButton
               accessibilityLabel={
                 props.inspectorMode !== null && panes.auxiliaryPaneVisible
