@@ -13,13 +13,13 @@ export function FloatingWorkingControl(props: Parameters<typeof IosFloatingWorki
     transform: [{ translateY: -(lift?.value ?? 0) }],
   }));
   const status = props.status;
-  const label = status
-    ? status.kind === "working"
-      ? "Working…"
+  // The stop button in the composer already shows a running turn.
+  const label =
+    status === null || status.kind === "working"
+      ? null
       : status.kind === "compacting"
         ? "Compacting…"
-        : status.label
-    : null;
+        : status.label;
   const onPressStatus =
     status?.kind === "connection" || status?.kind === "child-input" || status?.kind === "background"
       ? status.onPress
@@ -29,7 +29,7 @@ export function FloatingWorkingControl(props: Parameters<typeof IosFloatingWorki
       ? status.action
       : null;
 
-  if (status === null && props.queuedCount === 0 && !props.showScrollToEnd) return null;
+  if (label === null && props.queuedCount === 0 && !props.showScrollToEnd) return null;
 
   return (
     <Animated.View

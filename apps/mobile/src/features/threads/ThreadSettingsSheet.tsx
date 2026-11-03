@@ -168,7 +168,10 @@ function ProviderHeader(props: {
 }) {
   const content = (
     <>
-      <ProviderIcon iconUrl={props.iconUrl} provider={props.driver} size={15} />
+      {/* Android: icon and chevron sit in the rows' radio and star columns. */}
+      <View className="android:w-6 android:items-center">
+        <ProviderIcon iconUrl={props.iconUrl} provider={props.driver} size={15} />
+      </View>
       <Text className="text-sm font-t3-medium text-foreground-muted">{props.label}</Text>
       {props.collapsible ? (
         <>
@@ -178,12 +181,14 @@ function ProviderHeader(props: {
               {props.modelCount}
             </Text>
           ) : null}
-          <SymbolView
-            name={props.collapsed ? "chevron.down" : "chevron.up"}
-            size={12}
-            tintColorClassName="accent-icon-subtle"
-            type="monochrome"
-          />
+          <View className="android:w-11 android:items-center">
+            <SymbolView
+              name={props.collapsed ? "chevron.down" : "chevron.up"}
+              size={12}
+              tintColorClassName="accent-icon-subtle"
+              type="monochrome"
+            />
+          </View>
         </>
       ) : null}
     </>

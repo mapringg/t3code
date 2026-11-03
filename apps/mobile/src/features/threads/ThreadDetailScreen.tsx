@@ -686,7 +686,9 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     }
     return null;
   })();
-  const showWorkingControl = floatingStatus !== null;
+  // Android shows no label for a running turn, so it reserves no room for one.
+  const showWorkingControl =
+    floatingStatus !== null && !(Platform.OS === "android" && floatingStatus.kind === "working");
   const showFloatingStatus =
     showWorkingControl ||
     queuedCount > 0 ||

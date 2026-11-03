@@ -58,6 +58,11 @@ describe("pending timeline messages", () => {
     expect(appended[2]?.userMessageGrouping.groupedWithPrevious).toBe(true);
     const removed = group([first, second, reply], {});
     expect(removed[1]?.userMessageGrouping.groupedWithNext).toBe(false);
+    expect(removed[2]?.precedesUserMessage).toBe(false);
+    const steered = group([first, second, reply, third], {});
+    expect(steered[2]).not.toBe(removed[2]);
+    expect(steered[2]?.precedesUserMessage).toBe(true);
+    expect(steered[1]?.precedesUserMessage).toBe(false);
     const steer = {
       ...second,
       message: { ...second.message, inputIntent: "promoted_queued_to_steer" as const },
