@@ -182,6 +182,7 @@ import {
   deriveCenteredContentHorizontalPadding,
   deriveThreadFeedInitialContentInset,
   deriveThreadWorkLogSizing,
+  THREAD_WORK_LOG_END_GAP,
   type LayoutVariant,
 } from "../../lib/layout";
 import { uuidv4 } from "../../lib/uuid";
@@ -223,7 +224,6 @@ import {
   ThreadWorkGroupToggle,
   ThreadThinkingRow,
   ThreadWorkLog,
-  COLLAPSED_WORK_GROUP_GAP,
   WORK_GROUP_TOGGLE_HEIGHT,
 } from "./thread-work-log";
 import {
@@ -302,7 +302,6 @@ function formatMessageTime(input: string): string {
   return MESSAGE_TIME_FORMATTER.format(timestamp);
 }
 
-const TURN_FOLD_HEIGHT = 42;
 const FEED_PADDING_TOP = 12;
 // A cold list keeps measuring rows after LegendList loads; on Android its end follow trails each
 // change by a frame, so stay hidden until sizes go quiet, but never longer than the cap.
@@ -1619,9 +1618,10 @@ function RunFoldButton({
         accessibilityRole="button"
         accessibilityState={{ expanded: entry.expanded, busy: loading }}
         onPress={toggle}
-        hitSlop={4}
-        className="min-h-11 min-w-0 flex-1 flex-row items-center gap-2"
-        style={{ minHeight: Math.max(TURN_FOLD_HEIGHT - 3.5, rowSizing.estimatedRowHeight) }}
+        // Sized like the work rows it heads; the slop keeps a 44dp target.
+        hitSlop={8}
+        className="min-w-0 flex-1 flex-row items-center gap-2"
+        style={{ minHeight: rowSizing.estimatedRowHeight }}
       >
         <Text
           key={rowSizing.textSizeKey}
@@ -1728,7 +1728,7 @@ function renderFeedEntry(
 
   if (entry.type === "run-fold") {
     return (
-      <View className="mb-1 flex-row items-center px-2">
+      <View className={cn("flex-row items-center px-2", entry.expanded ? "mb-1" : "mb-3")}>
         <RunFoldButton
           key={entry.id}
           entry={entry}
@@ -2346,7 +2346,8 @@ function TurnDiffStat(props: {
       accessibilityRole="button"
       accessibilityLabel={`Review ${fileCountLabel}, ${additions} additions, ${deletions} deletions`}
       onPress={() => props.onOpenTurnDiff(props.checkpoint)}
-      className="min-h-11 shrink-0 flex-row items-center gap-2 px-2 active:bg-subtle"
+      hitSlop={12}
+      className="shrink-0 flex-row items-center gap-2 px-2 active:bg-subtle"
     >
       <Text className="font-t3-medium text-xs tabular-nums text-adaptive-emerald-700-300">
         +{formatDiffCount(additions)}
@@ -3585,12 +3586,12 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
     switch (entry.type) {
       case "run-fold":
-        return resolveThreadFeedFixedItemSize(entry.type);
+        return resolveThreadFeedFixedItemSize(entry);
       case "work-toggle":
         if (entry.thought) return undefined;
         return entry.expanded
           ? WORK_GROUP_TOGGLE_HEIGHT
-          : WORK_GROUP_TOGGLE_HEIGHT + COLLAPSED_WORK_GROUP_GAP;
+          : WORK_GROUP_TOGGLE_HEIGHT + THREAD_WORK_LOG_END_GAP;
       case "thinking":
         return WORK_GROUP_TOGGLE_HEIGHT;
       case "activity-group":

@@ -17,8 +17,7 @@ export function WorkLogBlock({
     <View
       className={cn(
         "-mx-1 px-1",
-        layout === "collapsed-group-header" && "mb-2",
-        layout === "standalone" && !continues && "mb-1",
+        (layout === "collapsed-group-header" || (layout === "standalone" && !continues)) && "mb-3",
       )}
     >
       {children}

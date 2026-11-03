@@ -62,7 +62,11 @@ import { T3Wordmark } from "../../components/T3Wordmark";
 import { BrowserAppIcon } from "./BrowserAppIcon";
 import { useAppActive, useReduceMotionEnabled } from "../../lib/appState";
 import { cn } from "../../lib/cn";
-import { THREAD_WORK_ROW_MIN_HEIGHT, type deriveThreadWorkLogSizing } from "../../lib/layout";
+import {
+  THREAD_WORK_LOG_END_GAP,
+  THREAD_WORK_ROW_MIN_HEIGHT,
+  type deriveThreadWorkLogSizing,
+} from "../../lib/layout";
 import {
   formatItemFullDetail,
   type ThreadFeedActivity,
@@ -435,13 +439,10 @@ function isFreshRow(createdAt: string): boolean {
 // Match min-h-8; disable exact sizing when native accessibility scaling can exceed it.
 const WORK_ROW_HEIGHT = THREAD_WORK_ROW_MIN_HEIGHT;
 const WORK_ROW_GAP = 1;
-const WORK_LOG_BOTTOM_MARGIN = 3.5;
 const WORK_GROUP_MAX_HEIGHT = 256;
 const WORK_GROUP_EDGE_FADE_HEIGHT = 12;
 
 export const WORK_GROUP_TOGGLE_HEIGHT = THREAD_WORK_ROW_MIN_HEIGHT;
-/** `mb-2` under a collapsed group, so the reply below doesn't touch its summary. */
-export const COLLAPSED_WORK_GROUP_GAP = 8;
 
 function workLogRowsHeight(
   activities: ReadonlyArray<ThreadFeedActivity>,
@@ -454,7 +455,7 @@ export function collapsedWorkLogHeight(
   activities: ReadonlyArray<ThreadFeedActivity>,
   continues = false,
 ): number {
-  const bottomMargin = continues ? 0 : WORK_LOG_BOTTOM_MARGIN;
+  const bottomMargin = continues ? 0 : THREAD_WORK_LOG_END_GAP;
   if (activities.length === 0) {
     return 0;
   }

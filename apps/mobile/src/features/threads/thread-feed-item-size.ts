@@ -1,17 +1,17 @@
-import { THREAD_WORK_ROW_MIN_HEIGHT } from "../../lib/layout";
+import { THREAD_WORK_LOG_END_GAP, THREAD_WORK_ROW_MIN_HEIGHT } from "../../lib/layout";
 import type { ThreadFeedEntry } from "../../lib/threadActivity";
 
 // Content-driven rows must be measured by LegendList: returning a fixed size
 // makes the list skip native measurement entirely.
-const TURN_FOLD_HEIGHT = 42;
 const WORK_GROUP_TOGGLE_HEIGHT = THREAD_WORK_ROW_MIN_HEIGHT;
 
 export function resolveThreadFeedFixedItemSize(
-  entryType: ThreadFeedEntry["type"],
+  entry: Pick<ThreadFeedEntry, "type"> & { readonly expanded?: boolean },
 ): number | undefined {
-  switch (entryType) {
+  switch (entry.type) {
     case "run-fold":
-      return TURN_FOLD_HEIGHT;
+      // An expanded fold can show a loading skeleton for its deferred history.
+      return entry.expanded ? undefined : THREAD_WORK_ROW_MIN_HEIGHT + THREAD_WORK_LOG_END_GAP;
     case "work-toggle":
       return WORK_GROUP_TOGGLE_HEIGHT;
     case "activity-group":
