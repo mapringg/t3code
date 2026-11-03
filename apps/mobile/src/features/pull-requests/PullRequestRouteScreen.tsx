@@ -340,7 +340,19 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const returnToList = useAndroidWorkspaceBack("pullRequests");
   const { layout } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
-  const navigation = useNavigation();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "PullRequest">>();
+  // Android's push waits for the first commit, so the cached overview mounts after it, the file
+  // rows and hidden tabs a frame later, and row animations a frame after that: rows land below the
+  // measured overview, and no mount shares a frame with a fade.
+  const entered = usePullRequestDiffEntry(navigation) || Platform.OS !== "android";
+  const [entryStage, setEntryStage] = useState(entered ? 2 : 0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- steps the entry stages one frame apart after the push ends
+  useEffect(() => {
+    if (!entered || entryStage === 2) return;
+    const frame = requestAnimationFrame(() => setEntryStage((stage) => stage + 1));
+    return () => cancelAnimationFrame(frame);
+  }, [entered, entryStage]);
   const insets = useSafeAreaInsets();
   const [toolbarHeight, setToolbarHeight] = usePullRequestToolbarHeight(insets.bottom);
   // Only iOS lists run under the bars; Android lists start below the header.
@@ -683,6 +695,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
         >
           {(["overview", "guide", "activity"] as const)
             .filter((tab) => tab !== "guide" || guidesEnabled)
+            .filter((tab) => tab === "overview" || entryStage > 0)
             .map((tab) => (
               <View
                 key={tab}
@@ -757,7 +770,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                 host={params.host}
                                 repository={params.repository}
                               />
-                              {pr ? (
+                              {pr && (entered || !summary) ? (
                                 <PullRequestOverview
                                   pr={pr}
                                   params={params}
@@ -818,7 +831,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ),
                     },
                     ...(tab === "overview"
-                      ? identity
+                      ? identity && entryStage > 0
                         ? filesContent.rows
                         : []
                       : tab === "activity"
@@ -841,12 +854,14 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                     <Animated.View
                       key={item.key}
                       entering={
-                        listAnimationsReady && !item.key.endsWith(":body")
+                        listAnimationsReady && entryStage === 2 && !item.key.endsWith(":body")
                           ? PR_ROW_ENTER
                           : undefined
                       }
                       exiting={
-                        listAnimationsReady && !item.key.endsWith(":body") ? PR_ROW_EXIT : undefined
+                        listAnimationsReady && entryStage === 2 && !item.key.endsWith(":body")
+                          ? PR_ROW_EXIT
+                          : undefined
                       }
                     >
                       <PullRequestMediaVisibleContext value={section === tab}>
