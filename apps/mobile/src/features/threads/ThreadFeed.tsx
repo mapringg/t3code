@@ -172,6 +172,8 @@ import { CopyTextButton } from "./CopyTextButton";
 import { getReviewSectionIdForCheckpoint } from "../review/reviewModel";
 import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
+import type { MenuAction } from "@react-native-menu/menu";
+import { MessageActionsMenu } from "./MessageActionsMenu";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
@@ -388,6 +390,10 @@ async function waitForThreadShell(
 const USER_MESSAGE_COPY_MENU_ACTIONS = [
   { id: "copy-prompt-link", title: "Copy prompt link", image: "link" },
 ];
+// Android reply actions keep 48dp tall targets but sit this close to the icon, so the
+// first icon lines up with the reply text and the icons are evenly spaced.
+const ANDROID_REPLY_ACTION_INSET = 8;
+const MESSAGE_COPY_MENU_ACTIONS: readonly MenuAction[] = [{ id: "copy", title: "Copy" }];
 
 function UserMessageCopyButton(props: {
   readonly text: string;
@@ -419,11 +425,8 @@ function UserMessageCopyButton(props: {
   );
 }
 
-function AssistantForkButton(props: {
+function useAssistantFork(props: {
   readonly environmentId: EnvironmentId;
-  readonly iconColor: ColorValue;
-  readonly buttonSize: number;
-  readonly iconSize: number;
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
   readonly sourceTitle: string;
 }) {
@@ -440,53 +443,69 @@ function AssistantForkButton(props: {
     capabilities: support.providerSession?.capabilities,
   });
   const runId = props.projectedItem.item.runId;
-
   if (!canFork || runId === null) return null;
+  const fork = () => {
+    if (busy) return;
+    const targetThreadId = ThreadId.make(uuidv4());
+    setBusy(true);
+    void Haptics.selectionAsync();
+    void forkFromRun({
+      environmentId: props.environmentId,
+      input: {
+        sourceThreadId: props.projectedItem.sourceThreadId,
+        targetThreadId,
+        runId,
+        title: `${props.sourceTitle} fork`,
+        creationSource: "mobile",
+      },
+    })
+      .then(async (result) => {
+        if (result._tag !== "Success") return;
+        const targetThreadReady = await waitForThreadShell(props.environmentId, targetThreadId);
+        if (!targetThreadReady) {
+          Dialog.alert(
+            "Fork created",
+            "Its thread data did not reach this client. Reconnect and try opening it from the thread list.",
+          );
+          return;
+        }
+        selectDetail({
+          name: "Thread",
+          params: { environmentId: props.environmentId, threadId: targetThreadId },
+        });
+      })
+      .finally(() => setBusy(false));
+  };
+  return { busy, fork };
+}
+
+function AssistantForkButton(props: {
+  readonly environmentId: EnvironmentId;
+  readonly iconColor: ColorValue;
+  readonly buttonSize: number;
+  readonly buttonWidth: number;
+  readonly iconSize: number;
+  readonly projectedItem: OrchestrationV2ProjectedTurnItem;
+  readonly sourceTitle: string;
+}) {
+  const fork = useAssistantFork(props);
+  if (fork === null) return null;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Fork from this response"
-      disabled={busy}
-      onPress={() => {
-        const targetThreadId = ThreadId.make(uuidv4());
-        setBusy(true);
-        void Haptics.selectionAsync();
-        void forkFromRun({
-          environmentId: props.environmentId,
-          input: {
-            sourceThreadId: props.projectedItem.sourceThreadId,
-            targetThreadId,
-            runId,
-            title: `${props.sourceTitle} fork`,
-            creationSource: "mobile",
-          },
-        })
-          .then(async (result) => {
-            if (result._tag !== "Success") return;
-            const targetThreadReady = await waitForThreadShell(props.environmentId, targetThreadId);
-            if (!targetThreadReady) {
-              Dialog.alert(
-                "Fork created",
-                "Its thread data did not reach this client. Reconnect and try opening it from the thread list.",
-              );
-              return;
-            }
-            selectDetail({
-              name: "Thread",
-              params: { environmentId: props.environmentId, threadId: targetThreadId },
-            });
-          })
-          .finally(() => setBusy(false));
-      }}
+      disabled={fork.busy}
+      hitSlop={Platform.OS === "android" ? 8 : undefined}
+      onPress={fork.fork}
       className="h-7 w-7 items-center justify-center disabled:opacity-40"
       style={
         Platform.OS === "android"
-          ? { width: props.buttonSize, height: props.buttonSize }
+          ? { width: props.buttonWidth, height: props.buttonSize }
           : undefined
       }
     >
-      {busy ? (
+      {fork.busy ? (
         <AppActivityIndicator size="small" />
       ) : (
         <SymbolView
@@ -497,6 +516,93 @@ function AssistantForkButton(props: {
         />
       )}
     </Pressable>
+  );
+}
+
+function UserMessageActionsMenu(props: {
+  readonly text: string;
+  readonly onCopy: (() => Promise<void>) | undefined;
+  readonly timestampLabel: string;
+  readonly children: ReactNode;
+}) {
+  const linkText = replaceComposerContextReferences(props.text, (reference) => reference.label);
+  const copy = () => {
+    if (!props.onCopy) {
+      copyTextWithHaptic(props.text);
+      return;
+    }
+    props.onCopy().catch(() => Dialog.alert("Could not copy", "Try again."));
+  };
+  return (
+    <MessageActionsMenu
+      title={props.timestampLabel}
+      actions={
+        linkText.length > PROMPT_LINK_MAX_PROMPT_LENGTH
+          ? MESSAGE_COPY_MENU_ACTIONS
+          : [...MESSAGE_COPY_MENU_ACTIONS, ...USER_MESSAGE_COPY_MENU_ACTIONS]
+      }
+      onPressAction={(actionId) => {
+        if (actionId === "copy-prompt-link") void copyPromptLink(linkText);
+        else copy();
+      }}
+    >
+      {props.children}
+    </MessageActionsMenu>
+  );
+}
+
+function AssistantReplyActionsMenu(props: {
+  readonly environmentId: EnvironmentId;
+  readonly text: string;
+  readonly timestampLabel: string;
+  readonly projectedItem: OrchestrationV2ProjectedTurnItem | undefined;
+  readonly sourceTitle: string;
+  readonly children: ReactNode;
+}) {
+  return props.projectedItem ? (
+    <AssistantReplyForkableActionsMenu {...props} projectedItem={props.projectedItem} />
+  ) : (
+    <MessageActionsMenu
+      title={props.timestampLabel}
+      actions={MESSAGE_COPY_MENU_ACTIONS}
+      onPressAction={() => copyTextWithHaptic(props.text)}
+    >
+      {props.children}
+    </MessageActionsMenu>
+  );
+}
+
+function AssistantReplyForkableActionsMenu(props: {
+  readonly environmentId: EnvironmentId;
+  readonly text: string;
+  readonly timestampLabel: string;
+  readonly projectedItem: OrchestrationV2ProjectedTurnItem;
+  readonly sourceTitle: string;
+  readonly children: ReactNode;
+}) {
+  const fork = useAssistantFork(props);
+  return (
+    <MessageActionsMenu
+      title={props.timestampLabel}
+      actions={
+        fork === null
+          ? MESSAGE_COPY_MENU_ACTIONS
+          : [
+              ...MESSAGE_COPY_MENU_ACTIONS,
+              {
+                id: "fork",
+                title: "Fork from this response",
+                attributes: fork.busy ? { disabled: true } : undefined,
+              },
+            ]
+      }
+      onPressAction={(actionId) => {
+        if (actionId === "fork") fork?.fork();
+        else copyTextWithHaptic(props.text);
+      }}
+    >
+      {props.children}
+    </MessageActionsMenu>
   );
 }
 
@@ -1676,7 +1782,13 @@ function renderFeedEntry(
     readonly renderViewedImage: MarkdownImageRenderer;
     readonly renderReasoning: (text: string) => ReactNode;
     readonly iconSubtleColor: string | import("react-native").ColorValue;
-    readonly replyActionSize: { readonly button: number; readonly icon: number };
+    readonly replyActionSize: {
+      readonly button: number;
+      readonly width: number;
+      readonly inset: number;
+      readonly icon: number;
+    };
+    readonly latestAssistantMessageId: string | null;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
     readonly markdownStyles: MarkdownStyleSets;
@@ -1960,6 +2072,41 @@ function renderFeedEntry(
             context: message.context,
           })
         : null;
+      const context = message.context;
+      const onCopyUserMessage =
+        context && presentation.attribution !== "guest"
+          ? () =>
+              writeComposerContextClipboard(message.text, {
+                version: 1,
+                source: { environmentId: props.environmentId, messageId: message.id },
+                records: context.records,
+              })
+          : undefined;
+      // Android moves the time and copy into the message's actions menu.
+      const metaInMenu = Platform.OS === "android" && presentation.text.trim().length > 0;
+      const pendingUnacknowledged = entry.pendingMessage !== undefined && !entry.acknowledged;
+      const canEditPending =
+        props.onEditPendingMessage !== null &&
+        entry.pendingMessage !== undefined &&
+        !entry.acknowledged &&
+        !entry.pendingMessage.creation &&
+        entry.pendingMessage.messageId !== props.dispatchingMessageId;
+      const showTimestamp = !metaInMenu || pendingUnacknowledged;
+      const showFooter =
+        bubbleBodyVisible &&
+        (!metaInMenu || intentBadge !== null || pendingUnacknowledged || canEditPending);
+      const userMessageContent = (
+        <UserMessageContent
+          text={renderedText}
+          environmentId={props.environmentId}
+          context={message.context}
+          markdownStyles={styles}
+          reviewCommentColors={props.reviewCommentColors}
+          skills={props.skills}
+          linkHandlers={props.markdownLinkHandlers}
+          renderImage={props.renderMarkdownImage}
+        />
+      );
       const hasBubble =
         fileCards === null &&
         (agentFold ||
@@ -2164,23 +2311,24 @@ function renderFeedEntry(
                     <MarkdownImageAvailableWidthContext
                       value={props.userBubbleMaxWidth - USER_BUBBLE_HORIZONTAL_PADDING * 2}
                     >
-                      <UserMessageContent
-                        text={renderedText}
-                        environmentId={props.environmentId}
-                        context={message.context}
-                        markdownStyles={styles}
-                        reviewCommentColors={props.reviewCommentColors}
-                        skills={props.skills}
-                        linkHandlers={props.markdownLinkHandlers}
-                        renderImage={props.renderMarkdownImage}
-                      />
+                      {metaInMenu ? (
+                        <UserMessageActionsMenu
+                          text={presentation.text}
+                          onCopy={onCopyUserMessage}
+                          timestampLabel={timestampLabel}
+                        >
+                          {userMessageContent}
+                        </UserMessageActionsMenu>
+                      ) : (
+                        userMessageContent
+                      )}
                     </MarkdownImageAvailableWidthContext>
                   ) : null}
                 </View>
               ) : null}
             </View>
           ) : null}
-          {bubbleBodyVisible ? (
+          {showFooter ? (
             <View className="mt-1 flex-row items-center justify-end gap-1 pr-0.5">
               {intentBadge ? (
                 <View
@@ -2194,7 +2342,7 @@ function renderFeedEntry(
                   </Text>
                 </View>
               ) : null}
-              {intentBadge ? (
+              {intentBadge && showTimestamp ? (
                 <Text
                   accessible={false}
                   accessibilityElementsHidden
@@ -2204,14 +2352,12 @@ function renderFeedEntry(
                   ·
                 </Text>
               ) : null}
-              <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
-                {entry.pendingMessage && !entry.acknowledged ? "Pending" : timestampLabel}
-              </Text>
-              {props.onEditPendingMessage !== null &&
-              entry.pendingMessage &&
-              !entry.acknowledged &&
-              !entry.pendingMessage.creation &&
-              entry.pendingMessage.messageId !== props.dispatchingMessageId ? (
+              {showTimestamp ? (
+                <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+                  {pendingUnacknowledged ? "Pending" : timestampLabel}
+                </Text>
+              ) : null}
+              {canEditPending ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Edit pending message"
@@ -2226,19 +2372,10 @@ function renderFeedEntry(
                   <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
                 </Pressable>
               ) : null}
-              {presentation.text.trim().length > 0 ? (
+              {presentation.text.trim().length > 0 && !metaInMenu ? (
                 <UserMessageCopyButton
                   text={presentation.text}
-                  onCopy={
-                    message.context && presentation.attribution !== "guest"
-                      ? () =>
-                          writeComposerContextClipboard(message.text, {
-                            version: 1,
-                            source: { environmentId: props.environmentId, messageId: message.id },
-                            records: message.context!.records,
-                          })
-                      : undefined
-                  }
+                  onCopy={onCopyUserMessage}
                   tintColor={iconSubtleColor}
                 />
               ) : null}
@@ -2253,6 +2390,23 @@ function renderFeedEntry(
     }
 
     const enterAnimated = isFreshTimestamp(message.createdAt);
+    // Android keeps the footer on the newest reply; older replies move it into their actions menu.
+    const replyActionsInMenu =
+      Platform.OS === "android" &&
+      showAssistantMeta &&
+      message.id !== props.latestAssistantMessageId &&
+      renderedText.trim().length > 0;
+    const assistantMarkdown = (
+      <AssistantMarkdownContent
+        markdown={renderedText}
+        environmentId={props.environmentId}
+        markdownStyles={styles}
+        linkHandlers={props.markdownLinkHandlers}
+        onUseArtifactTemplate={props.onUseArtifactTemplate}
+        renderImage={props.renderMarkdownImage}
+        skills={props.skills}
+      />
+    );
     return (
       <Animated.View
         className={cn(
@@ -2265,15 +2419,19 @@ function renderFeedEntry(
       >
         {renderedText.trim().length > 0 ? (
           <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
-            <AssistantMarkdownContent
-              markdown={renderedText}
-              environmentId={props.environmentId}
-              markdownStyles={styles}
-              linkHandlers={props.markdownLinkHandlers}
-              onUseArtifactTemplate={props.onUseArtifactTemplate}
-              renderImage={props.renderMarkdownImage}
-              skills={props.skills}
-            />
+            {replyActionsInMenu ? (
+              <AssistantReplyActionsMenu
+                environmentId={props.environmentId}
+                text={renderedText}
+                timestampLabel={timestampLabel}
+                projectedItem={message.projectedItem}
+                sourceTitle={props.threadTitle}
+              >
+                {assistantMarkdown}
+              </AssistantReplyActionsMenu>
+            ) : (
+              assistantMarkdown
+            )}
           </MarkdownImageAvailableWidthContext>
         ) : null}
         <MessageAttachmentList
@@ -2288,13 +2446,19 @@ function renderFeedEntry(
             onOpenTurnDiff={props.onOpenTurnDiff}
           />
         ) : null}
-        {showAssistantMeta ? (
-          <View className="mt-1 flex-row items-center gap-1">
+        {showAssistantMeta && !replyActionsInMenu ? (
+          <View
+            className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
+            style={
+              Platform.OS === "android" ? { marginLeft: -props.replyActionSize.inset } : undefined
+            }
+          >
             <CopyTextButton
               accessibilityLabel="Copy message"
               text={renderedText}
               tintColor={iconSubtleColor}
               buttonSize={props.replyActionSize.button}
+              buttonWidth={props.replyActionSize.width}
               iconSize={props.replyActionSize.icon}
             />
             {message.projectedItem ? (
@@ -2302,12 +2466,18 @@ function renderFeedEntry(
                 environmentId={props.environmentId}
                 iconColor={iconSubtleColor}
                 buttonSize={props.replyActionSize.button}
+                buttonWidth={props.replyActionSize.width}
                 iconSize={props.replyActionSize.icon}
                 projectedItem={message.projectedItem}
                 sourceTitle={props.threadTitle}
               />
             ) : null}
-            <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+            <Text
+              className="font-t3-medium text-xs tabular-nums text-foreground-secondary"
+              style={
+                Platform.OS === "android" ? { marginLeft: props.replyActionSize.inset } : undefined
+              }
+            >
               {timestampLabel}
             </Text>
           </View>
@@ -2751,8 +2921,13 @@ export const ThreadFeed = memo(function ThreadFeed({
   const replyActionSize = useMemo(
     () =>
       Platform.OS === "android"
-        ? { button: androidButtonSize, icon: androidIconSize }
-        : { button: 28, icon: 13 },
+        ? {
+            button: androidButtonSize,
+            width: androidIconSize + ANDROID_REPLY_ACTION_INSET * 2,
+            inset: ANDROID_REPLY_ACTION_INSET,
+            icon: androidIconSize,
+          }
+        : { button: 28, width: 28, inset: 0, icon: 13 },
     [androidButtonSize, androidIconSize],
   );
   const screenColor = theme["--color-screen"];
@@ -3132,11 +3307,19 @@ export const ThreadFeed = memo(function ThreadFeed({
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
+  const latestAssistantMessageId = (() => {
+    for (let index = props.feed.length - 1; index >= 0; index--) {
+      const entry = props.feed[index];
+      if (entry?.type === "message" && entry.message.role === "assistant") return entry.message.id;
+    }
+    return null;
+  })();
   const listAppearanceData = {
     worktreeSetup: props.worktreeSetup,
     setupWorkingStartedAt: props.setupWorkingStartedAt,
     dispatchingMessageId: props.dispatchingMessageId,
     unsettledTurnId,
+    latestAssistantMessageId,
     copiedRowId,
     workRowSizing,
     iconSubtleColor,
@@ -3446,6 +3629,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           copiedRowId,
           workRowSizing,
           terminalAssistantMessageIds,
+          latestAssistantMessageId,
           unsettledTurnId,
           compactionLabelsByEntryId,
           failedRunIds,

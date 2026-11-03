@@ -3,6 +3,7 @@ import { GlassContainer, GlassView } from "expo-glass-effect";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
+  Platform,
   Pressable,
   Text as SystemText,
   useWindowDimensions,
@@ -306,14 +307,7 @@ export function FloatingWorkingControl(props: {
             importantForAccessibility={props.showScrollToEnd ? "auto" : "no-hide-descendants"}
             style={[arrowTransformStyle, arrowContentStyle]}
           >
-            <ControlPill
-              accessibilityLabel="Scroll to end"
-              activateOnPressIn
-              className="h-11 w-11 border border-border bg-glass-fallback shadow-md shadow-black/10"
-              disabled={!props.showScrollToEnd}
-              icon={{ ios: "chevron.down", android: "keyboard_arrow_down" }}
-              onPress={props.onScrollToEnd}
-            />
+            <ScrollToEndPill disabled={!props.showScrollToEnd} onPress={props.onScrollToEnd} />
           </Animated.View>
         </View>
       ) : NATIVE_LIQUID_GLASS_SUPPORTED ? (
@@ -326,15 +320,28 @@ export function FloatingWorkingControl(props: {
           <ScrollToEndButton onPress={props.onScrollToEnd} />
         </UniwindGlassView>
       ) : (
-        <ControlPill
-          accessibilityLabel="Scroll to end"
-          activateOnPressIn
-          className="h-11 w-11 border border-border bg-glass-fallback shadow-md shadow-black/10"
-          icon={{ ios: "chevron.down", android: "keyboard_arrow_down" }}
-          onPress={props.onScrollToEnd}
-        />
+        <ScrollToEndPill onPress={props.onScrollToEnd} />
       )}
     </Animated.View>
+  );
+}
+
+function ScrollToEndPill(props: { readonly disabled?: boolean; readonly onPress: () => void }) {
+  const shared = {
+    accessibilityLabel: "Scroll to end",
+    activateOnPressIn: true,
+    disabled: props.disabled,
+    icon: { ios: "chevron.down", android: "keyboard_arrow_down" },
+    onPress: props.onPress,
+  } as const;
+  // Android draws it over reading text, where a translucent fill lets the text show through.
+  return Platform.OS === "android" ? (
+    <ControlPill {...shared} variant="floating" />
+  ) : (
+    <ControlPill
+      {...shared}
+      className="h-11 w-11 border border-border bg-glass-fallback shadow-md shadow-black/10"
+    />
   );
 }
 

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Platform } from "react-native";
 import { AppBar } from "../../components/ui/AppBar";
 import { ScreenHeaderButton } from "../../components/ui/ScreenHeaderButton";
 import type { AppBarAction } from "../../components/ui/AppBar.types";
@@ -7,6 +8,7 @@ import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
+import type { ThreadLifecycleStatus } from "./useThreadLifecycleStatus";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
@@ -17,13 +19,17 @@ export function ThreadHeader(
     readonly onToggleInspector: () => void;
     readonly onOpenGitInspector: () => void;
     readonly onOpenFilesInspector: () => void;
+    /** Android shows it in the subtitle and overflow menu; iOS shows it floating over the feed. */
+    readonly lifecycleStatus?: ThreadLifecycleStatus | null;
   },
 ) {
+  const lifecycle = Platform.OS === "android" ? (props.lifecycleStatus ?? null) : null;
   const goBack = useWorkspaceBackNavigation("threads");
   const { layout, panes, toggleAuxiliaryPane, composerKeyboardActive } =
     useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
+  const lifecycleAction = lifecycle?.action ?? null;
   const androidHeaderActions = useMemo<ReadonlyArray<AppBarAction>>(() => {
     const actions: AppBarAction[] = [];
     if (props.onReturnToThread) {
@@ -40,6 +46,7 @@ export function ThreadHeader(
         selected: filesVisible,
         icon: "folder",
         onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,
+        overflowOnly: true,
       });
     }
     if (props.hasWorkspaceRoot && props.gitControls.canOpenTerminal) {
@@ -47,18 +54,30 @@ export function ThreadHeader(
         accessibilityLabel: "Open terminal",
         icon: "terminal",
         onPress: () => onOpenTerminal(null),
+        overflowOnly: true,
       });
     }
     actions.push({
       accessibilityLabel: "Open git controls",
       icon: "point.topleft.down.curvedto.point.bottomright.up",
       onPress: props.onOpenGitInspector,
+      overflowOnly: true,
     });
     if (onMergeBack) {
       actions.push({
         accessibilityLabel: "Merge back to source",
         icon: PullRequestGlyph.merged,
         onPress: onMergeBack,
+        overflowOnly: true,
+      });
+    }
+    if (lifecycleAction) {
+      actions.push({
+        accessibilityLabel: lifecycleAction.label,
+        icon: "clock",
+        disabled: lifecycleAction.disabled,
+        onPress: lifecycleAction.onPress,
+        overflowOnly: true,
       });
     }
     return actions;
@@ -74,13 +93,16 @@ export function ThreadHeader(
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
+    lifecycleAction,
   ]);
 
   return (
     <>
       <AppBar
         title={props.title}
-        subtitle={props.subtitle}
+        subtitle={
+          lifecycle ? [props.subtitle, lifecycle.label].filter(Boolean).join(" · ") : props.subtitle
+        }
         sidebar={native.sidebar}
         options={native.options}
         optionsVersion={native.optionsVersion}

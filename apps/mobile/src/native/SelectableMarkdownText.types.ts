@@ -80,4 +80,11 @@ export interface SelectableMarkdownTextProps {
   readonly marginBottom?: number;
   readonly writingDirection?: "ltr" | "rtl";
   readonly textAlign?: "left" | "right";
+  /** Android: extra items in the text selection toolbar. */
+  readonly selectionMenuItems?: ReadonlyArray<MarkdownSelectionMenuItem>;
+}
+
+export interface MarkdownSelectionMenuItem {
+  readonly text: string;
+  readonly onPress: () => void;
 }

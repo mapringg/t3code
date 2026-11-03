@@ -14,7 +14,8 @@ export function ControlPill(props: {
   readonly accessibilityLabel?: string;
   readonly onPress?: () => void;
   readonly activateOnPressIn?: boolean;
-  readonly variant?: "circle" | "pill" | "primary" | "danger";
+  /** `floating`: an opaque circle that sits over scrolling content. */
+  readonly variant?: "circle" | "pill" | "primary" | "danger" | "floating";
   readonly disabled?: boolean;
   readonly className?: string;
 }) {
@@ -49,7 +50,10 @@ export function ControlPill(props: {
         : "accent-icon";
 
   const isCircle =
-    variant === "circle" || variant === "danger" || (variant === "primary" && !props.label);
+    variant === "circle" ||
+    variant === "floating" ||
+    variant === "danger" ||
+    (variant === "primary" && !props.label);
   const containerClassName = cn(
     isCircle
       ? "h-11 w-11 items-center justify-center rounded-full"
@@ -62,7 +66,9 @@ export function ControlPill(props: {
         : "bg-primary"
       : variant === "danger"
         ? "bg-danger"
-        : "bg-subtle",
+        : variant === "floating"
+          ? "border border-border bg-grouped-card shadow-md shadow-black/10"
+          : "bg-subtle",
     props.className,
   );
   const labelClassName = cn(

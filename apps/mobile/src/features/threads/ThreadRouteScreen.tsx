@@ -106,6 +106,7 @@ import {
   threadRouteOpensDraft,
 } from "./thread-route-hydration";
 import { ThreadHeader } from "./ThreadHeader";
+import { useThreadLifecycleStatus } from "./useThreadLifecycleStatus";
 import { resumeThread } from "./resume-thread";
 import {
   useAndroidWorkspaceBack,
@@ -516,6 +517,11 @@ function ThreadRouteContent(
   const routeConnectionState =
     routeEnvironmentRuntime?.connectionState ?? (environmentId ? "available" : connectionState);
   const routeConnectionError = routeEnvironmentRuntime?.connectionError ?? null;
+  const lifecycleStatus = useThreadLifecycleStatus({
+    thread: selectedThread,
+    configLoaded: (routeEnvironmentRuntime?.serverConfig ?? null) !== null,
+    canOperateThread,
+  });
   const selectedThreadWithDraftSettings = selectedThread
     ? {
         ...selectedThread,
@@ -1023,10 +1029,12 @@ function ThreadRouteContent(
                 onOpenGitInspector={handleOpenGitInspector}
                 onOpenFilesInspector={handleOpenFilesInspector}
                 onReturnToThread={props.onReturnToThread}
+                lifecycleStatus={lifecycleStatus}
               />
             )
           }
           canOperateThread={canOperateThread}
+          lifecycleStatus={lifecycleStatus}
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
           selectedThreadDetailRef={selectedThreadDetailRef}
           contentPresentation={contentPresentation}

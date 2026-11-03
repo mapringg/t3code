@@ -20,6 +20,8 @@ export const CopyTextButton = memo(function CopyTextButton(props: {
   readonly borderColor?: ColorValue;
   readonly iconSize?: number;
   readonly buttonSize?: number;
+  /** Narrower than `buttonSize` for a tall target in a tight row; hitSlop widens the touch area. */
+  readonly buttonWidth?: number;
 }) {
   const [copiedAtMs, setCopiedAtMs] = useState<number | null>(null);
   const feedbackEnded = useDeadlinePassed(
@@ -48,7 +50,7 @@ export const CopyTextButton = memo(function CopyTextButton(props: {
         setCopiedAtMs(Date.now());
       }}
       style={({ pressed }) => ({
-        width: props.buttonSize ?? 30,
+        width: props.buttonWidth ?? props.buttonSize ?? 30,
         height: props.buttonSize ?? 30,
         alignItems: "center",
         justifyContent: "center",
