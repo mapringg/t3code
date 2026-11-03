@@ -104,11 +104,13 @@ export function ConnectionEnvironmentRow(props: {
           onPress={props.onToggle}
         >
           <View className="flex-row items-center gap-1.5">
-            <ConnectionStatusDot
-              state={enabled || unsupported ? props.environment.connectionState : "available"}
-              pulse={isRetrying}
-              size={8}
-            />
+            {Platform.OS === "android" ? null : (
+              <ConnectionStatusDot
+                state={enabled || unsupported ? props.environment.connectionState : "available"}
+                pulse={isRetrying}
+                size={8}
+              />
+            )}
             <EnvironmentMachineSymbol
               kind={resolveEnvironmentMachineKind(serverConfig)}
               size={14}
