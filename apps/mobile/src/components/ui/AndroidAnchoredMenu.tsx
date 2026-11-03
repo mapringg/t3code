@@ -38,6 +38,7 @@ export type AndroidAnchoredMenuProps = {
   readonly onPressAction?: MenuComponentProps["onPressAction"];
   readonly className?: string;
   readonly style?: StyleProp<ViewStyle>;
+  readonly inWindow?: boolean;
   readonly children: ReactNode | ((open: () => void) => ReactNode);
 };
 
@@ -75,9 +76,8 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     });
   };
 
-  // Only the in-window (keyboard) presentation needs this; the native popup
-  // handles back itself.
-  useHardwareBack(anchor?.keyboardWasVisible === true, () => {
+  // In-window menus need an explicit back handler; native popups handle back themselves.
+  useHardwareBack(anchor !== null && (anchor.keyboardWasVisible || props.inWindow === true), () => {
     if (path.length > 0) {
       setPath((current) => current.slice(0, -1));
     } else {
@@ -168,7 +168,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
             onLayout={measureOverlay}
           >
             <Pressable accessible={false} className="absolute inset-0" onPress={close} />
-            {!placeable || local === null ? null : !anchor.keyboardWasVisible ? (
+            {!placeable || local === null ? null : !anchor.keyboardWasVisible && !props.inWindow ? (
               <MenuPopup
                 // Compose aligns to the trigger's start if it fits; hinge-safe triggers keep menus on their side.
                 anchor={windowHinge ? { ...local, x: left, width: menuWidth } : local}

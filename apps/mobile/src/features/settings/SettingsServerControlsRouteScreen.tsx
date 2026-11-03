@@ -14,7 +14,7 @@ import {
   type ProjectScopedServerSettingKey,
 } from "@t3tools/contracts";
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -506,7 +506,7 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                       )}
                     />
                   ) : null}
-                  {!projectSelected ? (
+                  {!projectSelected && Platform.OS !== "android" ? (
                     <SettingsSection title="Manage environments">
                       {selectedTargets.map((target) => (
                         <SettingsRow

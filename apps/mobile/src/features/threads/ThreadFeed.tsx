@@ -1758,6 +1758,17 @@ function RunFoldButton({
   );
 }
 
+function isAndroidChatNotice(entry: ThreadFeedEntry) {
+  return (
+    Platform.OS === "android" &&
+    entry.type === "activity-group" &&
+    entry.activities.every(
+      ({ projectedItem }) =>
+        projectedItem.item.type === "error" || projectedItem.item.type === "system_notice",
+    )
+  );
+}
+
 function renderFeedEntry(
   info: { item: ThreadFeedRow; index: number },
   props: Pick<
@@ -2394,11 +2405,12 @@ function renderFeedEntry(
     return <AssistantMessageRow message={message} rowProps={props} />;
   }
 
-  return (
+  const standaloneNotice = isAndroidChatNotice(entry);
+  const workLog = (
     <ThreadWorkLog
       key={`${entry.id}:${props.workRowSizing.textSizeKey}`}
       activities={entry.activities}
-      continuesWorkLog={entry.continuesWorkLog}
+      continuesWorkLog={standaloneNotice || entry.continuesWorkLog}
       environmentId={props.environmentId}
       workspaceRoot={props.workspaceRoot}
       copiedRowId={props.copiedRowId}
@@ -2411,6 +2423,7 @@ function renderFeedEntry(
       onPressPreview={props.onPressPreview}
     />
   );
+  return standaloneNotice ? <View className="mb-5">{workLog}</View> : workLog;
 }
 
 function AssistantMessageRow({
@@ -3617,6 +3630,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   // corrects each row's height as it mounts — the feed visibly jumps.
   const getFixedItemSize = (entry: ThreadFeedRow) => {
     if (entry.type === "guest-pending") return undefined;
+    if (isAndroidChatNotice(entry)) return undefined;
     if (entry.type === "html-render") {
       return htmlRenderRowHeight(htmlRenderFrameHeight(entry.render, contentWidth));
     }

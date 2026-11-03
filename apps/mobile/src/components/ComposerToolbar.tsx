@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { useRef, useState } from "react";
 import {
   Pressable,
+  Platform,
   ScrollView,
   View,
   type LayoutChangeEvent,
@@ -61,7 +62,10 @@ export function ComposerInlineControl(props: {
         accessibilityState={
           props.static ? undefined : { disabled: props.disabled, selected: props.selected }
         }
-        className="h-[44px] flex-row items-center gap-2 rounded-xl px-2 active:bg-subtle"
+        className={cn(
+          "h-[44px] flex-row items-center gap-2 rounded-xl px-2",
+          Platform.OS === "android" ? "active:opacity-70" : "active:bg-subtle",
+        )}
         disabled={props.disabled || props.static}
         onPress={props.onPress}
         style={{ opacity: props.disabled ? 0.45 : 1 }}
@@ -86,7 +90,11 @@ export function ComposerInlineControl(props: {
         {props.iconOnly ? null : (
           <Animated.View
             className="shrink"
-            entering={animatesLabel && !reducedMotion ? INLINE_CONTROL_LABEL_ENTERING : undefined}
+            entering={
+              Platform.OS !== "android" && animatesLabel && !reducedMotion
+                ? INLINE_CONTROL_LABEL_ENTERING
+                : undefined
+            }
           >
             <Text
               className={cn(

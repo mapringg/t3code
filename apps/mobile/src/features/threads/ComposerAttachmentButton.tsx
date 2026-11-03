@@ -10,13 +10,15 @@ const ATTACHMENT_MENU_ACTIONS: MenuAction[] = [
   { id: "files", title: "Choose files", image: "folder" },
 ];
 
-export function ComposerAttachmentButton(props: {
+export type ComposerAttachmentButtonProps = {
   readonly disabled?: boolean;
   readonly size?: "regular" | "large";
   readonly supportsFiles: boolean;
   readonly onPickMedia: () => Promise<void>;
   readonly onPickFiles: () => Promise<void>;
-}) {
+};
+
+export function ComposerAttachmentButton(props: ComposerAttachmentButtonProps) {
   const { scale } = useAndroidControlSizing();
   const button = (
     <Pressable
