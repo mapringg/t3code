@@ -1052,6 +1052,36 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       : `Opens the thread. Swipe left for ${primaryAction.label.toLowerCase()} and snooze actions.`;
 
   const titleTextInset = props.project ? projectIconSize + 8 : 0;
+  const providerIcons = providerInstance ? (
+    <View className="flex-row items-center">
+      {providerDrivers.slice(0, -1).map(
+        (driver, index) => (
+          /* oxlint-disable react/no-array-index-key -- Provider history can repeat a driver; these decorative icons have no local state. */ <View
+            key={`${driver}:${index}`}
+            className="-mr-1 opacity-30"
+          >
+            <ProviderIcon provider={driver} size={12} />
+          </View>
+        ) /* oxlint-enable react/no-array-index-key */,
+      )}
+      <ProviderInstanceIcon
+        iconUrl={providerIconUrl}
+        provider={providerInstance.driverKind}
+        size={14}
+        displayName={providerInstance.displayName}
+        accentColor={providerInstance.accentColor}
+        showBadge={providerInstance.showBadge}
+        surfaceColor={rowAppearance.providerIconSurfaceColor}
+      />
+    </View>
+  ) : null;
+  const hasDetailLine = Boolean(
+    ((status === "failed" || status === "limited") && thread.runtime?.lastError) ||
+    props.environmentLabel ||
+    pr,
+  );
+  // On Android a provider glyph alone does not earn a second line; it joins the trailing cluster.
+  const inlineProvider = Platform.OS === "android" && !hasDetailLine;
   const cardContent = (
     <>
       <View className="flex-row items-start gap-2">
@@ -1091,6 +1121,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           {thread.title}
         </Text>
         <View className="flex-row items-center gap-1.5" style={{ minHeight: titleLineHeight }}>
+          {inlineProvider ? providerIcons : null}
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
           {pinnedRow ? (
             <SymbolView
@@ -1181,113 +1212,93 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           />
         </View>
       ) : null}
-      <View className="mt-1 flex-row items-center gap-2" style={{ paddingLeft: titleTextInset }}>
-        {(status === "failed" || status === "limited") && thread.runtime?.lastError ? (
-          <Text
-            className={cn(
-              "flex-1 text-xs",
-              selected
-                ? selectedThreadRowColors.mutedForegroundClassName
-                : status === "limited"
-                  ? "text-warning-foreground"
-                  : "text-danger-foreground",
-            )}
-            numberOfLines={1}
-          >
-            {thread.runtime.lastError}
-          </Text>
-        ) : props.environmentLabel ? (
-          <View className="min-w-0 flex-1 flex-row items-center gap-1">
-            {props.environmentMachine ? (
-              <EnvironmentMachineSymbol
-                kind={props.environmentMachine}
-                size={machineIconSize}
-                tintColorClassName={
-                  selected
-                    ? selectedThreadRowColors.mutedIconTintClassName
-                    : rowAppearance.tertiaryIconTintClassName
-                }
-              />
-            ) : null}
+      {inlineProvider ? null : (
+        <View className="mt-1 flex-row items-center gap-2" style={{ paddingLeft: titleTextInset }}>
+          {(status === "failed" || status === "limited") && thread.runtime?.lastError ? (
             <Text
               className={cn(
-                "shrink text-xs",
+                "flex-1 text-xs",
                 selected
                   ? selectedThreadRowColors.mutedForegroundClassName
-                  : rowAppearance.tertiaryForegroundClassName,
+                  : status === "limited"
+                    ? "text-warning-foreground"
+                    : "text-danger-foreground",
               )}
               numberOfLines={1}
             >
-              {props.environmentLabel}
+              {thread.runtime.lastError}
             </Text>
-          </View>
-        ) : (
-          <View className="flex-1" />
-        )}
-        {pr ? (
-          <Pressable
-            // Padding cancelled by negative margin grows the touch target into
-            // the row padding without moving the badge.
-            className="-m-2.5 flex-row items-center gap-1 p-2.5"
-            accessibilityRole="button"
-            accessibilityLabel={prBadgeLabel ?? undefined}
-            onPress={handleOpenPullRequests}
-            // Handle long-press so opening the iOS row menu cannot also open the PR on release.
-            onLongPress={() => undefined}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-          >
-            <SymbolView
-              name={
-                pr.kind === "stack"
-                  ? PullRequestGlyph.stack
-                  : pr.state === null
-                    ? PullRequestGlyph.pullRequest
-                    : pullRequestStatus({ state: pr.state, isDraft: pr.isDraft }).icon
-              }
-              size={12}
-              tintColorClassName={
-                pr.state === null || pr.isDraft
-                  ? rowAppearance.mutedIconTintClassName
-                  : pr.state === "open"
-                    ? "accent-adaptive-emerald-600-400"
-                    : pr.state === "closed"
-                      ? "accent-adaptive-rose-600-400"
-                      : "accent-adaptive-violet-600-400"
-              }
-            />
-            <Text
-              accessibilityLabel={pr.accessibilityLabel}
-              className={cn("text-xs", pr.textClassName)}
-              style={{ fontFamily: MONO_FONT }}
+          ) : props.environmentLabel ? (
+            <View className="min-w-0 flex-1 flex-row items-center gap-1">
+              {props.environmentMachine ? (
+                <EnvironmentMachineSymbol
+                  kind={props.environmentMachine}
+                  size={machineIconSize}
+                  tintColorClassName={
+                    selected
+                      ? selectedThreadRowColors.mutedIconTintClassName
+                      : rowAppearance.tertiaryIconTintClassName
+                  }
+                />
+              ) : null}
+              <Text
+                className={cn(
+                  "shrink text-xs",
+                  selected
+                    ? selectedThreadRowColors.mutedForegroundClassName
+                    : rowAppearance.tertiaryForegroundClassName,
+                )}
+                numberOfLines={1}
+              >
+                {props.environmentLabel}
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-1" />
+          )}
+          {pr ? (
+            <Pressable
+              // Padding cancelled by negative margin grows the touch target into
+              // the row padding without moving the badge.
+              className="-m-2.5 flex-row items-center gap-1 p-2.5"
+              accessibilityRole="button"
+              accessibilityLabel={prBadgeLabel ?? undefined}
+              onPress={handleOpenPullRequests}
+              // Handle long-press so opening the iOS row menu cannot also open the PR on release.
+              onLongPress={() => undefined}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
             >
-              {pr.label}
-            </Text>
-          </Pressable>
-        ) : null}
-        {providerInstance ? (
-          <View className="flex-row items-center">
-            {providerDrivers.slice(0, -1).map(
-              (driver, index) => (
-                /* oxlint-disable react/no-array-index-key -- Provider history can repeat a driver; these decorative icons have no local state. */ <View
-                  key={`${driver}:${index}`}
-                  className="-mr-1 opacity-30"
-                >
-                  <ProviderIcon provider={driver} size={12} />
-                </View>
-              ) /* oxlint-enable react/no-array-index-key */,
-            )}
-            <ProviderInstanceIcon
-              iconUrl={providerIconUrl}
-              provider={providerInstance.driverKind}
-              size={14}
-              displayName={providerInstance.displayName}
-              accentColor={providerInstance.accentColor}
-              showBadge={providerInstance.showBadge}
-              surfaceColor={rowAppearance.providerIconSurfaceColor}
-            />
-          </View>
-        ) : null}
-      </View>
+              <SymbolView
+                name={
+                  pr.kind === "stack"
+                    ? PullRequestGlyph.stack
+                    : pr.state === null
+                      ? PullRequestGlyph.pullRequest
+                      : pullRequestStatus({ state: pr.state, isDraft: pr.isDraft }).icon
+                }
+                size={12}
+                tintColorClassName={
+                  pr.state === null || pr.isDraft
+                    ? rowAppearance.mutedIconTintClassName
+                    : pr.state === "open"
+                      ? "accent-adaptive-emerald-600-400"
+                      : pr.state === "closed"
+                        ? "accent-adaptive-rose-600-400"
+                        : "accent-adaptive-violet-600-400"
+                }
+              />
+              <Text
+                accessibilityLabel={pr.accessibilityLabel}
+                className={cn("text-xs", pr.textClassName)}
+                style={{ fontFamily: MONO_FONT }}
+              >
+                {pr.label}
+              </Text>
+            </Pressable>
+          ) : null}
+          {providerIcons}
+        </View>
+      )}
     </>
   );
 
