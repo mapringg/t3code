@@ -15,6 +15,7 @@ import { MenuPopup } from "./MenuPopup";
 
 const SCREEN_MARGIN = 12;
 const ANCHOR_GAP = 6;
+const MAX_VISIBLE_ITEMS = 6;
 
 // Freeze both snapshots at opening so keyboard and screen reflows cannot flip menu direction.
 type AnchorSnapshot = {
@@ -43,7 +44,7 @@ export type AndroidAnchoredMenuProps = {
 };
 
 export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
-  const { scale, menuWidth: desiredMenuWidth } = useAndroidControlSizing();
+  const { scale, menuWidth: desiredMenuWidth, menuItemHeight } = useAndroidControlSizing();
   const [anchor, setAnchor] = useState<AnchorSnapshot | null>(null);
   const [path, setPath] = useState<readonly MenuAction[]>([]);
   const [rootHeight, setRootHeight] = useState<number | null>(null);
@@ -76,8 +77,17 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     });
   };
 
-  // In-window menus need an explicit back handler; native popups handle back themselves.
-  useHardwareBack(anchor !== null && (anchor.keyboardWasVisible || props.inWindow === true), () => {
+  const parent = path[path.length - 1] ?? null;
+  const levelActions = (parent?.subactions ?? props.actions).filter(
+    (action) => !(action.attributes?.hidden ?? false),
+  );
+  // Expo's native popup cannot cap its height, so long menus use the scrollable in-window view.
+  const inWindow =
+    anchor?.keyboardWasVisible ||
+    props.inWindow === true ||
+    levelActions.length + Number(parent !== null) > MAX_VISIBLE_ITEMS;
+
+  useHardwareBack(anchor !== null && inWindow, () => {
     if (path.length > 0) {
       setPath((current) => current.slice(0, -1));
     } else {
@@ -85,11 +95,6 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     }
     return true;
   });
-
-  const parent = path[path.length - 1] ?? null;
-  const levelActions = (parent?.subactions ?? props.actions).filter(
-    (action) => !(action.attributes?.hidden ?? false),
-  );
 
   const local =
     anchor === null || overlay === null
@@ -120,7 +125,10 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
       : usableBottom - (local.y + local.height) - ANCHOR_GAP - SCREEN_MARGIN;
   const spaceAbove = local === null ? 0 : local.y - ANCHOR_GAP - SCREEN_MARGIN;
   const opensDown = spaceBelow >= 280 || spaceBelow >= spaceAbove;
-  const maxHeight = Math.min(opensDown ? spaceBelow : spaceAbove, 480);
+  const maxHeight = Math.max(
+    0,
+    Math.min(opensDown ? spaceBelow : spaceAbove, menuItemHeight * MAX_VISIBLE_ITEMS + 14 * scale),
+  );
   const placeable = local !== null && rootHeight !== null;
 
   const onPressItem = (action: MenuAction) => {
@@ -168,10 +176,14 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
             onLayout={measureOverlay}
           >
             <Pressable accessible={false} className="absolute inset-0" onPress={close} />
-            {!placeable || local === null ? null : !anchor.keyboardWasVisible && !props.inWindow ? (
+            {!placeable || local === null ? null : !inWindow ? (
               <MenuPopup
-                // Compose aligns to the trigger's start if it fits; hinge-safe triggers keep menus on their side.
-                anchor={windowHinge ? { ...local, x: left, width: menuWidth } : local}
+                anchor={{
+                  x: left,
+                  y: local.y - ANCHOR_GAP,
+                  width: menuWidth,
+                  height: local.height + ANCHOR_GAP * 2,
+                }}
                 menuWidth={menuWidth}
                 actions={levelActions}
                 title={props.title}
