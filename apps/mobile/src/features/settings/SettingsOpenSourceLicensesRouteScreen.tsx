@@ -221,7 +221,7 @@ export function SettingsOpenSourceLicenseRouteScreen({ route }: LicenseDetailPro
           ) : null}
         </View>
 
-        <View className="overflow-hidden rounded-[24px] border-continuous bg-grouped-card p-4">
+        <View className="overflow-hidden rounded-[24px] android:rounded-xl border-continuous bg-grouped-card p-4">
           <Text selectable className="font-mono text-base leading-normal text-foreground">
             {entry.noticeText}
           </Text>
