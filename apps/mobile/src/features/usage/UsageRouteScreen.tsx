@@ -31,7 +31,7 @@ import {
 } from "@t3tools/shared/usageFormat";
 import { useRef, useState, type ReactNode } from "react";
 import { Platform, RefreshControl, View } from "react-native";
-import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
+import Animated, { FadeIn, LayoutAnimationConfig, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -323,109 +323,112 @@ function UsageScreen(props: {
               role="tab"
             />
           )}
-          <Animated.View
-            key={showingLimits ? "limits" : "usage"}
-            entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)}
-            className="gap-6"
-          >
-            {showingLimits ? (
-              <UsageLimitsSection
-                now={limits.now}
-                failedLabels={limits.failedLabels}
-                selectedEnvironmentIds={selectedEnvironmentIds}
-                wide={wide}
-                cursorPrompt={
-                  cursorAccessEnvironments.length > 0 ? (
-                    <CursorEnableLimits
-                      environments={cursorAccessEnvironments}
-                      onEnabled={refreshAfterCursorEnable}
-                    />
-                  ) : null
-                }
-              />
-            ) : (
-              <>
-                {wide ? null : (
-                  <SegmentedControl
-                    options={WINDOW_OPTIONS}
-                    selected={windowDays}
-                    onSelect={selectWindow}
-                    size="compact"
-                  />
-                )}
-                <ChatGptUsageSummary selectedEnvironmentIds={selectedEnvironmentIds} />
-                {merged.duplicateSources.length > 0 ? (
-                  <Text className="text-sm text-foreground-muted">
-                    Counted once across environments sharing a transcript directory:{" "}
-                    {merged.duplicateSources.join(", ")}
-                  </Text>
-                ) : null}
-                {isPending ? (
-                  <Text className="py-16 text-center text-base text-foreground-muted">
-                    Scanning provider transcripts…
-                  </Text>
-                ) : selectedEnvironments.length === 0 ? (
-                  <Text className="py-16 text-center text-base text-foreground-muted">
-                    {environments.length === 0
-                      ? "Connect an environment to see usage."
-                      : "Select an environment to see usage."}
-                  </Text>
-                ) : !canReadDiagnostics ? (
-                  <View className="gap-2 py-16">
-                    {selectedEnvironments.map((environment) => (
-                      <Text
-                        key={environment.environmentId}
-                        className="text-center text-base text-foreground-muted"
-                      >
-                        {selectedEnvironments.length > 1 ? `${environment.label}: ` : null}
-                        {environment.error}
-                      </Text>
-                    ))}
-                  </View>
-                ) : (
-                  <>
-                    {sourceMessages.map((message) => (
-                      <Text key={message} className="text-sm text-foreground-muted">
-                        {message}
-                      </Text>
-                    ))}
-                    <UsageUpdating dimmed={progress.dimmed} label={progress.label}>
-                      {wide ? (
-                        <View className="flex-row gap-6">
-                          <View className="w-72 gap-6">
-                            <View className="rounded-[24px] border-continuous bg-grouped-card p-4">
-                              <UsageSummary merged={merged} metric={metric} />
-                            </View>
-                            {providers}
-                          </View>
-                          <View className="min-w-0 flex-1">
-                            <ChartCard
-                              {...chart}
-                              height={WIDE_CHART_HEIGHT}
-                              fill
-                              title={`${isPast24Hours ? "Hourly" : "Daily"} ${metric === "cost" ? "cost" : "processed tokens"}`}
-                            />
-                          </View>
-                        </View>
-                      ) : (
-                        <>
-                          <ChartCard {...chart} height={CHART_HEIGHT} />
-                          {providers}
-                        </>
-                      )}
-                      <TotalsSection
-                        merged={merged}
-                        isPast24Hours={isPast24Hours}
-                        columns={width >= 900 ? 6 : wide ? 3 : 2}
+          {/* The view fades when switched, not when the page first shows its content. */}
+          <LayoutAnimationConfig skipEntering>
+            <Animated.View
+              key={showingLimits ? "limits" : "usage"}
+              entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)}
+              className="gap-6"
+            >
+              {showingLimits ? (
+                <UsageLimitsSection
+                  now={limits.now}
+                  failedLabels={limits.failedLabels}
+                  selectedEnvironmentIds={selectedEnvironmentIds}
+                  wide={wide}
+                  cursorPrompt={
+                    cursorAccessEnvironments.length > 0 ? (
+                      <CursorEnableLimits
+                        environments={cursorAccessEnvironments}
+                        onEnabled={refreshAfterCursorEnable}
                       />
-                      <CostSection merged={merged} wide={wide} />
-                      <ModelsSection merged={merged} metric={metric} columns={wide ? 2 : 1} />
-                    </UsageUpdating>
-                  </>
-                )}
-              </>
-            )}
-          </Animated.View>
+                    ) : null
+                  }
+                />
+              ) : (
+                <>
+                  {wide ? null : (
+                    <SegmentedControl
+                      options={WINDOW_OPTIONS}
+                      selected={windowDays}
+                      onSelect={selectWindow}
+                      size="compact"
+                    />
+                  )}
+                  <ChatGptUsageSummary selectedEnvironmentIds={selectedEnvironmentIds} />
+                  {merged.duplicateSources.length > 0 ? (
+                    <Text className="text-sm text-foreground-muted">
+                      Counted once across environments sharing a transcript directory:{" "}
+                      {merged.duplicateSources.join(", ")}
+                    </Text>
+                  ) : null}
+                  {isPending ? (
+                    <Text className="py-16 text-center text-base text-foreground-muted">
+                      Scanning provider transcripts…
+                    </Text>
+                  ) : selectedEnvironments.length === 0 ? (
+                    <Text className="py-16 text-center text-base text-foreground-muted">
+                      {environments.length === 0
+                        ? "Connect an environment to see usage."
+                        : "Select an environment to see usage."}
+                    </Text>
+                  ) : !canReadDiagnostics ? (
+                    <View className="gap-2 py-16">
+                      {selectedEnvironments.map((environment) => (
+                        <Text
+                          key={environment.environmentId}
+                          className="text-center text-base text-foreground-muted"
+                        >
+                          {selectedEnvironments.length > 1 ? `${environment.label}: ` : null}
+                          {environment.error}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : (
+                    <>
+                      {sourceMessages.map((message) => (
+                        <Text key={message} className="text-sm text-foreground-muted">
+                          {message}
+                        </Text>
+                      ))}
+                      <UsageUpdating dimmed={progress.dimmed} label={progress.label}>
+                        {wide ? (
+                          <View className="flex-row gap-6">
+                            <View className="w-72 gap-6">
+                              <View className="rounded-[24px] border-continuous bg-grouped-card p-4">
+                                <UsageSummary merged={merged} metric={metric} />
+                              </View>
+                              {providers}
+                            </View>
+                            <View className="min-w-0 flex-1">
+                              <ChartCard
+                                {...chart}
+                                height={WIDE_CHART_HEIGHT}
+                                fill
+                                title={`${isPast24Hours ? "Hourly" : "Daily"} ${metric === "cost" ? "cost" : "processed tokens"}`}
+                              />
+                            </View>
+                          </View>
+                        ) : (
+                          <>
+                            <ChartCard {...chart} height={CHART_HEIGHT} />
+                            {providers}
+                          </>
+                        )}
+                        <TotalsSection
+                          merged={merged}
+                          isPast24Hours={isPast24Hours}
+                          columns={width >= 900 ? 6 : wide ? 3 : 2}
+                        />
+                        <CostSection merged={merged} wide={wide} />
+                        <ModelsSection merged={merged} metric={metric} columns={wide ? 2 : 1} />
+                      </UsageUpdating>
+                    </>
+                  )}
+                </>
+              )}
+            </Animated.View>
+          </LayoutAnimationConfig>
         </View>
       </ScrollView>
     </SettingsScreen>
