@@ -91,8 +91,8 @@ export function SelectionRow(props: {
     <View
       className={cn(
         "overflow-hidden",
-        props.isFirst && (Platform.OS === "android" ? "rounded-t-[28px]" : "rounded-t-2xl"),
-        props.isLast && (Platform.OS === "android" ? "rounded-b-[28px]" : "rounded-b-2xl"),
+        props.isFirst && (Platform.OS === "android" ? "rounded-t-xl" : "rounded-t-2xl"),
+        props.isLast && (Platform.OS === "android" ? "rounded-b-xl" : "rounded-b-2xl"),
       )}
     >
       {row}

@@ -84,7 +84,7 @@ export function materialYouPaletteToMobileThemeVariables(
     "--color-icon": palette.onSurface,
     "--color-icon-muted": palette.onSurfaceVariant,
     "--color-icon-subtle": withAlpha(palette.onSurfaceVariant, 0.68),
-    "--color-header": palette.surfaceContainerHigh,
+    "--color-header": palette.surfaceContainerLow,
     "--color-header-foreground": palette.onSurface,
     "--color-header-border": withAlpha(palette.outlineVariant, dark ? 0.36 : 0.48),
     "--color-glass-surface": withAlpha(palette.surfaceContainerHigh, dark ? 0.78 : 0.72),

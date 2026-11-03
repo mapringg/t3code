@@ -15,7 +15,7 @@ export function ScreenContent({
   return (
     <View className={fitToContents ? "shrink bg-header" : "flex-1 bg-header"}>
       <View
-        className="overflow-hidden rounded-t-[28px] bg-sheet-solid"
+        className="overflow-hidden bg-sheet-solid"
         style={{
           flexShrink: 1,
           flexGrow: fitToContents ? 0 : 1,

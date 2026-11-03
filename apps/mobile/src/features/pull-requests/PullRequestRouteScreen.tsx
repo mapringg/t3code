@@ -686,11 +686,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
             flex: 1,
             marginHorizontal: Platform.OS === "android" && layout.usesSplitView ? 4 : 0,
           }}
-          className={
-            Platform.OS === "android"
-              ? "overflow-hidden rounded-t-[28px] bg-sheet-solid"
-              : undefined
-          }
+          className={Platform.OS === "android" ? "overflow-hidden bg-sheet-solid" : undefined}
           onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
         >
           {(["overview", "guide", "activity"] as const)
@@ -1277,11 +1273,7 @@ function PullRequestFileRouteContent({ route }: PullRequestFileRouteProps) {
         </View>
       ) : null}
       <View
-        className={
-          Platform.OS === "android"
-            ? "flex-1 overflow-hidden rounded-t-[28px] bg-sheet-solid"
-            : "flex-1"
-        }
+        className={Platform.OS === "android" ? "flex-1 overflow-hidden bg-sheet-solid" : "flex-1"}
         collapsable={false}
         style={{ marginHorizontal: Platform.OS === "android" && layout.usesSplitView ? 4 : 0 }}
       >

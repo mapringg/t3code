@@ -38,7 +38,7 @@ export function getMobileThemeRuntimeVariables(
 
   return {
     ...variables,
-    "--color-header": frame,
+    "--color-header": variables["--color-sheet-solid"],
     "--color-header-foreground": variables["--color-drawer-foreground"],
     "--color-drawer": variables["--color-screen"],
   };

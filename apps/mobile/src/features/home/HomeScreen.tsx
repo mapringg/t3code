@@ -665,11 +665,7 @@ export function HomeScreen(props: HomeScreenProps) {
     return (
       <View className={containerClassName}>
         <View
-          className={cn(
-            "flex-1 items-center justify-center px-8",
-            contentBackground,
-            Platform.OS === "android" && "overflow-hidden rounded-t-[28px]",
-          )}
+          className={cn("flex-1 items-center justify-center px-8", contentBackground)}
           style={{
             paddingBottom: Platform.OS === "ios" ? iosBottomClearance : Math.max(insets.bottom, 24),
             paddingTop: NATIVE_LIQUID_GLASS_SUPPORTED ? insets.top + 72 : 0,
@@ -760,7 +756,7 @@ export function HomeScreen(props: HomeScreenProps) {
     return (
       <View className="flex-1 bg-header">
         <View
-          className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
+          className="flex-1 items-center justify-center bg-screen px-4"
           style={{ paddingBottom: insets.bottom }}
         >
           {v2ListEmpty}
@@ -772,11 +768,7 @@ export function HomeScreen(props: HomeScreenProps) {
   return (
     <View className={containerClassName}>
       <View
-        className={
-          Platform.OS === "android"
-            ? "flex-1 overflow-hidden rounded-t-[28px] bg-screen"
-            : cn("flex-1", contentBackground)
-        }
+        className={Platform.OS === "android" ? "flex-1 bg-screen" : cn("flex-1", contentBackground)}
       >
         <SwipeableScrollGateProvider enabled={swipeEnabled} activation={swipeRowActivation}>
           <GestureDetector gesture={homeScrollGesture}>
