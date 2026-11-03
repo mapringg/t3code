@@ -179,10 +179,15 @@ describe("workspace root navigation", () => {
   });
 });
 
-const mocks = vi.hoisted(() => ({ split: false, floating: false }));
+const mocks = vi.hoisted(() => ({
+  split: false,
+  floating: false,
+  appearance: { themeVariables: {} },
+}));
 
 vi.mock("../settings/appearance/AppearancePreferencesProvider", () => ({
   useAndroidFloatingTabs: () => mocks.floating,
+  useAppearancePreferences: () => mocks.appearance,
 }));
 vi.mock("react-native", () => ({
   useWindowDimensions: () => ({ width: 400, height: 800 }),
