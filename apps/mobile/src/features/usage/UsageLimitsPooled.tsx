@@ -16,7 +16,8 @@ import {
   type LimitPoolWindow,
 } from "@t3tools/shared/usageLimits";
 import { Fragment, type ReactNode, useId, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
+import { useResolveClassNames } from "uniwind";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { Defs, Path, Pattern, Rect, Svg } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -181,6 +182,12 @@ function PoolWindowCard({
   readonly wide: boolean;
 }) {
   const navigation = useNavigation();
+  const rippleStyle = useResolveClassNames("bg-subtle-strong");
+  // Opacity changes on press-in lose to a quick tap; a native ripple shows on touch-down.
+  const accountPressFeedback = {
+    android_ripple: { color: rippleStyle.backgroundColor },
+    unstable_pressDelay: Platform.OS === "android" ? 50 : undefined,
+  };
   const [barWidth, setBarWidth] = useState(0);
   // Each segment needs room for its account, percent and reset to label itself.
   const segmentWidth = barWidth / Math.max(pool.columns.length, 1);
@@ -247,6 +254,7 @@ function PoolWindowCard({
             accessibilityLabel={`Segment ${index + 1}, ${accountName(account)}, ${remainingPercent(window)}% left${timeLeft === null ? "" : `, ${timeLeft}% of the window left`}`}
             accessibilityHint="Show account details"
             onPress={() => openAccount(account)}
+            {...accountPressFeedback}
             className={wide ? "h-9 min-w-0 flex-1 rounded-md" : "h-7 min-w-0 flex-1 rounded-md"}
           >
             <PaceGap timeLeft={timeLeft}>
@@ -335,6 +343,7 @@ function PoolWindowCard({
             accessibilityLabel={`Segment ${index + 1}, ${accountName(account)}, ${remainingPercent(window)}% left${resetsIn ? `, ${resetsIn}` : ""}${credits ? `, ${credits} reset credits banked` : ""}`}
             accessibilityHint="Show account details"
             onPress={() => openAccount(account)}
+            {...accountPressFeedback}
             className="min-h-[44px] flex-row items-center gap-2 active:opacity-60"
           >
             <View className="relative size-5 items-center justify-center overflow-hidden rounded-md bg-subtle-strong">
