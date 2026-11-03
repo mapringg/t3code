@@ -179,19 +179,17 @@ export function ConnectionEnvironmentRow(props: {
               : `${props.expanded ? "Collapse" : "Expand"} details for ${props.environment.environmentLabel}`
           }
           onPress={props.onToggle}
-          style={{
-            minWidth: 44,
-            minHeight: 44,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          // The hit area bleeds into the card padding so the glyph aligns with other rows' chevrons.
+          className="-ml-1 -mr-3.5 size-11 items-center justify-center"
         >
           <SymbolView
-            name={props.opensDetails ? "chevron.right" : "chevron.down"}
-            size={12}
-            tintColorClassName="accent-icon-subtle"
+            name={
+              props.opensDetails ? "chevron.right" : props.expanded ? "chevron.up" : "chevron.down"
+            }
+            size={16}
+            tintColorClassName="accent-chevron"
             type="monochrome"
-            style={{ transform: [{ rotate: props.expanded ? "180deg" : "0deg" }] }}
+            weight="semibold"
           />
         </Pressable>
       </View>
