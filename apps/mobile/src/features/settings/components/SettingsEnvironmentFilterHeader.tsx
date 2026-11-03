@@ -119,6 +119,16 @@ export function SettingsEnvironmentFilterHeader(props: {
   );
 }
 
+/**
+ * The Android header filter, or nothing with one environment. Pass this as a header's trailing
+ * content: a trailing element that renders nothing leaves an empty actions slot, which hides the
+ * Material app bar's title and swallows taps on its back button.
+ */
+export function useAndroidSettingsEnvironmentFilter() {
+  const { availableTargets } = useSettingsEnvironmentFilter();
+  return availableTargets.length > 1 ? <AndroidSettingsEnvironmentFilter /> : undefined;
+}
+
 export function AndroidSettingsEnvironmentFilter() {
   const {
     availableTargets,

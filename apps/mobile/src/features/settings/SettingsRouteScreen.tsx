@@ -30,7 +30,7 @@ import { SettingsSection, SettingsSidebarContext } from "./components/SettingsSe
 import { SettingsScreen } from "./components/SettingsScreen";
 import type { SettingsPageTarget } from "./components/settings-page-targets";
 import {
-  AndroidSettingsEnvironmentFilter,
+  useAndroidSettingsEnvironmentFilter,
   SettingsEnvironmentFilterHeader,
 } from "./components/SettingsEnvironmentFilterHeader";
 import { useSettingsEnvironmentFilter } from "./settings-environment-filter";
@@ -56,6 +56,7 @@ export function SettingsListScreen(props: {
   readonly sidebar: boolean;
   readonly selected: string | null;
 }) {
+  const androidFilter = useAndroidSettingsEnvironmentFilter();
   const surface = useWorkspaceSurface();
   const workspace = useWorkspaceTabs();
   const inSidebar = props.sidebar;
@@ -75,7 +76,7 @@ export function SettingsListScreen(props: {
           <SettingsScreen
             title="Settings"
             workspaceRoot={inSidebar}
-            trailing={<AndroidSettingsEnvironmentFilter />}
+            trailing={androidFilter}
             search={
               workspace
                 ? {
