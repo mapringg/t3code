@@ -618,7 +618,9 @@ const RootStackConfig = createWorkspaceStackNavigator({
       options: {
         ...GLASS_HEADER_OPTIONS,
         ...FIXED_DUO_HEADER,
-        contentStyle: { backgroundColor: "transparent" },
+        // iOS shows the split view's columns through Home. On Android a transparent Home
+        // also shows through the pushed screen's slide, so the push reads as a cut.
+        ...(Platform.OS === "ios" ? { contentStyle: { backgroundColor: "transparent" } } : {}),
         headerBackVisible: false,
         ...getCompactBrandHeaderOptions(),
       },
