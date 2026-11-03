@@ -67,10 +67,10 @@ export function returnToAndroidWorkspaceList(
   resetAndroidWorkspace(navigation);
 }
 
-// In the split view these destinations swap the detail pane beside the sidebar instead of
-// stacking over Home, so the default slide-in would show a layer that is not there.
+// Pages slide in from the right, like Android's own Settings. In the split view these
+// destinations swap the detail pane beside the sidebar instead, so they don't animate.
 export function androidWorkspaceDestinationAnimation(routeName: string, usesSplitView: boolean) {
   return usesSplitView && (routeName === "Thread" || routeName === "PullRequest")
     ? ("none" as const)
-    : undefined;
+    : ("slide_from_right" as const);
 }
