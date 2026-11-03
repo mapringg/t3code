@@ -350,7 +350,10 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                 />
               </View>
             ) : (
-              <View collapsable={false} className="overflow-hidden rounded-[24px] bg-grouped-card">
+              <View
+                collapsable={false}
+                className="overflow-hidden rounded-[24px] android:rounded-xl bg-grouped-card"
+              >
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="No project"
