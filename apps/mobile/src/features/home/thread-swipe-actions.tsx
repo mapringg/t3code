@@ -21,7 +21,7 @@ import type {
   StyleProp,
   ViewStyle,
 } from "react-native";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -49,6 +49,9 @@ const ACTION_CIRCLE_SIZE = 36;
 const ACTION_ICON_SIZE = 15;
 const COMPACT_ACTION_CIRCLE_SIZE = 28;
 const COMPACT_ACTION_ICON_SIZE = 13;
+// Android rows are one 44px line, too short for a circle plus a caption; the label stays for accessibility.
+const ICON_ONLY_ACTIONS = Platform.OS === "android";
+const ICON_ONLY_ACTION_CIRCLE_SIZE = 32;
 
 const THREAD_SWIPE_ACTIONS_WIDTH = ACTION_ITEM_WIDTH * 2;
 const THREAD_SWIPE_SPRING = {
@@ -543,7 +546,11 @@ function SwipeActionButton(props: {
     stretchesOnFullSwipe,
     translation,
   } = props;
-  const circleSize = props.compact ? COMPACT_ACTION_CIRCLE_SIZE : ACTION_CIRCLE_SIZE;
+  const circleSize = ICON_ONLY_ACTIONS
+    ? ICON_ONLY_ACTION_CIRCLE_SIZE
+    : props.compact
+      ? COMPACT_ACTION_CIRCLE_SIZE
+      : ACTION_CIRCLE_SIZE;
   const iconSize = props.compact ? COMPACT_ACTION_ICON_SIZE : ACTION_ICON_SIZE;
   const actionStyle = useAnimatedStyle(() => {
     const reveal = Math.max(-translation.value, 0);
@@ -674,16 +681,18 @@ function SwipeActionButton(props: {
           />
         </Animated.View>
       </View>
-      <Animated.View
-        style={[
-          { height: 14, justifyContent: "center", paddingTop: props.compact ? 0 : 2 },
-          labelStyle,
-        ]}
-      >
-        <Text className="text-3xs font-t3-medium text-foreground-muted" numberOfLines={1}>
-          {props.label}
-        </Text>
-      </Animated.View>
+      {!ICON_ONLY_ACTIONS && (
+        <Animated.View
+          style={[
+            { height: 14, justifyContent: "center", paddingTop: props.compact ? 0 : 2 },
+            labelStyle,
+          ]}
+        >
+          <Text className="text-3xs font-t3-medium text-foreground-muted" numberOfLines={1}>
+            {props.label}
+          </Text>
+        </Animated.View>
+      )}
     </Pressable>
   );
 
