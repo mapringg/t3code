@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Image } from "react-native";
+import { Image, Platform } from "react-native";
 import type { LinkPillContent, MarkdownStyle } from "react-native-enriched-markdown";
 import type { ComposerContextRecord } from "@t3tools/contracts";
 import { contextChipAccent, contextChipPresentation } from "../lib/composerChipPresentation";
@@ -73,6 +73,12 @@ function presentation(
       chip: { accent: contextChipPresentation("skill").accent, tintsIcon: true },
     };
   const link = resolveMarkdownLinkPresentation(url);
+  if (link.kind === "file" && Platform.OS === "android")
+    return {
+      label: link.label,
+      icon: markdownFileIconSource(link.icon),
+      color: props.textStyle.linkColor,
+    };
   if (link.kind === "file")
     return {
       label: link.label,
@@ -137,7 +143,7 @@ export function useEnrichedLinkVariants(
                 borderWidth: 0,
                 borderRadius: 6,
                 paddingHorizontal: 5,
-                paddingVertical: 2,
+                paddingVertical: Platform.OS === "android" ? 0 : 2,
               },
               fontFamily: chipForeground ? FONT_FAMILIES.medium : textStyle.fontFamily,
               color: chipForeground ?? link.color ?? textStyle.fileTextColor,

@@ -1354,7 +1354,7 @@ function useMarkdownStyles(): MarkdownStyleSets {
         linkColor: markdownLinkColor,
         inlineCodeColor: markdownInlineCodeText,
         codeColor: markdownCodeText,
-        codeBackgroundColor: markdownCodeBg,
+        codeBackgroundColor: theme["--color-grouped-card"],
         codeBlockBackgroundColor: markdownCodeBg,
         fileTextColor: markdownCodeText,
         quoteMarkerColor: markdownBlockquoteBorder,

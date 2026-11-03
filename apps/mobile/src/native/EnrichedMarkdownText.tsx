@@ -86,8 +86,8 @@ function enrichedStyle(
     link: { color: style.linkColor, underline: false },
     code: {
       fontFamily: monospace,
-      color: style.inlineCodeColor,
-      backgroundColor: "transparent",
+      color: Platform.OS === "android" ? style.codeColor : style.inlineCodeColor,
+      backgroundColor: Platform.OS === "android" ? style.codeBackgroundColor : "transparent",
       borderColor: "transparent",
       fontSize: style.fontSize * 0.9,
     },
