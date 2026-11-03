@@ -200,7 +200,7 @@ function ThreadListV2Section(props: {
       </Text>
       {props.disclosure ? (
         <SymbolView
-          name="chevron.down"
+          name={props.disclosure.expanded ? "chevron.up" : "chevron.down"}
           size={10}
           tintColorClassName={
             sidebarPane
@@ -210,7 +210,6 @@ function ThreadListV2Section(props: {
                 : "accent-foreground-muted"
           }
           type="monochrome"
-          style={{ transform: [{ rotate: props.disclosure.expanded ? "180deg" : "0deg" }] }}
         />
       ) : null}
     </>
