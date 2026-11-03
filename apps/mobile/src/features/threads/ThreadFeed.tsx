@@ -234,6 +234,7 @@ import {
   appendPendingThreadMessages,
   createThreadFeedGrouping,
   isCompactionCommandFeedEntry,
+  resolveFooterMessageIds,
   type GroupedThreadFeedRow,
   type ThreadFeedRow,
 } from "./pending-thread-feed";
@@ -1789,7 +1790,8 @@ function renderFeedEntry(
       readonly inset: number;
       readonly icon: number;
     };
-    readonly latestAssistantMessageId: string | null;
+    readonly footerUserMessageId: string | null;
+    readonly footerAssistantMessageId: string | null;
     readonly messageActionsInMenu: boolean;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
@@ -2084,8 +2086,10 @@ function renderFeedEntry(
                 records: context.records,
               })
           : undefined;
-      // Android moves the time and copy into the message's actions menu.
-      const metaInMenu = props.messageActionsInMenu && presentation.text.trim().length > 0;
+      // Android keeps the newest message's footer and moves older ones into the actions menu.
+      // Every message keeps the menu wrapper so the newest moving on does not remount its text.
+      const actionsMenu = props.messageActionsInMenu && presentation.text.trim().length > 0;
+      const metaInMenu = actionsMenu && message.id !== props.footerUserMessageId;
       const pendingUnacknowledged = entry.pendingMessage !== undefined && !entry.acknowledged;
       const canEditPending =
         props.onEditPendingMessage !== null &&
@@ -2313,7 +2317,7 @@ function renderFeedEntry(
                     <MarkdownImageAvailableWidthContext
                       value={props.userBubbleMaxWidth - USER_BUBBLE_HORIZONTAL_PADDING * 2}
                     >
-                      {metaInMenu ? (
+                      {actionsMenu ? (
                         <UserMessageActionsMenu
                           text={presentation.text}
                           onCopy={onCopyUserMessage}
@@ -2331,7 +2335,13 @@ function renderFeedEntry(
             </View>
           ) : null}
           {showFooter ? (
-            <View className="mt-1 flex-row items-center justify-end gap-1 pr-0.5">
+            <View
+              className={cn(
+                "mt-1 flex-row items-center justify-end gap-1 pr-0.5",
+                // Pending and acknowledged rows hold different controls; keep one height.
+                props.messageActionsInMenu && "min-h-7",
+              )}
+            >
               {intentBadge ? (
                 <View
                   accessible
@@ -2392,12 +2402,11 @@ function renderFeedEntry(
     }
 
     const enterAnimated = isFreshTimestamp(message.createdAt);
-    // Android keeps the footer on the newest reply; older replies move it into their actions menu.
-    const replyActionsInMenu =
-      props.messageActionsInMenu &&
-      showAssistantMeta &&
-      message.id !== props.latestAssistantMessageId &&
-      renderedText.trim().length > 0;
+    // Android keeps the footer on the newest settled reply; older replies move it into their
+    // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
+    const replyActionsMenu =
+      props.messageActionsInMenu && showAssistantMeta && renderedText.trim().length > 0;
+    const replyActionsInMenu = replyActionsMenu && message.id !== props.footerAssistantMessageId;
     const assistantMarkdown = (
       <AssistantMarkdownContent
         markdown={renderedText}
@@ -2421,7 +2430,7 @@ function renderFeedEntry(
       >
         {renderedText.trim().length > 0 ? (
           <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
-            {replyActionsInMenu ? (
+            {replyActionsMenu ? (
               <AssistantReplyActionsMenu
                 environmentId={props.environmentId}
                 text={renderedText}
@@ -3306,38 +3315,9 @@ export const ThreadFeed = memo(function ThreadFeed({
     () => threadFeedCompactionLabels(props.feed),
     [props.feed],
   );
-  // LegendList does not invalidate visible rows when only the renderItem closure changes.
-  // Include turn completion so unchanged message rows reveal their footer and spacing
-  // even when the final message update arrives before the turn settles.
   // The selection-toolbar menu is out of reach for screen readers, so they keep the footers.
   const screenReaderEnabled = useScreenReaderEnabled();
   const messageActionsInMenu = Platform.OS === "android" && !screenReaderEnabled;
-  const latestAssistantMessageId = (() => {
-    for (let index = props.feed.length - 1; index >= 0; index--) {
-      const entry = props.feed[index];
-      if (entry?.type === "message" && entry.message.role === "assistant") return entry.message.id;
-    }
-    return null;
-  })();
-  const listAppearanceData = {
-    worktreeSetup: props.worktreeSetup,
-    setupWorkingStartedAt: props.setupWorkingStartedAt,
-    dispatchingMessageId: props.dispatchingMessageId,
-    unsettledTurnId,
-    latestAssistantMessageId,
-    messageActionsInMenu,
-    copiedRowId,
-    workRowSizing,
-    iconSubtleColor,
-    markdownStyles,
-    reviewCommentColors,
-    themeAppearance,
-    userBubbleColor,
-    viewportWidth,
-    contentWidth,
-    skills: props.skills,
-    workflowOpening,
-  };
   const reportHeaderMaterialVisibility = (visible: boolean) => {
     if (headerMaterialVisibleRef.current === visible) {
       return;
@@ -3415,6 +3395,30 @@ export const ThreadFeed = memo(function ThreadFeed({
   const { jumpToMessageId } = props;
   const jumpReady = !!jumpToMessageId && loadedListKey === `${feedThreadKey}:filled`;
   const presentedFeed = appendGuestPendingMessages(useThreadFeedPresentation(props), guestShare);
+  const footerMessageIds = resolveFooterMessageIds(presentedFeed, unsettledTurnId);
+  // LegendList does not invalidate visible rows when only the renderItem closure changes.
+  // Include turn completion so unchanged message rows reveal their footer and spacing
+  // even when the final message update arrives before the turn settles.
+  const listAppearanceData = {
+    worktreeSetup: props.worktreeSetup,
+    setupWorkingStartedAt: props.setupWorkingStartedAt,
+    dispatchingMessageId: props.dispatchingMessageId,
+    unsettledTurnId,
+    footerUserMessageId: footerMessageIds.user,
+    footerAssistantMessageId: footerMessageIds.assistant,
+    messageActionsInMenu,
+    copiedRowId,
+    workRowSizing,
+    iconSubtleColor,
+    markdownStyles,
+    reviewCommentColors,
+    themeAppearance,
+    userBubbleColor,
+    viewportWidth,
+    contentWidth,
+    skills: props.skills,
+    workflowOpening,
+  };
   // The feed already shows its own rows, such as a run's final answer.
   const runSheetItems = (() => {
     if (runSheet === null) return null;
@@ -3635,7 +3639,8 @@ export const ThreadFeed = memo(function ThreadFeed({
           copiedRowId,
           workRowSizing,
           terminalAssistantMessageIds,
-          latestAssistantMessageId,
+          footerUserMessageId: footerMessageIds.user,
+          footerAssistantMessageId: footerMessageIds.assistant,
           messageActionsInMenu,
           unsettledTurnId,
           compactionLabelsByEntryId,

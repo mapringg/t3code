@@ -1,5 +1,7 @@
 import {
   isCompactionCommandMessage,
+  type MessageId,
+  type RunId,
   type ThreadGuestMessage,
   type ThreadGuestShare,
 } from "@t3tools/contracts";
@@ -164,4 +166,33 @@ export function isCompactionCommandFeedEntry(entry: PendingThreadFeedEntry): boo
     entry.pendingMessage === undefined &&
     isCompactionCommandMessage(entry.message)
   );
+}
+
+/**
+ * The messages that keep their footer row when footers live in the actions menu.
+ * A reply takes it only once its run settles, so the footer moves once per run.
+ */
+export function resolveFooterMessageIds(
+  feed: ReadonlyArray<ThreadFeedRow>,
+  unsettledRunId: RunId | null,
+): { readonly user: MessageId | null; readonly assistant: MessageId | null } {
+  let user: MessageId | null = null;
+  let assistant: MessageId | null = null;
+  for (let index = feed.length - 1; index >= 0; index--) {
+    const entry = feed[index];
+    if (entry?.type !== "message") continue;
+    const { message } = entry;
+    if (message.role === "user") {
+      if (user === null && !isCompactionCommandFeedEntry(entry)) user = message.id;
+    } else if (
+      assistant === null &&
+      !message.streaming &&
+      message.runId !== null &&
+      message.runId !== unsettledRunId
+    ) {
+      assistant = message.id;
+    }
+    if (user !== null && assistant !== null) break;
+  }
+  return { user, assistant };
 }
