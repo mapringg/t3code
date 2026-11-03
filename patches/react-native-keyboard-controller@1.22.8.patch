@@ -1,3 +1,15 @@
+diff --git a/android/src/main/java/com/reactnativekeyboardcontroller/views/ClippingScrollViewDecoratorView.kt b/android/src/main/java/com/reactnativekeyboardcontroller/views/ClippingScrollViewDecoratorView.kt
+--- a/android/src/main/java/com/reactnativekeyboardcontroller/views/ClippingScrollViewDecoratorView.kt
++++ b/android/src/main/java/com/reactnativekeyboardcontroller/views/ClippingScrollViewDecoratorView.kt
+@@ -73,6 +73,8 @@
+     val scrollView = findScrollView(this) ?: return
+ 
+     scrollView.clipToPadding = false
++    // ReactScrollView draws its scrollbar outside padding; keep it out of the bottom inset.
++    scrollView.scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+ 
+     val newTopInsetPx = insetTop.toFloat().px.toInt()
+ 
 diff --git a/lib/commonjs/components/KeyboardChatScrollView/index.js b/lib/commonjs/components/KeyboardChatScrollView/index.js
 index 0b78ff3..98b3b6c 100644
 --- a/lib/commonjs/components/KeyboardChatScrollView/index.js
