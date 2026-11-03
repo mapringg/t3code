@@ -292,13 +292,15 @@ function RouteRow(props: {
           !props.editing && "pr-4",
         )}
       >
-        <SymbolView
-          name={ROUTE_ICONS[connectionRouteKind(route)]}
-          size={ICON_SIZE}
-          tintColorClassName="accent-icon"
-          type="monochrome"
-          weight="regular"
-        />
+        {Platform.OS === "android" ? null : (
+          <SymbolView
+            name={ROUTE_ICONS[connectionRouteKind(route)]}
+            size={ICON_SIZE}
+            tintColorClassName="accent-icon"
+            type="monochrome"
+            weight="regular"
+          />
+        )}
         <View className="min-w-0 flex-1 gap-0.5 android:gap-1">
           <View className="flex-row items-center gap-2">
             <Text numberOfLines={1} className="shrink text-lg text-foreground android:text-base">

@@ -23,7 +23,10 @@ export function ListSection(props: {
             }
           >
             {props.titleIcon}
-            <Text textRole="footnote" className="shrink font-t3-medium text-foreground-muted">
+            <Text
+              textRole={Platform.OS === "android" ? "label" : "footnote"}
+              className="shrink font-t3-medium text-foreground-muted"
+            >
               {props.title}
             </Text>
           </View>
@@ -40,7 +43,10 @@ export function ListSection(props: {
         {props.children}
       </View>
       {props.footer ? (
-        <Text textRole="footnote" className="px-4 text-foreground-muted">
+        <Text
+          textRole={Platform.OS === "android" ? "label" : "footnote"}
+          className="px-4 text-foreground-muted"
+        >
           {props.footer}
         </Text>
       ) : null}
