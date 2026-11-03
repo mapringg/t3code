@@ -14,6 +14,7 @@ const { Children, mocks } = vi.hoisted(() => ({
     targets: [] as ReturnType<typeof environment>[],
     readOnly: new Set<string>(),
     projectSelected: false,
+    targetListeners: new Set<() => void>(),
   },
 }));
 
@@ -122,21 +123,31 @@ vi.mock("./components/BranchNamingSettings", () => ({
     return null;
   },
 }));
-vi.mock("./settings-environment-filter", () => ({
-  useSettingsEnvironmentFilter: () => ({
-    selectedTargets: mocks.targets,
-    projectGroups: [
-      {
-        key: "project",
-        label: "Project",
-        members: mocks.targets.map((target) => ({
-          project: { environmentId: target.environmentId, id: "project" },
-        })),
-      },
-    ],
-    selectedProjectKey: mocks.projectSelected ? "project" : null,
-  }),
-}));
+vi.mock("./settings-environment-filter", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    mocks.targetListeners.add(listener);
+    return () => mocks.targetListeners.delete(listener);
+  };
+  return {
+    useSettingsEnvironmentFilter: () => {
+      const targets = useSyncExternalStore(subscribe, () => mocks.targets);
+      return {
+        selectedTargets: targets,
+        projectGroups: [
+          {
+            key: "project",
+            label: "Project",
+            members: targets.map((target) => ({
+              project: { environmentId: target.environmentId, id: "project" },
+            })),
+          },
+        ],
+        selectedProjectKey: mocks.projectSelected ? "project" : null,
+      };
+    },
+  };
+});
 
 import {
   SettingsThreadsRouteScreen,
@@ -217,6 +228,37 @@ describe("SettingsServerControlsRouteScreen", () => {
     // Both rewrite the whole project override, so a second write planned now would drop the first.
     expect(mocks.updateSettings).toHaveBeenCalledOnce();
     await act(async () => pending.resolve(AsyncResult.success(undefined)));
+  });
+
+  it("shows a toggled value without locking the page until the server reflects it", async () => {
+    const pending = Promise.withResolvers<AsyncResult.Success<void>>();
+    mocks.updateSettings.mockReturnValueOnce(pending.promise);
+    act(() => root.render(<SettingsThreadsRouteScreen />));
+    const push = (targets: typeof mocks.targets) => {
+      mocks.targets = targets;
+      act(() => mocks.targetListeners.forEach((listener) => listener()));
+    };
+    const toggle = (label: string) =>
+      [...container.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
+        (button) => button.textContent === label,
+      )!;
+    const before = DEFAULT_SERVER_SETTINGS.autoResumeLimitedThreads;
+
+    act(() => toggle("Resume after usage limits").click());
+    expect(toggle("Resume after usage limits").getAttribute("aria-checked")).toBe(String(!before));
+    expect(toggle("Agent browser access").disabled).toBe(false);
+
+    // The RPC can settle before the environment's config push arrives.
+    await act(async () => pending.resolve(AsyncResult.success(undefined)));
+    expect(toggle("Resume after usage limits").getAttribute("aria-checked")).toBe(String(!before));
+
+    const pushed = environment("local", "Local");
+    pushed.serverConfig.settings = { ...pushed.serverConfig.settings };
+    pushed.serverConfig.settings.autoResumeLimitedThreads = !before;
+    push([pushed]);
+    // Once reflected, later changes from elsewhere show through again.
+    push([environment("local", "Local")]);
+    expect(toggle("Resume after usage limits").getAttribute("aria-checked")).toBe(String(before));
   });
 
   it("disables auto-settle when a selected environment cannot save settings", () => {

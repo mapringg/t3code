@@ -929,7 +929,19 @@ export function NewTaskDraftScreen(props: {
                   />
                 </View>
               ) : null}
-              {flow.canChooseWorkspace ? workspaceControls : null}
+              {flow.canChooseWorkspace ? (
+                workspaceControls
+              ) : Platform.OS === "android" ? (
+                // Holds the row's height so "No project" doesn't shrink the composer and recenter the hero late.
+                <View
+                  aria-hidden
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+                  style={{ opacity: 0 }}
+                >
+                  {workspaceControls}
+                </View>
+              ) : null}
             </View>
           ),
           editorRef: promptInputRef,

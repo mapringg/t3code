@@ -132,3 +132,15 @@ export function planMobileScopedSettingsClear(
     patch: { projectSettingsOverrides } as ServerSettingsPatch,
   }));
 }
+
+/** Shows a saved patch before the environment's settings push confirms it. */
+export function withMobileSettingsPatch(
+  targets: readonly ScopedMobileSettingsTarget[],
+  patch: ServerSettingsPatch | null,
+): readonly ScopedMobileSettingsTarget[] {
+  if (patch === null) return targets;
+  return targets.map((target) => ({
+    ...target,
+    settings: { ...target.settings, ...patch } as ServerSettings,
+  }));
+}

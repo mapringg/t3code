@@ -515,10 +515,14 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
-  const rawThreadSyncLabel = threadSyncLabel({
-    syncStatus: props.threadSyncStatus,
-    contentKind: contentPresentationKind,
-  });
+  // On Android the pill's end-inset coverage shifts a cached feed when it comes and goes.
+  const rawThreadSyncLabel =
+    Platform.OS === "android" && contentPresentationKind === "ready"
+      ? null
+      : threadSyncLabel({
+          syncStatus: props.threadSyncStatus,
+          contentKind: contentPresentationKind,
+        });
   // One token for both labels, so the pill's show delay and hold span the whole sync.
   const syncShown =
     useDelayedStatus(selectedThreadKey, rawThreadSyncLabel === null ? null : "sync") !== null;
