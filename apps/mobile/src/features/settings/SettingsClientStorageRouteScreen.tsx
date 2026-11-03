@@ -5,7 +5,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { type EnvironmentMachineKind, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { useMemo } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -79,13 +79,15 @@ export function SettingsClientStorageRouteScreen() {
         <SettingsSection title="Environment caches">
           {AsyncResult.isFailure(summaryResult) ? (
             <View className="items-center gap-2 px-6 py-8">
-              <SymbolView
-                name="exclamationmark.triangle"
-                size={28}
-                tintColorClassName="accent-danger-foreground"
-                type="monochrome"
-                weight="regular"
-              />
+              {Platform.OS !== "android" ? (
+                <SymbolView
+                  name="exclamationmark.triangle"
+                  size={28}
+                  tintColorClassName="accent-danger-foreground"
+                  type="monochrome"
+                  weight="regular"
+                />
+              ) : null}
               <Text className="text-center text-base text-foreground">Storage unavailable</Text>
               <Text className="text-center text-sm text-foreground-muted">
                 Restart the app and try again.
@@ -117,13 +119,15 @@ export function SettingsClientStorageRouteScreen() {
             ))
           ) : (
             <View className="items-center gap-2 px-6 py-8">
-              <SymbolView
-                name="checkmark.circle"
-                size={28}
-                tintColorClassName="accent-icon"
-                type="monochrome"
-                weight="regular"
-              />
+              {Platform.OS !== "android" ? (
+                <SymbolView
+                  name="checkmark.circle"
+                  size={28}
+                  tintColorClassName="accent-icon"
+                  type="monochrome"
+                  weight="regular"
+                />
+              ) : null}
               <Text className="text-center text-base text-foreground">No cached data</Text>
               <Text className="text-center text-sm text-foreground-muted">
                 Offline cache records will appear here after environments are used.
@@ -143,7 +147,7 @@ export function SettingsClientStorageRouteScreen() {
               onPress={confirmClearAll}
             />
           </SettingsSection>
-          <Text className="px-2 text-sm leading-normal text-foreground-muted">
+          <Text className="px-2 text-sm android:text-[13px] leading-normal text-foreground-muted">
             Clearing caches never removes environment connections, credentials, account data, or
             appearance preferences.
           </Text>

@@ -2,15 +2,20 @@ import { isCompactionCommandMessage } from "@t3tools/contracts";
 import type { ThreadFeedActivity, ThreadFeedEntry } from "../../lib/threadActivity";
 
 function keepActivity(activity: ThreadFeedActivity) {
-  switch (activity.projectedItem.item.type) {
+  const item = activity.projectedItem.item;
+  switch (item.type) {
     case "approval_request":
-    case "user_input_request":
+      return (
+        item.status !== "completed" && item.status !== "cancelled" && item.status !== "interrupted"
+      );
     case "secret_request":
+      return item.secretStatus === "pending";
     case "link_request":
+      return item.linkStatus === "pending" || item.linkStatus === "failed";
+    case "user_input_request":
     case "proposed_plan":
     case "error":
     case "system_notice":
-    case "run_interrupt_result":
       return true;
     default:
       return false;

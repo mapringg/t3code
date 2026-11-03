@@ -32,10 +32,7 @@ const EMPTY_RENDER_STATE_ATOM = Atom.make(EMPTY_ENVIRONMENT_THREAD_STATE);
 
 const threadRenderStateFamily = Atom.family((key: string) => {
   const ref = parseThreadKey(key);
-  return createThreadRenderStateAtom(
-    environmentThreads.stateAtom(ref.environmentId, ref.threadId),
-    environmentThreadDetails.quietThreadAtom(ref),
-  );
+  return createThreadRenderStateAtom(environmentThreads.stateAtom(ref.environmentId, ref.threadId));
 });
 const threadRenderProjectionFamily = Atom.family((key: string) =>
   Atom.map(threadRenderStateFamily(key), (state): EnvironmentThread | null => {

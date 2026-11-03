@@ -15,7 +15,7 @@ import {
 } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useState } from "react";
-import { Pressable, type TextLayoutEvent, View } from "react-native";
+import { Platform, Pressable, type TextLayoutEvent, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
 import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSymbol";
@@ -98,12 +98,17 @@ function CloudEnvironmentRowsContent(
     <View collapsable={false} className={cn("gap-3", showHeader && "mt-5")}>
       {showHeader ? (
         <View className="px-1">
-          <Text className="text-sm font-t3-bold uppercase text-foreground-muted">T3 Connect</Text>
+          <Text className="text-sm font-t3-bold uppercase android:text-[13px] android:font-t3-medium android:normal-case text-foreground-muted">
+            T3 Connect
+          </Text>
         </View>
       ) : null}
 
       {hasCloudRows ? (
-        <View collapsable={false} className="overflow-hidden rounded-[24px] bg-grouped-card">
+        <View
+          collapsable={false}
+          className="overflow-hidden rounded-[24px] android:rounded-xl bg-grouped-card"
+        >
           {props.connectedCloudEnvironments.map((environment) => (
             <ConnectedCloudEnvironmentRow
               key={environment.environmentId}
@@ -134,14 +139,17 @@ function CloudEnvironmentRowsContent(
           ))}
         </View>
       ) : controller.relayDiscovery.isRefreshing ? (
-        <View collapsable={false} className="items-center gap-3 rounded-[24px] bg-grouped-card p-6">
+        <View
+          collapsable={false}
+          className="items-center gap-3 rounded-[24px] android:rounded-xl bg-grouped-card p-6"
+        >
           <AppActivityIndicator colorClassName={"accent-icon"} />
           <Text className="text-center text-sm leading-normal text-foreground-muted">
             Loading linked cloud environments.
           </Text>
         </View>
       ) : controller.relayDiscovery.error ? null : (
-        <View collapsable={false} className="rounded-[24px] bg-grouped-card p-5">
+        <View collapsable={false} className="rounded-[24px] android:rounded-xl bg-grouped-card p-5">
           <Text className="text-sm leading-normal text-foreground-muted">
             No additional linked cloud environments.
           </Text>
@@ -151,7 +159,10 @@ function CloudEnvironmentRowsContent(
       {discoveryAvailable &&
       controller.relayDiscovery.error &&
       !controller.relayDiscovery.isRefreshing ? (
-        <View collapsable={false} className="gap-3 rounded-[24px] bg-grouped-card p-5">
+        <View
+          collapsable={false}
+          className="gap-3 rounded-[24px] android:rounded-xl bg-grouped-card p-5"
+        >
           <Text className="text-base font-t3-bold text-foreground">
             Could not load T3 Connect environments
           </Text>
@@ -334,12 +345,16 @@ function CloudEnvironmentRowShell(props: {
         onLongPress={props.onRemove}
       >
         <View className="min-w-0 flex-row items-center gap-2">
-          <ConnectionStatusDot state={props.connectionState} pulse={shouldPulse} size={7} />
-          <EnvironmentMachineSymbol
-            kind={props.machine}
-            size={14}
-            tintColorClassName="accent-foreground-muted"
-          />
+          {Platform.OS !== "android" ? (
+            <>
+              <ConnectionStatusDot state={props.connectionState} pulse={shouldPulse} size={7} />
+              <EnvironmentMachineSymbol
+                kind={props.machine}
+                size={14}
+                tintColorClassName="accent-foreground-muted"
+              />
+            </>
+          ) : null}
           <Text
             className="min-w-0 flex-shrink text-base font-t3-bold leading-snug text-foreground"
             numberOfLines={1}

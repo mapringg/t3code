@@ -1,6 +1,7 @@
 import {
   MessageId,
   RunId,
+  RuntimeRequestId,
   ThreadId,
   TurnItemId,
   type OrchestrationV2ProjectedTurnItem,
@@ -120,6 +121,38 @@ it("keeps provider failures while removing adjacent tool activity", () => {
 it("preserves requests and generated content when tool details are hidden", () => {
   const source = feed([
     {
+      ...base("approved"),
+      type: "approval_request",
+      requestId: RuntimeRequestId.make("approved"),
+      requestKind: "file-change",
+    },
+    {
+      ...base("saved"),
+      type: "secret_request",
+      label: "Old API key",
+      reason: "Already connected",
+      secretStatus: "saved",
+    },
+    {
+      ...base("linked"),
+      type: "link_request",
+      reason: "Already linked",
+      linkStatus: "linked",
+    },
+    {
+      ...base("stopped"),
+      type: "run_interrupt_result",
+      message: "Stopped",
+    },
+    {
+      ...base("waiting"),
+      type: "approval_request",
+      status: "waiting",
+      completedAt: null,
+      requestId: RuntimeRequestId.make("waiting"),
+      requestKind: "file-change",
+    },
+    {
       ...base("secret"),
       type: "secret_request",
       label: "API key",
@@ -154,9 +187,13 @@ it("preserves requests and generated content when tool details are hidden", () =
       },
     },
   ]);
-  const presented = deriveThreadFeedPresentation(source, null);
+  const presented = source;
   const minimal = minimalChatFeed(presented);
   expect(minimal).toMatchObject([
+    {
+      type: "activity-group",
+      activities: [{ projectedItem: { item: { type: "approval_request", status: "waiting" } } }],
+    },
     {
       type: "activity-group",
       activities: [{ projectedItem: { item: { type: "secret_request" } } }],
@@ -165,6 +202,6 @@ it("preserves requests and generated content when tool details are hidden", () =
     { type: "html-render", render: { attachmentId: "visual" } },
     { type: "mcp-app", app: { attachmentId: "app" } },
   ]);
-  expect(minimal[2]).toBe(presented.find((entry) => entry.type === "html-render"));
-  expect(minimal[3]).toBe(presented.find((entry) => entry.type === "mcp-app"));
+  expect(minimal[3]).toBe(presented.find((entry) => entry.type === "html-render"));
+  expect(minimal[4]).toBe(presented.find((entry) => entry.type === "mcp-app"));
 });

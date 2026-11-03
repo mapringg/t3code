@@ -91,7 +91,10 @@ export function ConnectionEnvironmentRow(props: {
   };
 
   return (
-    <Animated.View layout={LinearTransition.duration(250)} className="bg-grouped-card">
+    <Animated.View
+      layout={Platform.OS === "android" ? undefined : LinearTransition.duration(250)}
+      className="bg-grouped-card"
+    >
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         <Pressable
           className="min-w-0 flex-1 gap-0.5 active:opacity-70"
@@ -111,11 +114,13 @@ export function ConnectionEnvironmentRow(props: {
                 size={8}
               />
             )}
-            <EnvironmentMachineSymbol
-              kind={resolveEnvironmentMachineKind(serverConfig)}
-              size={14}
-              tintColorClassName="accent-foreground-muted"
-            />
+            {Platform.OS !== "android" ? (
+              <EnvironmentMachineSymbol
+                kind={resolveEnvironmentMachineKind(serverConfig)}
+                size={14}
+                tintColorClassName="accent-foreground-muted"
+              />
+            ) : null}
             <Text
               className="min-w-0 flex-shrink text-base font-t3-bold leading-snug text-foreground"
               numberOfLines={1}
@@ -198,8 +203,8 @@ export function ConnectionEnvironmentRow(props: {
 
       {props.expanded ? (
         <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
+          entering={Platform.OS === "android" ? undefined : FadeIn.duration(200)}
+          exiting={Platform.OS === "android" ? undefined : FadeOut.duration(150)}
           className="gap-3 px-4 pb-4"
         >
           {diagnosis ? (

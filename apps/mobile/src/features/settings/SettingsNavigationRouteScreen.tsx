@@ -43,7 +43,7 @@ export function SettingsNavigationRouteScreen() {
         contentContainerClassName="gap-4 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
-        <Text className="px-2 text-sm text-foreground-muted">
+        <Text className="px-2 text-sm android:text-[13px] text-foreground-muted">
           {customizable
             ? "Phones show the first four enabled sections; Android tablet rails show all enabled sections. Remaining sections appear at the top of Settings. Hidden sections appear only here. Settings always stays last. Saved on this device."
             : "Tab customization becomes available when there are six sections, including Settings."}
@@ -51,14 +51,16 @@ export function SettingsNavigationRouteScreen() {
         <SettingsSection title="Tab order">
           {order.map((tab, index) => (
             <View key={tab} className="flex-row items-center gap-3 px-4 py-3">
-              <SymbolView
-                name={NAVIGATION_TAB_ICONS[tab]}
-                size={22}
-                tintColorClassName="accent-icon"
-              />
+              {Platform.OS !== "android" ? (
+                <SymbolView
+                  name={NAVIGATION_TAB_ICONS[tab]}
+                  size={22}
+                  tintColorClassName="accent-icon"
+                />
+              ) : null}
               <View className="flex-1">
                 <Text>{WORKSPACE_TAB_LABELS[tab]}</Text>
-                <Text className="text-xs text-foreground-muted">
+                <Text className="text-xs android:text-[13px] text-foreground-muted">
                   {hidden.includes(tab)
                     ? "Hidden"
                     : enabled.indexOf(tab) < capacity

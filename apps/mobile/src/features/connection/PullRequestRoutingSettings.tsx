@@ -64,7 +64,10 @@ export function PullRequestRoutingSettings() {
                   <Text className="text-base font-t3-bold text-foreground">
                     {entry.target.label}
                   </Text>
-                  <Text className="text-xs text-foreground-muted" numberOfLines={1}>
+                  <Text
+                    className="text-xs text-foreground-muted android:font-mono"
+                    numberOfLines={1}
+                  >
                     {connectionCatalogDisplayUrl(entry) ?? "T3 Connect"}
                   </Text>
                 </View>
@@ -103,7 +106,7 @@ export function PullRequestRoutingSettings() {
           );
         })}
       </SettingsSection>
-      <Text className="px-2 text-sm text-foreground-muted">
+      <Text className="px-2 text-sm android:text-[13px] text-foreground-muted">
         Choose environments you trust to share PR data and use each other's source control access.
         Enable both environments. This applies only to this client.
       </Text>

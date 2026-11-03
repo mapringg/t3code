@@ -108,7 +108,7 @@ function TimelineComment({
         </Text>
       ) : null}
       {preview.trim() || content.attachments.length ? (
-        <View className="gap-2 overflow-hidden rounded-2xl bg-grouped-card p-3">
+        <View className="gap-2 overflow-hidden rounded-2xl android:rounded-xl bg-grouped-card p-3">
           <View style={long && !expanded ? { maxHeight: 240, overflow: "hidden" } : undefined}>
             <PullRequestMarkdown
               markdown={long && !expanded ? comment.body.slice(0, 1200) : comment.body}
@@ -238,7 +238,7 @@ export function pullRequestTimelineRows(
             onPress={() =>
               navigation.navigate("PullRequestDiscussion", { ...params, discussionId: thread.id })
             }
-            className="gap-2 rounded-2xl bg-grouped-card p-3 active:opacity-70"
+            className="gap-2 rounded-2xl android:rounded-xl bg-grouped-card p-3 active:opacity-70"
           >
             <View className="flex-row items-center gap-2">
               <SymbolView name="doc.text" size={14} tintColorClassName="accent-icon-muted" />

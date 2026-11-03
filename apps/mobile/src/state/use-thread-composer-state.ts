@@ -4,7 +4,11 @@ import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
 import { readEnvironmentScope } from "./session";
 import { useAtomValue } from "@effect/atom-react";
 import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
-import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
+import {
+  deriveThreadCheckpointSummaries,
+  type ThreadCheckpointSummary,
+} from "@t3tools/client-runtime/state/thread-checkpoints";
+import { deriveThreadQueueWorkflowState } from "@t3tools/client-runtime/state/thread-workflows";
 import { resolvePendingHandoff } from "@t3tools/client-runtime/handoff";
 import {
   deriveProviderSubagentStatus,
@@ -14,7 +18,7 @@ import {
   deriveThreadRuntime,
   threadRuntimeHasInterruptibleRun,
 } from "@t3tools/client-runtime/state/thread-execution";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
 import {
@@ -249,10 +253,19 @@ export function useThreadComposerState() {
         ? acknowledgmentSequenceFamily(threadKey(selectedThreadDetailRef))
         : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
   );
-  const checkpointSummaries = useAtomValue(
-    selectedThreadDetailRef === null
+  const liveCheckpointSummaries = useAtomValue(
+    Platform.OS === "android" || selectedThreadDetailRef === null
       ? EMPTY_CHECKPOINT_SUMMARIES_ATOM
       : environmentThreadDetails.checkpointSummariesAtom(selectedThreadDetailRef),
+  );
+  const checkpointSummaries = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? selectedThreadProjection === null
+          ? []
+          : deriveThreadCheckpointSummaries(selectedThreadProjection.projection)
+        : liveCheckpointSummaries,
+    [selectedThreadProjection, liveCheckpointSummaries],
   );
   // A thread whose creation has not delivered its turn yet: the prompt only
   // exists in the outbox, so it is appended to whatever the server has. The
@@ -289,10 +302,19 @@ export function useThreadComposerState() {
   const followUpBehavior = AsyncResult.isSuccess(preferencesResult)
     ? (preferencesResult.value.followUpBehavior ?? DEFAULT_FOLLOW_UP_BEHAVIOR)
     : DEFAULT_FOLLOW_UP_BEHAVIOR;
-  const queueWorkflow = useAtomValue(
-    selectedThreadDetailRef === null
+  const liveQueueWorkflow = useAtomValue(
+    Platform.OS === "android" || selectedThreadDetailRef === null
       ? EMPTY_QUEUE_WORKFLOW_ATOM
       : environmentThreadDetails.queueWorkflowAtom(selectedThreadDetailRef),
+  );
+  const queueWorkflow = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? selectedThreadProjection === null
+          ? null
+          : deriveThreadQueueWorkflowState(selectedThreadProjection.projection)
+        : liveQueueWorkflow,
+    [selectedThreadProjection, liveQueueWorkflow],
   );
   const queuedRunEdit = useQueuedRunEdit(selectedThreadKey);
   const composerDraftKey =

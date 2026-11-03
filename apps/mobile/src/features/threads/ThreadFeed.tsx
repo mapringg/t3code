@@ -2032,7 +2032,7 @@ function renderFeedEntry(
       );
     }
     if (isUser) {
-      const enterAnimated = isFreshTimestamp(message.createdAt);
+      const enterAnimated = Platform.OS !== "android" && isFreshTimestamp(message.createdAt);
       const agentFold = presentation.attribution === "agent";
       const bubbleBodyVisible = !agentFold;
       const intentBadge = props.userMessageGrouping.continuesSteer
@@ -2442,7 +2442,7 @@ function AssistantMessageRow({
     return null;
   }
 
-  const enterAnimated = isFreshTimestamp(message.createdAt);
+  const enterAnimated = Platform.OS !== "android" && isFreshTimestamp(message.createdAt);
   // Android keeps the footer on the newest settled reply; older replies move it into their
   // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
   const replyActionsMenu =

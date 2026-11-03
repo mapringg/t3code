@@ -319,7 +319,12 @@ function SendActionButton(props: {
       onPress={() => props.onSend()}
     />
   );
-  if (!presentation.offersFollowUpChoice || presentation.action === null || props.disabled) {
+  if (
+    Platform.OS === "android" ||
+    !presentation.offersFollowUpChoice ||
+    presentation.action === null ||
+    props.disabled
+  ) {
     return button;
   }
   const actions = [presentation.action, presentation.alternate].filter(
@@ -562,6 +567,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
       usageLimitsOffered && draftAttachments.length === 0 ? openUsageLimits : undefined,
   });
   const voiceInput = useVoiceInputController({
+    disabled: Platform.OS === "android",
     ownerKey: composerDraftKey,
     label: props.selectedThread.title || "Untitled thread",
     readDraftMessage: () => getComposerDraftSnapshot(composerDraftKey).text,
@@ -1081,14 +1087,16 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                 }
               >
                 {modelControl}
-                <ComposerDictationStartAction
-                  size={usesLargeControls ? "large" : "regular"}
-                  state={voiceInput.state}
-                  isAvailable={voiceInput.isAvailable}
-                  disabled={isSubmissionLocked}
-                  onStart={voiceInput.start}
-                  onCancel={voiceInput.cancel}
-                />
+                {Platform.OS !== "android" ? (
+                  <ComposerDictationStartAction
+                    size={usesLargeControls ? "large" : "regular"}
+                    state={voiceInput.state}
+                    isAvailable={voiceInput.isAvailable}
+                    disabled={isSubmissionLocked}
+                    onStart={voiceInput.start}
+                    onCancel={voiceInput.cancel}
+                  />
+                ) : null}
                 {showStopAction ? (
                   <ComposerActionButton
                     size={usesLargeControls ? "large" : "regular"}

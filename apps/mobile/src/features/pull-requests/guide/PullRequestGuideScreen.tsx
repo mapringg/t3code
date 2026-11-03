@@ -59,7 +59,10 @@ export function PullRequestGuideContent({
   const state = useReviewGuide(params, visible);
   const { guide, stale } = reviewGuideState(state.data);
   return (
-    <Animated.View layout={PR_ROW_LAYOUT} className="w-full max-w-[760px] self-center">
+    <Animated.View
+      layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}
+      className="w-full max-w-[760px] self-center"
+    >
       {!state.enabled ? (
         <Text>Review guides are disabled for this server.</Text>
       ) : (
@@ -68,9 +71,9 @@ export function PullRequestGuideContent({
           {guide ? (
             <Animated.View
               key={`outline:${guide.headSha}:${guide.generatedAt}`}
-              layout={PR_ROW_LAYOUT}
-              entering={PR_ROW_ENTER}
-              exiting={PR_ROW_EXIT}
+              layout={Platform.OS === "android" ? undefined : PR_ROW_LAYOUT}
+              entering={Platform.OS === "android" ? undefined : PR_ROW_ENTER}
+              exiting={Platform.OS === "android" ? undefined : PR_ROW_EXIT}
             >
               <GuideOutline
                 guide={guide}

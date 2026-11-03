@@ -44,6 +44,25 @@ it("keeps the chat snapshot stable through streaming while text and control stat
   };
   const projection = (item: OrchestrationV2TurnItem): OrchestrationV2ThreadProjection => ({
     ...v2Projection,
+    messages:
+      item.type === "assistant_message"
+        ? [
+            {
+              id: item.messageId!,
+              threadId: v2ThreadId,
+              runId: null,
+              nodeId: null,
+              role: "assistant",
+              createdBy: "agent",
+              creationSource: "provider",
+              text: item.text,
+              attachments: [],
+              streaming: item.streaming,
+              createdAt: v2Now,
+              updatedAt: item.updatedAt,
+            },
+          ]
+        : [],
     turnItems: [item],
     visibleTurnItems: [
       {
@@ -58,7 +77,7 @@ it("keeps the chat snapshot stable through streaming while text and control stat
   const state = Atom.make(AsyncResult.success(EMPTY_ENVIRONMENT_THREAD_STATE));
   const details = createEnvironmentThreadDetailAtoms(() => state);
   const ref = { environmentId: EnvironmentId.make("environment"), threadId: v2ThreadId };
-  const render = createThreadRenderStateAtom(state, details.quietThreadAtom(ref));
+  const render = createThreadRenderStateAtom(state);
   const text = details.assistantMessageTextAtom(ref, assistant.id);
   const timeline = details.timelineVisibleTurnItemsAtom(ref);
   const registry = AtomRegistry.make();
@@ -79,11 +98,38 @@ it("keeps the chat snapshot stable through streaming while text and control stat
     push(live);
     const first = registry.get(render);
     const firstTimeline = registry.get(timeline);
-    push({ ...live, sequence: 2, data: Option.some(projection({ ...assistant, text: "More" })) });
+    const streamed = projection({ ...assistant, text: "More" });
+    push({
+      ...live,
+      sequence: 2,
+      data: Option.some({
+        ...projection(assistant),
+        messages: streamed.messages,
+      }),
+    });
+    expect(registry.get(render)).toBe(first);
+    push({ ...live, sequence: 3, data: Option.some(streamed) });
     expect(registry.get(render)).toBe(first);
     expect(registry.get(timeline)).toBe(firstTimeline);
     expect(registry.get(text)).toBe("More");
-    expect(registry.get(details.sequenceAtom(ref))).toBe(2);
+    expect(registry.get(details.sequenceAtom(ref))).toBe(3);
+
+    const messageFinished = {
+      ...streamed,
+      messages: streamed.messages.map((message) => ({ ...message, streaming: false })),
+    };
+    push({ ...live, data: Option.some(messageFinished) });
+    expect(Option.getOrNull(registry.get(render).data)?.messages[0]?.streaming).toBe(false);
+    const fallback = { ...streamed, turnItems: [], visibleTurnItems: [] };
+    push({ ...live, data: Option.some(fallback) });
+    push({
+      ...live,
+      data: Option.some({
+        ...fallback,
+        messages: fallback.messages.map((message) => ({ ...message, text: "Message only" })),
+      }),
+    });
+    expect(Option.getOrNull(registry.get(render).data)?.messages[0]?.text).toBe("Message only");
 
     push({ ...live, error: Option.some("Disconnected") });
     expect(Option.getOrNull(registry.get(render).error)).toBe("Disconnected");

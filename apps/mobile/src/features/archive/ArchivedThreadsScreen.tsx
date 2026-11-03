@@ -155,7 +155,11 @@ function ProjectGroupLabel(props: {
         workspaceRoot={props.project.workspaceRoot}
       />
       <Text
-        className="flex-1 text-xs font-t3-medium tracking-[0.5px] uppercase text-foreground-muted"
+        className={
+          Platform.OS === "android"
+            ? "flex-1 text-[13px] text-foreground-muted"
+            : "flex-1 text-xs font-t3-medium tracking-[0.5px] uppercase text-foreground-muted"
+        }
         numberOfLines={1}
       >
         {props.project.title}
@@ -198,14 +202,16 @@ function ArchivedThreadRow(props: {
   );
   const rowContent = (
     <View className="flex-row items-center gap-3 bg-grouped-card px-4 py-3">
-      <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
-        <SymbolView
-          name="archivebox.fill"
-          size={15}
-          tintColorClassName="accent-icon-subtle"
-          type="monochrome"
-        />
-      </View>
+      {Platform.OS !== "android" ? (
+        <View className="h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-subtle">
+          <SymbolView
+            name="archivebox.fill"
+            size={15}
+            tintColorClassName="accent-icon-subtle"
+            type="monochrome"
+          />
+        </View>
+      ) : null}
 
       <View className="min-w-0 flex-1 gap-1">
         <View className="flex-row items-center gap-2">
@@ -221,12 +227,14 @@ function ArchivedThreadRow(props: {
         </View>
         {subtitle.length > 0 ? (
           <View className="flex-row items-center gap-1.5">
-            <SymbolView
-              name="arrow.triangle.branch"
-              size={10}
-              tintColorClassName="accent-icon-subtle"
-              type="monochrome"
-            />
+            {Platform.OS !== "android" ? (
+              <SymbolView
+                name="arrow.triangle.branch"
+                size={10}
+                tintColorClassName="accent-icon-subtle"
+                type="monochrome"
+              />
+            ) : null}
             <Text
               className="min-w-0 flex-1 font-mono text-2xs text-foreground-tertiary"
               numberOfLines={1}
@@ -239,10 +247,10 @@ function ArchivedThreadRow(props: {
     </View>
   );
   const containerStyle = {
-    borderTopLeftRadius: props.isFirst ? 20 : 0,
-    borderTopRightRadius: props.isFirst ? 20 : 0,
-    borderBottomLeftRadius: props.isLast ? 20 : 0,
-    borderBottomRightRadius: props.isLast ? 20 : 0,
+    borderTopLeftRadius: props.isFirst ? (Platform.OS === "android" ? 12 : 20) : 0,
+    borderTopRightRadius: props.isFirst ? (Platform.OS === "android" ? 12 : 20) : 0,
+    borderBottomLeftRadius: props.isLast ? (Platform.OS === "android" ? 12 : 20) : 0,
+    borderBottomRightRadius: props.isLast ? (Platform.OS === "android" ? 12 : 20) : 0,
     overflow: "hidden" as const,
   };
   if (!canOperateThread) return <View style={containerStyle}>{rowContent}</View>;
@@ -273,7 +281,7 @@ function ArchivedThreadRow(props: {
 
 function ArchiveError(props: { readonly message: string; readonly onRetry: () => void }) {
   return (
-    <View className="rounded-[20px] border border-danger-border bg-danger p-4">
+    <View className="rounded-[20px] android:rounded-xl border border-danger-border bg-danger p-4">
       <Text className="text-base font-t3-bold text-danger-foreground">
         Could not load every archive
       </Text>

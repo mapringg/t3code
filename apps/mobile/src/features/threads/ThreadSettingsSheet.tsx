@@ -848,7 +848,7 @@ function ThreadSettingsOptionsItem(props: {
       <Text className="px-5 pb-2 pt-2 text-sm font-t3-medium text-foreground-muted">Options</Text>
       <Animated.View
         className="mx-4 overflow-hidden rounded-2xl bg-grouped-card"
-        layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}
+        layout={Platform.OS === "android" ? undefined : THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}
       >
         {session.displayedDescriptors.map((descriptor) => {
           if (descriptor.type === "select") {
@@ -859,7 +859,9 @@ function ThreadSettingsOptionsItem(props: {
                   props.animationsReady ? THREAD_SETTINGS_OPTION_ENTER_TRANSITION : undefined
                 }
                 exiting={props.animationsReady ? THREAD_SETTINGS_OPTION_EXIT_TRANSITION : undefined}
-                layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}
+                layout={
+                  Platform.OS === "android" ? undefined : THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION
+                }
               >
                 <DisclosureRow
                   label={descriptor.label}
@@ -883,7 +885,9 @@ function ThreadSettingsOptionsItem(props: {
               key={descriptor.id}
               entering={props.animationsReady ? THREAD_SETTINGS_OPTION_ENTER_TRANSITION : undefined}
               exiting={props.animationsReady ? THREAD_SETTINGS_OPTION_EXIT_TRANSITION : undefined}
-              layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}
+              layout={
+                Platform.OS === "android" ? undefined : THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION
+              }
             >
               <SwitchRow
                 label={descriptor.label}
@@ -893,7 +897,9 @@ function ThreadSettingsOptionsItem(props: {
             </Animated.View>
           );
         })}
-        <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
+        <Animated.View
+          layout={Platform.OS === "android" ? undefined : THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}
+        >
           <DisclosureRow
             isLast
             label="Runtime"
@@ -971,7 +977,7 @@ function ThreadSettingsMainContent(props: {
     } else {
       content = (
         <ThreadSettingsOptionsItem
-          animationsReady={animationsReady}
+          animationsReady={Platform.OS !== "android" && animationsReady}
           onOpenSubmenu={props.onOpenSubmenu}
         />
       );
@@ -980,8 +986,16 @@ function ThreadSettingsMainContent(props: {
     return (
       <Animated.View
         key={item.key}
-        entering={animationsReady ? THREAD_SETTINGS_CATALOG_ENTER_TRANSITION : undefined}
-        exiting={animationsReady ? THREAD_SETTINGS_CATALOG_EXIT_TRANSITION : undefined}
+        entering={
+          Platform.OS !== "android" && animationsReady
+            ? THREAD_SETTINGS_CATALOG_ENTER_TRANSITION
+            : undefined
+        }
+        exiting={
+          Platform.OS !== "android" && animationsReady
+            ? THREAD_SETTINGS_CATALOG_EXIT_TRANSITION
+            : undefined
+        }
       >
         {content}
       </Animated.View>
@@ -1005,7 +1019,9 @@ function ThreadSettingsMainContent(props: {
       estimatedItemSize={Platform.OS === "android" ? 56 : 48}
       extraData={animationsReady}
       getItemType={(item) => item.kind}
-      itemLayoutAnimation={THREAD_SETTINGS_CATALOG_LAYOUT_TRANSITION}
+      itemLayoutAnimation={
+        Platform.OS === "android" ? undefined : THREAD_SETTINGS_CATALOG_LAYOUT_TRANSITION
+      }
       keyExtractor={(item) => item.key}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"

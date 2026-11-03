@@ -210,7 +210,6 @@ function ListRow(props: {
         className="bg-grouped-card"
         title={props.title}
         subtitle={props.subtitle}
-        leading={props.icon}
         trailing={props.right}
         disabled={props.disabled}
         onPress={props.onPress}
@@ -277,8 +276,9 @@ function ProjectPathInput(props: {
 }) {
   return (
     <TextInput
-      className="h-12 min-h-12 rounded-[24px] px-4 py-0 text-base leading-snug"
+      className="h-12 min-h-12 rounded-[24px] android:rounded-xl px-4 py-0 text-base android:font-mono leading-snug"
       value={props.value}
+      accessibilityLabel="Project folder path"
       onChangeText={(text) => props.onChangeText(resolvePastedPath(props.value, text))}
       autoCapitalize="none"
       autoCorrect={false}
@@ -445,7 +445,7 @@ function EmptyEnvironmentState() {
   const navigation = useNavigation();
 
   return (
-    <View className="items-center gap-3 rounded-2xl bg-grouped-card px-5 py-8">
+    <View className="items-center gap-3 rounded-2xl android:rounded-xl bg-grouped-card px-5 py-8">
       <Text className="text-center text-lg font-t3-bold">Environment unavailable</Text>
       <Text className="text-center text-sm leading-normal text-foreground-muted">
         Start or reconnect an environment before adding a project.
@@ -877,8 +877,9 @@ export function AddProjectRepositoryScreen(props: {
       {environment ? (
         <>
           <TextInput
-            className="h-12 min-h-12 rounded-[24px] px-4 py-0 text-base leading-snug"
+            className="h-12 min-h-12 rounded-[24px] android:rounded-xl px-4 py-0 text-base android:font-mono leading-snug"
             value={repositoryInput}
+            accessibilityLabel={source === "url" ? "Git URL" : "Repository"}
             onChangeText={setRepositoryInput}
             autoCapitalize="none"
             autoCorrect={false}
@@ -1161,8 +1162,9 @@ export function AddProjectNewScreen(props: { readonly environmentId?: string | s
       {environment ? (
         <>
           <TextInput
-            className="h-12 min-h-12 rounded-[24px] px-4 py-0 text-base leading-snug"
+            className="h-12 min-h-12 rounded-[24px] android:rounded-xl px-4 py-0 text-base leading-snug"
             value={name}
+            accessibilityLabel="Project name"
             onChangeText={setName}
             autoCorrect={false}
             autoFocus
@@ -1447,9 +1449,12 @@ export function AddProjectDestinationScreen(props: {
     <AddProjectShell title="Clone destination">
       {error ? <ErrorBanner message={error} /> : null}
       {repositoryTitle ? (
-        <View className="rounded-[24px] bg-grouped-card px-4 py-3">
+        <View className="rounded-[24px] android:rounded-xl bg-grouped-card px-4 py-3">
           <Text className="text-base font-t3-bold">{repositoryTitle}</Text>
-          <Text className="mt-0.5 text-xs text-foreground-muted" numberOfLines={2}>
+          <Text
+            className="mt-0.5 text-xs android:font-mono text-foreground-muted"
+            numberOfLines={2}
+          >
             {remoteUrl}
           </Text>
         </View>

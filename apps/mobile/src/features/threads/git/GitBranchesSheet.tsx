@@ -105,7 +105,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               : undefined
           }
         >
-          <View className="bg-card android:gap-3 android:rounded-[20px] android:p-4 ios:gap-2 ios:rounded-[18px] ios:border ios:border-border ios:px-4 ios:py-4">
+          <View className="bg-card android:gap-3 android:rounded-xl android:p-4 ios:gap-2 ios:rounded-[18px] ios:border ios:border-border ios:px-4 ios:py-4">
             <Text className="android:text-foreground android:text-base android:font-t3-medium ios:text-foreground-secondary ios:text-2xs ios:font-t3-bold ios:tracking-[1px] ios:uppercase">
               New branch
             </Text>
@@ -133,7 +133,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
             />
           </View>
 
-          <View className="bg-card android:gap-3 android:rounded-[20px] android:p-4 ios:gap-2 ios:rounded-[18px] ios:border ios:border-border ios:px-4 ios:py-4">
+          <View className="bg-card android:gap-3 android:rounded-xl android:p-4 ios:gap-2 ios:rounded-[18px] ios:border ios:border-border ios:px-4 ios:py-4">
             <Text className="android:text-foreground android:text-base android:font-t3-medium ios:text-foreground-secondary ios:text-2xs ios:font-t3-bold ios:tracking-[1px] ios:uppercase">
               New worktree
             </Text>
@@ -210,7 +210,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
                 <Pressable
                   key={branch.name}
                   className={cn(
-                    "gap-1 px-4 py-3 disabled:opacity-[0.45] android:rounded-[20px] android:active:bg-subtle ios:rounded-[18px] ios:border",
+                    "gap-1 px-4 py-3 disabled:opacity-[0.45] android:rounded-xl android:active:bg-subtle ios:rounded-[18px] ios:border",
                     branch.current
                       ? "android:bg-secondary ios:border-subtle-strong"
                       : "android:bg-card ios:border-border",

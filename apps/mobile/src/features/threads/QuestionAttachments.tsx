@@ -195,6 +195,7 @@ export function QuestionAttachments(props: {
       <VideoPreviewModal source={previewVideo} onRequestClose={() => setPreviewVideo(null)} />
       <TextInputWrapper onPaste={paste}>
         <TextInput
+          accessibilityLabel={`Custom answer: ${props.question.question}`}
           value={props.value}
           multiline={props.question.initialAnswer !== undefined}
           submitBehavior={props.question.initialAnswer !== undefined ? "newline" : undefined}

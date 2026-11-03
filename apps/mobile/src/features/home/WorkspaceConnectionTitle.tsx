@@ -66,7 +66,7 @@ function StatusFadeIn(props: {
   readonly grow?: boolean;
   readonly maxWidth?: number;
 }) {
-  const { animate } = props;
+  const animate = Platform.OS !== "android" && props.animate;
   const [opacity] = useState(() => new Animated.Value(0));
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- runs the Animated opacity fade-in and stops it on cleanup
   useEffect(() => {
