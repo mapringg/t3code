@@ -303,10 +303,6 @@ function formatMessageTime(input: string): string {
 }
 
 const FEED_PADDING_TOP = 12;
-// A cold list keeps measuring rows after LegendList loads; on Android its end follow trails each
-// change by a frame, so stay hidden until sizes go quiet, but never longer than the cap.
-const LIST_REVEAL_QUIET_MS = 150;
-const LIST_REVEAL_MAX_MS = 800;
 // Rows re-measure within a commit or two of a width change. LegendList also defers imperative
 // scrolls for 100ms after it compensates a size change, and a deferred restore could land
 // under a drag that starts meanwhile.
@@ -3177,10 +3173,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     onHeaderMaterialVisibilityChange?.(visible);
   };
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // Sub-pixel end corrections arrive after every landing; only real movement is unsettled.
-    const offset = event.nativeEvent.contentOffset.y;
-    if (Math.abs(offset - revealScrollOffsetRef.current) > 1) extendRevealWait();
-    revealScrollOffsetRef.current = offset;
     reportHeaderMaterialVisibility(event.nativeEvent.contentOffset.y + anchorTopInset > 6);
     // Re-arm follow only at the actual end; the broader threshold can reclaim upward drags during streaming.
     const listState = listRef.current?.getState();
@@ -3280,36 +3272,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
   const [revealedListKey, setRevealedListKey] = useState<string | null>(null);
-  // A thread that was empty, not loading, fills from the user's own send; its rows must not wait.
-  const [emptyThreadKey, setEmptyThreadKey] = useState<string | null>(null);
-  if (
-    listMountKey.endsWith(":empty") &&
-    props.contentPresentation.kind === "ready" &&
-    emptyThreadKey !== feedThreadKey
-  ) {
-    setEmptyThreadKey(feedThreadKey);
-  }
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const revealDeadlineRef = useRef(0);
-  const resizedListKeyRef = useRef<string | null>(null);
-  const revealScrollOffsetRef = useRef(0);
   const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
-  const scheduleReveal = (key: string) => {
-    if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
-    const remaining = Math.max(0, revealDeadlineRef.current - Date.now());
-    revealTimerRef.current = setTimeout(
-      () => {
-        revealTimerRef.current = null;
-        setRevealedListKey(key);
-      },
-      Math.min(LIST_REVEAL_QUIET_MS, remaining),
-    );
-  };
-  const extendRevealWait = () => {
-    if (revealTimerRef.current !== null && loadedListKeyRef.current === listMountKey) {
-      scheduleReveal(listMountKey);
-    }
-  };
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
@@ -3441,7 +3404,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     () => () => {
       if (userScrollSettleTimerRef.current !== null) clearTimeout(userScrollSettleTimerRef.current);
       if (reflowSettleTimerRef.current !== null) clearTimeout(reflowSettleTimerRef.current);
-      if (revealTimerRef.current !== null) clearTimeout(revealTimerRef.current);
       if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
       if (disclosureSettleFrameRef.current !== null) {
         cancelAnimationFrame(disclosureSettleFrameRef.current);
@@ -3494,8 +3456,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     readonly size: number;
   }) => {
     rememberedRowSizes.set(info.itemKey, info.size);
-    if (Math.abs(info.size - info.previous) > 1) resizedListKeyRef.current = listMountKey;
-    extendRevealWait();
     if (disclosureAnchorKeyRef.current !== null) {
       settleDisclosureAfterLayout();
     }
@@ -3812,17 +3772,7 @@ export const ThreadFeed = memo(function ThreadFeed({
             onLoad={() => {
               loadedListKeyRef.current = listMountKey;
               setLoadedListKey(listMountKey);
-              // Rows that all landed at their remembered sizes have nothing left to settle.
-              if (
-                Platform.OS !== "android" ||
-                emptyThreadKey === feedThreadKey ||
-                resizedListKeyRef.current !== listMountKey
-              ) {
-                setRevealedListKey(listMountKey);
-              } else {
-                revealDeadlineRef.current = Date.now() + LIST_REVEAL_MAX_MS;
-                scheduleReveal(listMountKey);
-              }
+              setRevealedListKey(listMountKey);
             }}
             // Row positions start below the header; the reflow anchor converts between them.
             onMetricsChange={(metrics) => {
