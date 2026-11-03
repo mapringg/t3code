@@ -41,5 +41,8 @@ export function getMobileThemeRuntimeVariables(
     "--color-header": variables["--color-sheet-solid"],
     "--color-header-foreground": variables["--color-drawer-foreground"],
     "--color-drawer": variables["--color-screen"],
+    // Accent stays on primary actions and links; on/off state reads in neutral ink.
+    "--color-switch-active-track": variables["--color-foreground"],
+    "--color-switch-active-thumb": variables["--color-sheet-solid"],
   };
 }
