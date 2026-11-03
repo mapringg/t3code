@@ -10,11 +10,17 @@ export function WorkLogBlock({
   continues = false,
 }: {
   children: ReactNode;
-  layout?: "standalone" | "group-header";
+  layout?: "standalone" | "group-header" | "collapsed-group-header";
   continues?: boolean | undefined;
 }) {
   return (
-    <View className={continues || layout === "group-header" ? "-mx-1 px-1" : "-mx-1 mb-1 px-1"}>
+    <View
+      className={cn(
+        "-mx-1 px-1",
+        layout === "collapsed-group-header" && "mb-2",
+        layout === "standalone" && !continues && "mb-1",
+      )}
+    >
       {children}
     </View>
   );

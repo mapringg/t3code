@@ -440,6 +440,8 @@ const WORK_GROUP_MAX_HEIGHT = 256;
 const WORK_GROUP_EDGE_FADE_HEIGHT = 12;
 
 export const WORK_GROUP_TOGGLE_HEIGHT = THREAD_WORK_ROW_MIN_HEIGHT;
+/** `mb-2` under a collapsed group, so the reply below doesn't touch its summary. */
+export const COLLAPSED_WORK_GROUP_GAP = 8;
 
 function workLogRowsHeight(
   activities: ReadonlyArray<ThreadFeedActivity>,
@@ -1348,7 +1350,7 @@ export function ThreadWorkGroupToggle(props: {
       : toolGroupSummarySymbolName(props.summaryKind));
 
   return (
-    <WorkLogBlock layout="group-header">
+    <WorkLogBlock layout={props.expanded ? "group-header" : "collapsed-group-header"}>
       {props.thought ? (
         <Pressable
           accessible={false}
