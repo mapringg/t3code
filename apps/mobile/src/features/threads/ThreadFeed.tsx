@@ -223,6 +223,7 @@ import {
   ThreadWorkGroupToggle,
   ThreadThinkingRow,
   ThreadWorkLog,
+  COLLAPSED_WORK_GROUP_GAP,
   WORK_GROUP_TOGGLE_HEIGHT,
 } from "./thread-work-log";
 import {
@@ -1727,7 +1728,7 @@ function renderFeedEntry(
 
   if (entry.type === "run-fold") {
     return (
-      <View className="mb-5 flex-row items-center px-2">
+      <View className="mb-1 flex-row items-center px-2">
         <RunFoldButton
           key={entry.id}
           entry={entry}
@@ -3586,7 +3587,10 @@ export const ThreadFeed = memo(function ThreadFeed({
       case "run-fold":
         return resolveThreadFeedFixedItemSize(entry.type);
       case "work-toggle":
-        return entry.thought ? undefined : WORK_GROUP_TOGGLE_HEIGHT;
+        if (entry.thought) return undefined;
+        return entry.expanded
+          ? WORK_GROUP_TOGGLE_HEIGHT
+          : WORK_GROUP_TOGGLE_HEIGHT + COLLAPSED_WORK_GROUP_GAP;
       case "thinking":
         return WORK_GROUP_TOGGLE_HEIGHT;
       case "activity-group":
