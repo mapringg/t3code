@@ -173,7 +173,7 @@ function PickerSurface(props: { readonly children: ReactNode }) {
     <View
       className={
         Platform.OS === "android"
-          ? "overflow-hidden rounded-[28px] bg-grouped-card"
+          ? "overflow-hidden rounded-xl bg-grouped-card"
           : "overflow-hidden rounded-2xl bg-grouped-card"
       }
     >
@@ -405,7 +405,7 @@ export function BranchPickerScreen(props: {
     <View
       className={cn(
         "mb-3 overflow-hidden",
-        Platform.OS === "android" ? "rounded-[28px]" : "rounded-2xl",
+        Platform.OS === "android" ? "rounded-xl" : "rounded-2xl",
       )}
     >
       <ToggleRow
