@@ -3910,7 +3910,13 @@ export const ThreadFeed = memo(function ThreadFeed({
               }}
               // Row positions start below the header; the reflow anchor converts between them.
               onMetricsChange={(metrics) => {
+                const headerResized = metrics.headerSize !== listHeaderSizeRef.current;
                 listHeaderSizeRef.current = metrics.headerSize;
+                // Compose-hosted header controls measure after the end scroll is aimed, and
+                // LegendList keeps the end only for row and data changes, not header ones.
+                if (Platform.OS === "android" && followsEnd && headerResized) {
+                  void listRef.current?.scrollToEnd({ animated: false });
+                }
               }}
               onScroll={handleScroll}
               onScrollBeginDrag={handleScrollBeginDrag}
