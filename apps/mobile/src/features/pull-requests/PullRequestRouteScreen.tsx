@@ -47,7 +47,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
 import { type PullRequestDetail, type PullRequestListEntry } from "@t3tools/contracts";
-import { PullRequestOverviewLoading } from "./PullRequestOverviewLoading";
+import { PullRequestOverviewLoading, PullRequestStatusPreview } from "./PullRequestOverviewLoading";
+import { pullRequestOpening } from "./pullRequestOpening";
 import { copyPullRequestLink, sharePullRequestLink } from "./pullRequestLink";
 import { pullRequestStatus } from "./pullRequestStatus";
 import { use, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
@@ -347,7 +348,8 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const navigation =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "PullRequest">>();
-  // Android waits for the push before mounting the complete overview, including cached visits.
+  // Android slides in with the header and status rows, and mounts the rest of the overview once
+  // the push ends.
   const entered = usePullRequestDiffEntry(navigation) || Platform.OS !== "android";
   const entryStage = entered ? 2 : 0;
   const insets = useSafeAreaInsets();
@@ -422,7 +424,9 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   useFocusEffect(refreshDetail);
   const pr = usePullRequestLiveChecks(params, result.data);
   const summary = params.initialSummary;
-  const identity = Platform.OS === "android" ? (entered ? pr : null) : (pr ?? summary);
+  const { identity, body } = pullRequestOpening({ entered, detail: pr, summary });
+  // Android reveals the rest of the page with the overview, so nothing below the status rows moves.
+  const showsBelowOverview = Platform.OS !== "android" || body === "overview";
   const terminology = sourceControlClients.get((pr ?? summary)?.provider).changeRequest;
   const permissions = usePullRequestPermissions(params, pr);
   const action = usePullRequestAction(params, pr);
@@ -763,7 +767,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                 host={params.host}
                                 repository={params.repository}
                               />
-                              {pr && (Platform.OS === "android" || entered || !summary) ? (
+                              {pr && body === "overview" ? (
                                 <PullRequestOverview
                                   pr={pr}
                                   params={params}
@@ -777,27 +781,31 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                     pendingDescriptionJump.current = true;
                                   }}
                                 />
-                              ) : summary ? (
+                              ) : pr && body === "status" ? (
+                                <PullRequestStatusPreview pr={pr} params={params} stack={stack} />
+                              ) : summary && body === "loading" ? (
                                 <PullRequestOverviewLoading
                                   summary={summary}
                                   params={params}
                                   stack={stack}
                                 />
                               ) : null}
-                              <View
-                                className="py-5"
-                                onLayout={(event) => {
-                                  filesY.current = event.nativeEvent.layout.y;
-                                  if (pendingFilesJump.current) {
-                                    requestAnimationFrame(() => {
-                                      if (shown(requestedSection.current) === "overview")
-                                        jumpToFiles();
-                                    });
-                                  }
-                                }}
-                              >
-                                {filesContent.header}
-                              </View>
+                              {showsBelowOverview ? (
+                                <View
+                                  className="py-5"
+                                  onLayout={(event) => {
+                                    filesY.current = event.nativeEvent.layout.y;
+                                    if (pendingFilesJump.current) {
+                                      requestAnimationFrame(() => {
+                                        if (shown(requestedSection.current) === "overview")
+                                          jumpToFiles();
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {filesContent.header}
+                                </View>
+                              ) : null}
                             </View>
                           ) : null}
                           {tab === "guide" ? (
@@ -824,7 +832,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ),
                     },
                     ...(tab === "overview"
-                      ? identity && entryStage > 0
+                      ? identity && entryStage > 0 && showsBelowOverview
                         ? filesContent.rows
                         : []
                       : tab === "activity"
@@ -912,12 +920,16 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ) : null}
                     </>
                   }
-                  ListFooterComponent={tab === "overview" && identity ? filesContent.footer : null}
+                  ListFooterComponent={
+                    tab === "overview" && identity && showsBelowOverview
+                      ? filesContent.footer
+                      : null
+                  }
                 />
               </View>
             ))}
         </View>
-        {Platform.OS !== "android" || identity ? (
+        {Platform.OS !== "android" || body === "overview" ? (
           <PullRequestActionToolbar
             pr={pr}
             params={params}
