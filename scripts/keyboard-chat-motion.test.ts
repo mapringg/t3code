@@ -80,3 +80,34 @@ it("mounts above an open keyboard and closes back to the unoccluded end", () => 
   handlers!.onMove({ height: 0 });
   expect(scrollTo).toHaveBeenLastCalledWith({}, 0, 500, false);
 });
+
+it("keeps the end-aligned spacer of a short list while the keyboard scrolls in", () => {
+  const source = NodeFS.readFileSync(
+    new URL("../apps/mobile/node_modules/@legendapp/list/react-native.mjs", import.meta.url),
+    "utf8",
+  );
+  const fn = (name: string) => source.match(new RegExp(`^function ${name}\\(.*?^\\}$`, "ms"))![0];
+  const spacer = NodeVM.runInNewContext(
+    `${[
+      "peek\\$",
+      "getHorizontalInsetEnd",
+      "getContentInsetEndAdjustmentEnd",
+      "getContentInsetEnd",
+      "getContentInsetStartAdjustment",
+      "getRawContentLength",
+      "getAlignItemsAtEndPadding",
+    ]
+      .map(fn)
+      .join("\n")}\ngetAlignItemsAtEndPadding`,
+  ) as (ctx: unknown) => number;
+  const ctx = (contentInsetOverride: { bottom: number; keyboard?: number }) => ({
+    values: new Map([["totalSize", 1000]]),
+    state: {
+      scrollLength: 2000,
+      contentInsetOverride,
+      props: { alignItemsAtEndPaddingEnabled: true, data: [{}], stylePaddingTop: 0 },
+    },
+  });
+  expect(spacer(ctx({ bottom: 180 }))).toBe(820);
+  expect(spacer(ctx({ bottom: 1080, keyboard: 900 }))).toBe(820);
+});

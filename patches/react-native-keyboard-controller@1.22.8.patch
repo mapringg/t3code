@@ -45,7 +45,7 @@ index 0b78ff3..98b3b6c 100644
      scroll,
      layout,
      size,
-@@ -91,10 +98,26 @@ const KeyboardChatScrollView = /*#__PURE__*/(0, _react.forwardRef)(({
+@@ -91,10 +98,29 @@ const KeyboardChatScrollView = /*#__PURE__*/(0, _react.forwardRef)(({
    // a bug for you, please open an issue.
    const totalPadding = (0, _reanimated.useDerivedValue)(() => Math.min(layout.value.height, Math.max(blankSpace.value, padding.value + extraContentPadding.value)));
  
@@ -59,8 +59,11 @@ index 0b78ff3..98b3b6c 100644
 +  // its end/maintain targets point at the under-the-keyboard resting offset.
 +  (0, _reanimated.useAnimatedReaction)(() => reportedPadding.value, (current, previous) => {
 +    if (onContentInsetChange && current !== previous) {
++      // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++      const keyboard = _reactNative.Platform.OS === "ios" ? undefined : current - Math.min(layout.value.height, Math.max(blankSpace.value, extraContentPadding.value));
 +      (0, _reactNativeReanimated.runOnJS)(onContentInsetChange)({
-+        bottom: current
++        bottom: current,
++        keyboard
 +      });
 +    }
 +  }, [onContentInsetChange]);
@@ -293,7 +296,7 @@ index e0c8391..8df802a 100644
      scroll,
      layout,
      size,
-@@ -84,10 +91,26 @@ const KeyboardChatScrollView = /*#__PURE__*/forwardRef(({
+@@ -84,10 +91,29 @@ const KeyboardChatScrollView = /*#__PURE__*/forwardRef(({
    // a bug for you, please open an issue.
    const totalPadding = useDerivedValue(() => Math.min(layout.value.height, Math.max(blankSpace.value, padding.value + extraContentPadding.value)));
  
@@ -307,8 +310,11 @@ index e0c8391..8df802a 100644
 +  // its end/maintain targets point at the under-the-keyboard resting offset.
 +  useAnimatedReaction(() => reportedPadding.value, (current, previous) => {
 +    if (onContentInsetChange && current !== previous) {
++      // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++      const keyboard = Platform.OS === "ios" ? undefined : current - Math.min(layout.value.height, Math.max(blankSpace.value, extraContentPadding.value));
 +      runOnJS(onContentInsetChange)({
-+        bottom: current
++        bottom: current,
++        keyboard
 +      });
 +    }
 +  }, [onContentInsetChange]);
@@ -600,7 +606,7 @@ index 935bc71..d411dc4 100644
        scroll,
        layout,
        size,
-@@ -109,13 +120,40 @@ const KeyboardChatScrollView: React.ForwardRefExoticComponent<
+@@ -109,13 +120,50 @@ const KeyboardChatScrollView: React.ForwardRefExoticComponent<
        ),
      );
  
@@ -631,7 +637,17 @@ index 935bc71..d411dc4 100644
 +      () => reportedPadding.value,
 +      (current, previous) => {
 +        if (onContentInsetChange && current !== previous) {
-+          runOnJS(onContentInsetChange)({ bottom: current });
++          // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++          const keyboard =
++            Platform.OS === "ios"
++              ? undefined
++              : current -
++                Math.min(
++                  layout.value.height,
++                  Math.max(blankSpace.value, extraContentPadding.value),
++                );
++
++          runOnJS(onContentInsetChange)({ bottom: current, keyboard });
 +        }
 +      },
 +      [onContentInsetChange],
