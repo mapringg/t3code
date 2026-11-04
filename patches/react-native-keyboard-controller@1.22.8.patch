@@ -45,7 +45,7 @@ index 0b78ff3..98b3b6c 100644
      scroll,
      layout,
      size,
-@@ -91,10 +98,26 @@ const KeyboardChatScrollView = /*#__PURE__*/(0, _react.forwardRef)(({
+@@ -91,10 +98,29 @@ const KeyboardChatScrollView = /*#__PURE__*/(0, _react.forwardRef)(({
    // a bug for you, please open an issue.
    const totalPadding = (0, _reanimated.useDerivedValue)(() => Math.min(layout.value.height, Math.max(blankSpace.value, padding.value + extraContentPadding.value)));
  
@@ -59,8 +59,11 @@ index 0b78ff3..98b3b6c 100644
 +  // its end/maintain targets point at the under-the-keyboard resting offset.
 +  (0, _reanimated.useAnimatedReaction)(() => reportedPadding.value, (current, previous) => {
 +    if (onContentInsetChange && current !== previous) {
++      // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++      const keyboard = _reactNative.Platform.OS === "ios" ? undefined : current - Math.min(layout.value.height, Math.max(blankSpace.value, extraContentPadding.value));
 +      (0, _reactNativeReanimated.runOnJS)(onContentInsetChange)({
-+        bottom: current
++        bottom: current,
++        keyboard
 +      });
 +    }
 +  }, [onContentInsetChange]);
@@ -293,7 +296,7 @@ index e0c8391..8df802a 100644
      scroll,
      layout,
      size,
-@@ -84,10 +91,26 @@ const KeyboardChatScrollView = /*#__PURE__*/forwardRef(({
+@@ -84,10 +91,29 @@ const KeyboardChatScrollView = /*#__PURE__*/forwardRef(({
    // a bug for you, please open an issue.
    const totalPadding = useDerivedValue(() => Math.min(layout.value.height, Math.max(blankSpace.value, padding.value + extraContentPadding.value)));
  
@@ -307,8 +310,11 @@ index e0c8391..8df802a 100644
 +  // its end/maintain targets point at the under-the-keyboard resting offset.
 +  useAnimatedReaction(() => reportedPadding.value, (current, previous) => {
 +    if (onContentInsetChange && current !== previous) {
++      // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++      const keyboard = Platform.OS === "ios" ? undefined : current - Math.min(layout.value.height, Math.max(blankSpace.value, extraContentPadding.value));
 +      runOnJS(onContentInsetChange)({
-+        bottom: current
++        bottom: current,
++        keyboard
 +      });
 +    }
 +  }, [onContentInsetChange]);
@@ -600,7 +606,7 @@ index 935bc71..d411dc4 100644
        scroll,
        layout,
        size,
-@@ -109,13 +120,40 @@ const KeyboardChatScrollView: React.ForwardRefExoticComponent<
+@@ -109,13 +120,50 @@ const KeyboardChatScrollView: React.ForwardRefExoticComponent<
        ),
      );
  
@@ -631,7 +637,17 @@ index 935bc71..d411dc4 100644
 +      () => reportedPadding.value,
 +      (current, previous) => {
 +        if (onContentInsetChange && current !== previous) {
-+          runOnJS(onContentInsetChange)({ bottom: current });
++          // Android scrolls the keyboard in on the UI thread; the list must not also shrink its end-aligned spacer for it.
++          const keyboard =
++            Platform.OS === "ios"
++              ? undefined
++              : current -
++                Math.min(
++                  layout.value.height,
++                  Math.max(blankSpace.value, extraContentPadding.value),
++                );
++
++          runOnJS(onContentInsetChange)({ bottom: current, keyboard });
 +        }
 +      },
 +      [onContentInsetChange],
@@ -921,9 +937,10 @@ index 99cc6c6..d883e76 100644
  }
  
 diff --git a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js b/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
+index 9b88843..6ce094e 100644
 --- a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
 +++ b/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
-@@ -7,6 +7,7 @@
+@@ -7,6 +7,7 @@ exports.useChatKeyboard = useChatKeyboard;
  var _react = require("react");
  var _reactNativeReanimated = require("react-native-reanimated");
  var _hooks = require("../../../hooks");
@@ -931,7 +948,7 @@ diff --git a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/inde
  var _useScrollState = _interopRequireDefault(require("../../hooks/useScrollState"));
  var _safeScrollTo = require("../../utils/safeScrollTo");
  var _helpers = require("./helpers");
-@@ -33,13 +34,16 @@
+@@ -33,13 +34,16 @@ function useChatKeyboard(scrollViewRef, options) {
      blankSpace,
      extraContentPadding
    } = options;
@@ -952,7 +969,22 @@ diff --git a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/inde
    const {
      layout,
      size,
+@@ -103,8 +107,12 @@ function useChatKeyboard(scrollViewRef, options) {
+         if (inverted) {
+           offsetBeforeScroll.value = scroll.value;
+         } else {
++          // A hide while already hidden (an Android Modal attaching its window) must not replay the last open's shift.
++          if (currentHeight.value === 0) {
++            offsetBeforeScroll.value = -1;
++          }
+           // Preserve "whenAtEnd" sentinel: if open didn't shift, close shouldn't either
+-          if (offsetBeforeScroll.value !== -1) {
++          else if (offsetBeforeScroll.value !== -1) {
+             // Use the actual displacement recorded at end of open animation
+             // (not the theoretical value) so close is symmetric with open
+             offsetBeforeScroll.value = scroll.value - actualOpenShift.value;
 diff --git a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js b/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
+index 6199d5c..989f65b 100644
 --- a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
 +++ b/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
 @@ -1,6 +1,7 @@
@@ -963,7 +995,7 @@ diff --git a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.
  import useScrollState from "../../hooks/useScrollState";
  import { safeScrollTo } from "../../utils/safeScrollTo";
  import { clampedScrollTarget, getEffectiveHeight, getMinimumPaddingAbsorbed, getScrollEffective, getVisibleMinimumPaddingFraction, isScrollAtEnd, shouldShiftContent } from "./helpers";
-@@ -26,13 +27,16 @@
+@@ -26,13 +27,16 @@ function useChatKeyboard(scrollViewRef, options) {
      blankSpace,
      extraContentPadding
    } = options;
@@ -984,10 +1016,25 @@ diff --git a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.
    const {
      layout,
      size,
+@@ -96,8 +100,12 @@ function useChatKeyboard(scrollViewRef, options) {
+         if (inverted) {
+           offsetBeforeScroll.value = scroll.value;
+         } else {
++          // A hide while already hidden (an Android Modal attaching its window) must not replay the last open's shift.
++          if (currentHeight.value === 0) {
++            offsetBeforeScroll.value = -1;
++          }
+           // Preserve "whenAtEnd" sentinel: if open didn't shift, close shouldn't either
+-          if (offsetBeforeScroll.value !== -1) {
++          else if (offsetBeforeScroll.value !== -1) {
+             // Use the actual displacement recorded at end of open animation
+             // (not the theoretical value) so close is symmetric with open
+             offsetBeforeScroll.value = scroll.value - actualOpenShift.value;
 diff --git a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts b/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
+index 7077fb2..c160248 100644
 --- a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
 +++ b/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
-@@ -2,6 +2,7 @@
+@@ -2,6 +2,7 @@ import { useCallback } from "react";
  import { useSharedValue } from "react-native-reanimated";
  
  import { useKeyboardHandler } from "../../../hooks";
@@ -995,7 +1042,7 @@ diff --git a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts b/sr
  import useScrollState from "../../hooks/useScrollState";
  import { safeScrollTo } from "../../utils/safeScrollTo";
  
-@@ -45,13 +46,15 @@
+@@ -45,13 +46,15 @@ function useChatKeyboard(
      extraContentPadding,
    } = options;
  
@@ -1015,6 +1062,20 @@ diff --git a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts b/sr
    const {
      layout,
      size,
+@@ -156,8 +159,12 @@ function useChatKeyboard(
+           if (inverted) {
+             offsetBeforeScroll.value = scroll.value;
+           } else {
++            // A hide while already hidden (an Android Modal attaching its window) must not replay the last open's shift.
++            if (currentHeight.value === 0) {
++              offsetBeforeScroll.value = -1;
++            }
+             // Preserve "whenAtEnd" sentinel: if open didn't shift, close shouldn't either
+-            if (offsetBeforeScroll.value !== -1) {
++            else if (offsetBeforeScroll.value !== -1) {
+               // Use the actual displacement recorded at end of open animation
+               // (not the theoretical value) so close is symmetric with open
+               offsetBeforeScroll.value = scroll.value - actualOpenShift.value;
 diff --git a/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts b/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
 --- a/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
 +++ b/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
