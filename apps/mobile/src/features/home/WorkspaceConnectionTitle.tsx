@@ -15,10 +15,10 @@ import { useDeadlinePassed } from "../../lib/clock";
 import { useWorkspaceState } from "../../state/workspace";
 import {
   workspaceConnectionStatusPresentation,
+  workspaceConnectionStatusShowDelayMs,
   type WorkspaceConnectionStatusPresentation,
 } from "./workspace-connection-status";
 
-const STATUS_SHOW_DELAY_MS = 800;
 const FADE_IN_MS = 250;
 
 type ConnectionStatus = WorkspaceConnectionStatusPresentation & {
@@ -44,16 +44,17 @@ export function WorkspaceConnectionStatusProvider(props: { readonly children: Re
     // oxlint-disable-next-line react/purity -- Reads the clock only in the render-phase adjustment that runs when the status appears.
     setStatusSince(hasStatus ? Date.now() : null);
   }
-  const since = hasStatus ? statusSince : null;
-  const fadeStarted = useDeadlinePassed(since === null ? null : since + STATUS_SHOW_DELAY_MS);
-  const fadeEnded = useDeadlinePassed(
-    since === null ? null : since + STATUS_SHOW_DELAY_MS + FADE_IN_MS,
-  );
+  const showAt =
+    hasStatus && statusSince !== null
+      ? statusSince + workspaceConnectionStatusShowDelayMs(state)
+      : null;
+  const fadeStarted = useDeadlinePassed(showAt);
+  const fadeEnded = useDeadlinePassed(showAt === null ? null : showAt + FADE_IN_MS);
 
   const label = presentation?.label;
   const showsProgress = presentation?.showsProgress ?? false;
   const status =
-    label === undefined || since === null || !fadeStarted
+    label === undefined || showAt === null || !fadeStarted
       ? null
       : { label, showsProgress, fadeIn: !fadeEnded };
   return <ConnectionStatusContext value={status}>{props.children}</ConnectionStatusContext>;

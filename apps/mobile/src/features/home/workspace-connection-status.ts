@@ -34,6 +34,18 @@ function workspaceConnectionStatusLabel(state: WorkspaceState): string {
   return "Not connected";
 }
 
+/**
+ * Over cached threads a normal catch-up takes ~2 s on a phone cold start; a shorter wait flashes
+ * the label. Without cached threads, offline, or on an error, the status matters sooner.
+ */
+export function workspaceConnectionStatusShowDelayMs(state: WorkspaceState): number {
+  return state.hasLoadedShellSnapshot &&
+    state.networkStatus !== "offline" &&
+    state.connectionError === null
+    ? 3_000
+    : 800;
+}
+
 export function workspaceConnectionStatusPresentation(
   state: WorkspaceState,
 ): WorkspaceConnectionStatusPresentation | null {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { WorkspaceState } from "../../state/workspaceModel";
-import { workspaceConnectionStatusPresentation } from "./workspace-connection-status";
+import {
+  workspaceConnectionStatusPresentation,
+  workspaceConnectionStatusShowDelayMs,
+} from "./workspace-connection-status";
 
 function workspaceState(overrides: Partial<WorkspaceState> = {}): WorkspaceState {
   return {
@@ -77,5 +80,19 @@ describe("workspace connection status", () => {
       label: "Syncing threads…",
       showsProgress: true,
     });
+  });
+
+  it.each([
+    ["a catch-up over cached threads", { hasSyncingConnectedEnvironment: true }, 3_000],
+    [
+      "a first connect over cached threads",
+      { hasReadyEnvironment: false, hasConnectingEnvironment: true, hasPendingShellSnapshot: true },
+      3_000,
+    ],
+    ["a first load with nothing cached", { hasLoadedShellSnapshot: false }, 800],
+    ["offline", { networkStatus: "offline" }, 800],
+    ["a connection error", { hasReadyEnvironment: false, connectionError: "Unreachable" }, 800],
+  ] as const)("delays the status for %s", (_case, overrides, delayMs) => {
+    expect(workspaceConnectionStatusShowDelayMs(workspaceState(overrides))).toBe(delayMs);
   });
 });
