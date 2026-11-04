@@ -10,3 +10,12 @@ export function resolveWorktreeSetupSnapshot(
   const previous = held?.threadId === threadId ? held : null;
   return current && (!previous || current.sequence >= previous.sequence) ? current : previous;
 }
+
+/** Android's run status line reports setup in progress; the card stays for outcomes to act on. */
+export function worktreeSetupCardVisible(snapshot: WorktreeSetupSnapshot): boolean {
+  return (
+    snapshot.phase === "failed" ||
+    snapshot.phase === "cancelled" ||
+    snapshot.stages.some((stage) => stage.status === "failed")
+  );
+}

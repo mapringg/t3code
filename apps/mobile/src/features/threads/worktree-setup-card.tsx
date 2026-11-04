@@ -25,6 +25,9 @@ export interface WorktreeSetupCardProps {
   onWorkLocally: (() => void) | null;
 }
 
+// Android reports running work only on the feed's status line, with no shimmer.
+const quietWork = Platform.OS === "android";
+
 function elapsed(start: string | null, end: string | null, now: number) {
   const duration = (end ? Date.parse(end) : now) - (start ? Date.parse(start) : NaN);
   return Number.isFinite(duration) ? formatDuration(Math.max(0, duration)) : null;
@@ -50,7 +53,7 @@ export function WorktreeSetupCard(props: WorktreeSetupCardProps) {
   const failed =
     snapshot.phase === "failed" || snapshot.stages.some((stage) => stage.status === "failed");
   const label =
-    handedOff && working
+    handedOff && working && !quietWork
       ? `Working for ${elapsed(turnStartedAt, null, now) ?? "0s"}`
       : running
         ? handedOff
@@ -69,8 +72,8 @@ export function WorktreeSetupCard(props: WorktreeSetupCardProps) {
       <View className="min-h-11 flex-row items-center gap-2 border-b border-border px-1">
         <HeaderLabel
           label={label}
-          active={(running || working) && !detailsOpen}
-          failed={failed && !working}
+          active={(running || working) && !detailsOpen && !quietWork}
+          failed={failed && (!working || quietWork)}
         />
         {!handedOff ? (
           <Text
@@ -135,7 +138,7 @@ export function WorktreeSetupCard(props: WorktreeSetupCardProps) {
                 scriptName={snapshot.setupScript?.name ?? null}
                 now={now}
                 compact
-                animate={!detailsOpen}
+                animate={!detailsOpen && !quietWork}
               />
             ))}
         </View>
@@ -156,6 +159,14 @@ export function WorktreeWorkingHeader({ startedAt }: { startedAt: string }) {
       </View>
     </View>
   );
+}
+
+/** The setup card's details, opened from Android's run status line while setup runs. */
+export function WorktreeSetupDetailsSheet(
+  props: WorktreeSetupCardProps & { readonly onClose: () => void },
+) {
+  const now = useVisibleSecondClock(props.snapshot.phase === "running");
+  return <SetupDetailsSheet {...props} now={now} />;
 }
 
 function HeaderLabel({
@@ -216,7 +227,12 @@ function SetupDetailsSheet({
           .filter((stage) => stage.id !== "agent")
           .map((stage) => (
             <View key={stage.id}>
-              <StageRow stage={stage} scriptName={snapshot.setupScript?.name ?? null} now={now} />
+              <StageRow
+                stage={stage}
+                scriptName={snapshot.setupScript?.name ?? null}
+                now={now}
+                animate={!quietWork}
+              />
               {stage.id === "setup-script" &&
               (stage.status === "running" || stage.status === "failed" || stage.tail.length > 0) ? (
                 <OutputTail lines={stage.tail} failed={stage.status === "failed"} />
