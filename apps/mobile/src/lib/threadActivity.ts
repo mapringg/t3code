@@ -232,6 +232,10 @@ type ThreadFeedEntryContent =
       readonly id: string;
       readonly createdAt: string;
       readonly runId: RunId | null;
+      /** Android's run status line text, before its elapsed time. */
+      readonly label?: string;
+      /** When the run the status line reports ended; its elapsed time stops here. */
+      readonly endedAt?: string;
     };
 
 export interface ThreadFeedLatestRun {

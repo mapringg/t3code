@@ -15,7 +15,8 @@ import {
   enrichedSkillReference,
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
-import { minimalChatFeed } from "./minimal-chat-feed";
+import { appendRunStatusLine, minimalChatFeed, runStatusActivity } from "./minimal-chat-feed";
+import { RunStatusLine } from "./run-status-line";
 import { rememberedThreadFeedRowSizes } from "./threadFeedRowSizes";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
 import { GuestBubbleTint, GuestMessageName } from "./guestMessageStyle";
@@ -1873,6 +1874,19 @@ function renderFeedEntry(
     );
   }
 
+  if (entry.type === "thinking" && entry.label !== undefined) {
+    const { runId, label } = entry;
+    return (
+      <RunStatusLine
+        label={label}
+        startedAt={entry.createdAt}
+        endedAt={entry.endedAt}
+        height={props.replyActionSize.button}
+        onOpen={runId === null ? null : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
+      />
+    );
+  }
+
   if (entry.type === "thinking") {
     return <ThreadThinkingRow rowSizing={props.workRowSizing} iconSubtleColor={iconSubtleColor} />;
   }
@@ -2816,10 +2830,18 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     props.runlessWorkActive ?? false,
     feedCache,
   );
-  return appendPendingThreadMessages(
-    Platform.OS === "android" ? minimalChatFeed(presented) : presented,
-    props.feed,
-    props.queuedMessages,
+  if (Platform.OS !== "android") {
+    return appendPendingThreadMessages(presented, props.feed, props.queuedMessages);
+  }
+  return appendRunStatusLine(
+    appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
+    {
+      activity: runStatusActivity(presented),
+      latestRun: props.latestRun,
+      activeWorkStartedAt: props.activeWorkStartedAt,
+      runlessWorkActive: props.runlessWorkActive ?? false,
+      dispatchingMessageId: props.dispatchingMessageId,
+    },
   );
 }
 
@@ -3646,11 +3668,16 @@ export const ThreadFeed = memo(function ThreadFeed({
     openPreview(markdownLinkScope, { file: source });
   };
 
+  // The status line's minimum height plus its bottom margin; it fits whenever work rows do.
+  const runStatusLineSize = replyActionSize.button + 4;
   // Without this, every row above the viewport is assumed to be
   // estimatedItemSize tall, and scrolling up through unmeasured content
   // corrects each row's height as it mounts — the feed visibly jumps.
   const getFixedItemSize = (entry: ThreadFeedRow) => {
     if (entry.type === "guest-pending") return undefined;
+    if (entry.type === "thinking" && entry.label !== undefined) {
+      return workRowSizing.fixedRowHeight === undefined ? undefined : runStatusLineSize;
+    }
     if (isAndroidChatNotice(entry)) return undefined;
     if (entry.type === "html-render") {
       return htmlRenderRowHeight(htmlRenderFrameHeight(entry.render, contentWidth));
@@ -3831,7 +3858,12 @@ export const ThreadFeed = memo(function ThreadFeed({
                   : `message:${entry.message.role}`;
               }}
               getFixedItemSize={getFixedItemSize}
-              getEstimatedItemSize={(entry) => rememberedRowSizes.get(entry.id)}
+              getEstimatedItemSize={(entry) =>
+                rememberedRowSizes.get(entry.id) ??
+                (entry.type === "thinking" && entry.label !== undefined
+                  ? runStatusLineSize
+                  : undefined)
+              }
               // Native layout transitions retain stale row positions during sync, even at duration zero.
               onItemSizeChanged={handleItemSizeChanged}
               drawDistance={500}

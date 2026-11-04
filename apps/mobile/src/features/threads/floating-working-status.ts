@@ -88,3 +88,24 @@ export function connectionFloatingStatus(input: {
       return null;
   }
 }
+
+/** Whether the feed keeps room above the composer for the floating status control. */
+export function floatingStatusReservesRoom(input: {
+  readonly platform: string;
+  readonly showWorkingControl: boolean;
+  readonly queuedCount: number;
+  readonly hasPreviews: boolean;
+  readonly connected: boolean;
+  readonly sendInFlight: boolean;
+}): boolean {
+  // Android's control draws nothing for previews, connection or a send in flight; room for
+  // those would open and close an empty gap under the feed on every send.
+  if (input.platform === "android") return input.showWorkingControl || input.queuedCount > 0;
+  return (
+    input.showWorkingControl ||
+    input.queuedCount > 0 ||
+    input.hasPreviews ||
+    !input.connected ||
+    input.sendInFlight
+  );
+}
