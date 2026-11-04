@@ -93,7 +93,7 @@ import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 import { Menu } from "../../components/ui/Menu";
 import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
-import { rescaleEditorContentHeight } from "./composerEditorHeight";
+import { estimateUnmeasuredEditorText, rescaleEditorContentHeight } from "./composerEditorHeight";
 import {
   resolveComposerSendPresentation,
   type ComposerSendPresentation,
@@ -139,7 +139,13 @@ function collapsedEditorInset(text: ScaledTextRole): number {
 }
 
 function useCompactComposerEditor(text: ScaledTextRole, value: string) {
-  const [contentSize, setContentSize] = useState({ width: 0, height: 0, measuredWidth: 0 });
+  const [contentSize, setContentSize] = useState({
+    width: 0,
+    height: 0,
+    measuredWidth: 0,
+    chars: 0,
+    charWidth: 0,
+  });
   const [compactWidth, setCompactWidth] = useState(0);
   const [expandedWidth, setExpandedWidth] = useState(0);
   const contentHeight = contentSize.height;
@@ -149,22 +155,37 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
   const inset =
     Platform.OS === "android" ? COLLAPSED_EDITOR_DEFAULT_INSET : collapsedEditorInset(text);
   const minimum = Math.max(INLINE_EDITOR_HEIGHT, Math.ceil(text.lineHeight) + 2 * inset);
+  const unmeasured =
+    Platform.OS === "android" &&
+    contentSize.chars !== value.length &&
+    contentHeight <= text.lineHeight * 1.5
+      ? estimateUnmeasuredEditorText({
+          text: value,
+          charWidth: contentSize.charWidth > 0 ? contentSize.charWidth : text.fontSize * 0.5,
+          compactWidth,
+          expandedWidth,
+          lineHeight: text.lineHeight,
+        })
+      : null;
   // A line that fits the expanded editor may still overflow its compact slot.
   // Compare its measured width too so widening cannot trigger a collapse loop.
   const isExpanded =
     value.length > 0 &&
     (contentHeight > text.lineHeight * 1.5 ||
-      (compactWidth > 0 && contentSize.width > compactWidth));
+      (compactWidth > 0 && contentSize.width > compactWidth) ||
+      unmeasured?.overflowsCompact === true);
   const wrapWidth = isExpanded ? expandedWidth : compactWidth;
   const laidOutHeight =
-    Platform.OS === "android"
-      ? rescaleEditorContentHeight({
-          contentHeight,
-          lineHeight: text.lineHeight,
-          measuredWidth: contentSize.measuredWidth,
-          width: wrapWidth,
-        })
-      : contentHeight;
+    unmeasured?.overflowsCompact === true
+      ? unmeasured.height
+      : Platform.OS === "android"
+        ? rescaleEditorContentHeight({
+            contentHeight,
+            lineHeight: text.lineHeight,
+            measuredWidth: contentSize.measuredWidth,
+            width: wrapWidth,
+          })
+        : contentHeight;
   const height = Math.max(
     minimum,
     Math.min(text.lineHeight * 4 + 2 * inset, laidOutHeight + 2 * inset),
@@ -208,7 +229,13 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
       scrollEnabled: Platform.OS === "android" || contentHeight >= text.lineHeight * 4,
       contentInsetVertical: inset,
       onContentSizeChange: (size: { width: number; height: number }) => {
-        setContentSize({ ...size, measuredWidth: wrapWidth });
+        setContentSize((current) => ({
+          ...size,
+          measuredWidth: wrapWidth,
+          chars: value.length,
+          charWidth:
+            size.width > 0 && value.length > 0 ? size.width / value.length : current.charWidth,
+        }));
       },
       style: { flex: 1 },
     },
