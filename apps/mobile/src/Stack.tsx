@@ -792,7 +792,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
         gestureEnabled: true,
         headerShown: false,
         ...(Platform.OS === "android"
-          ? { presentation: "transparentModal" as const, animation: "none" as const }
+          ? { presentation: "transparentModal" as const, animation: "fade" as const }
           : THREAD_SETTINGS_SHEET_OPTIONS),
       },
     }),
@@ -878,7 +878,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
         gestureEnabled: true,
         headerShown: false,
         ...(Platform.OS === "android"
-          ? { presentation: "transparentModal" as const, animation: "none" as const }
+          ? { presentation: "transparentModal" as const, animation: "fade" as const }
           : {
               ...THREAD_SETTINGS_SHEET_OPTIONS,
             }),
