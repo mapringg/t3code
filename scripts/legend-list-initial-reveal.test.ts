@@ -16,11 +16,16 @@ function createList(bundle: string) {
     source.indexOf("var INSET_END_SETTLE_WATCHDOG_FRAMES"),
     source.indexOf("function dispatchInitialScroll("),
   );
+  const finish = source.slice(
+    source.indexOf("// src/core/finishInitialScroll.ts"),
+    source.indexOf("// src/core/calculateOffsetForIndex.ts"),
+  );
   const frames: Array<() => void> = [];
   const values = new Map<string, unknown>();
   const scrollTo = vi.fn();
   const onLoad = vi.fn();
   const state = {
+    scheduledWork: { cancel: vi.fn() },
     props: { data: ["message"], onLoad, drawDistance: 500 },
     initialScroll: { index: 0, viewPosition: 1 },
     loadStartTime: 0,
@@ -39,8 +44,11 @@ function createList(bundle: string) {
   let contentSize = 1200;
   let inset = 100;
   const api = NodeVM.runInNewContext(
-    `${renderState}\n${watchdog}\n({ start: startInsetEndSettleWatchdog, complete: setInitialRenderState })`,
+    `${renderState}\n${watchdog}\n${finish}\n({ start: startInsetEndSettleWatchdog, complete: setInitialRenderState, finish: finishInitialScroll })`,
     {
+      Platform: { OS: "android" },
+      initialScrollWatchdog: { clear: vi.fn() },
+      setInitialScrollSession: vi.fn(),
       requestAnimationFrame: (callback: () => void) => frames.push(callback),
       getContentSize: () => contentSize,
       getContentInsetStartAdjustment: () => inset,
@@ -52,6 +60,7 @@ function createList(bundle: string) {
     },
   ) as {
     start: (context: typeof ctx) => void;
+    finish: (context: typeof ctx) => void;
     complete: (context: typeof ctx, flags: Record<string, boolean>) => void;
   };
   return {
@@ -59,7 +68,9 @@ function createList(bundle: string) {
     scrollTo,
     onLoad,
     start: () => api.start(ctx),
+    finish: () => api.finish(ctx),
     complete: () => api.complete(ctx, {}),
+    layout: () => api.complete(ctx, { didLayout: true }),
     ready: () => values.get("readyToRender") === true,
     resize: (size: number) => {
       contentSize = size;
@@ -79,17 +90,28 @@ function createList(bundle: string) {
 describe.each(["react-native.js", "react-native.mjs"])(
   "initial inset end reveal (%s)",
   (bundle) => {
-    it("waits for the native offset instead of the optimistic scroll target", () => {
-      const list = createList(bundle);
-      list.start();
-      list.advance(8);
-      expect(list.ready()).toBe(false);
-      expect(list.scrollTo).toHaveBeenCalledWith({ animated: false, x: 0, y: 400 });
-      list.state.lastNativeScroll = 400;
-      list.advance(7);
-      expect(list.ready()).toBe(true);
-      expect(list.onLoad).toHaveBeenCalledTimes(1);
-    });
+    it.each([
+      { inset: 0, layoutFirst: true },
+      { inset: 100, layoutFirst: true },
+      { inset: 0, layoutFirst: false },
+      { inset: 100, layoutFirst: false },
+    ])(
+      "waits for the native offset ($inset-point inset, layout first: $layoutFirst)",
+      ({ inset, layoutFirst }) => {
+        const list = createList(bundle);
+        list.setInset(inset);
+        list.state.didContainersLayout = layoutFirst;
+        list.finish();
+        list.layout();
+        list.advance(8);
+        expect(list.ready()).toBe(false);
+        expect(list.scrollTo).toHaveBeenCalledWith({ animated: false, x: 0, y: 400 });
+        list.state.lastNativeScroll = 400;
+        list.advance(7);
+        expect(list.ready()).toBe(true);
+        expect(list.onLoad).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it("does not count an in-flight scroll as stability", () => {
       const list = createList(bundle);
