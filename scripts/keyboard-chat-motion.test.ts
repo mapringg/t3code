@@ -4,7 +4,7 @@ import * as NodeModule from "node:module";
 import * as NodeVM from "node:vm";
 import { expect, it, vi } from "vite-plus/test";
 
-it("mounts above an open keyboard and closes back to the unoccluded end", () => {
+it("mounts above an open keyboard, closes back to the unoccluded end, and ignores a later hide", () => {
   const root = new URL(
     "../apps/mobile/node_modules/react-native-keyboard-controller/src/components/KeyboardChatScrollView/useChatKeyboard/",
     import.meta.url,
@@ -15,6 +15,7 @@ it("mounts above an open keyboard and closes back to the unoccluded end", () => 
       .replace(/export /g, "")
       .replace(/\{ useChatKeyboard \};/, "");
   const scrollTo = vi.fn();
+  const scroll = { value: 796 };
   let handlers:
     | { onStart: (event: { height: number }) => void; onMove: (event: { height: number }) => void }
     | undefined;
@@ -30,7 +31,7 @@ it("mounts above an open keyboard and closes back to the unoccluded end", () => 
       useScrollState: () => ({
         layout: { value: { height: 800 } },
         size: { value: { height: 1200 } },
-        offset: { value: 796 },
+        offset: scroll,
       }),
       safeScrollTo: scrollTo,
       interpolate: (height: number, [start, end]: number[], [low, high]: number[]) =>
@@ -79,6 +80,11 @@ it("mounts above an open keyboard and closes back to the unoccluded end", () => 
   handlers!.onStart({ height: 0 });
   handlers!.onMove({ height: 0 });
   expect(scrollTo).toHaveBeenLastCalledWith({}, 0, 500, false);
+  // A Modal window attaching on Android replays a hide with the keyboard already down.
+  scroll.value = 400;
+  handlers!.onStart({ height: 0 });
+  handlers!.onMove({ height: 0 });
+  expect(scrollTo).toHaveBeenCalledTimes(1);
 });
 
 it("keeps the end-aligned spacer of a short list while the keyboard scrolls in", () => {
