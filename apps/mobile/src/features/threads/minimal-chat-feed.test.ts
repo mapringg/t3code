@@ -274,7 +274,7 @@ it("hands the last slot between the status line and the reply footer as the run 
   expect(slot(running).last).toBe(slot(running).last);
 });
 
-it("shows the status line from send, below pending messages, and says when the run waits", () => {
+it("shows the status line from send, below pending messages, until the run settles", () => {
   const rows = minimalChatFeed(deriveThreadFeedPresentation(feed([userMessage]), null));
   const sentAt = "2026-11-03T10:01:00.000Z";
   const pendingMessage = {
@@ -317,8 +317,9 @@ it("shows the status line from send, below pending messages, and says when the r
     label: "Working · Running pwd",
     createdAt: sentAt,
   });
+  // A provider-finished run still captures its checkpoint before the reply's footer appears.
   expect(last({ latestRun: { ...running, status: "waiting" } })).toMatchObject({
-    label: "Waiting",
+    label: "Working · Running pwd",
     createdAt: at,
   });
 });

@@ -3667,11 +3667,16 @@ export const ThreadFeed = memo(function ThreadFeed({
     openPreview(markdownLinkScope, { file: source });
   };
 
+  // The status line's minimum height plus its bottom margin; it fits whenever work rows do.
+  const runStatusLineSize = replyActionSize.button + 4;
   // Without this, every row above the viewport is assumed to be
   // estimatedItemSize tall, and scrolling up through unmeasured content
   // corrects each row's height as it mounts — the feed visibly jumps.
   const getFixedItemSize = (entry: ThreadFeedRow) => {
     if (entry.type === "guest-pending") return undefined;
+    if (entry.type === "thinking" && entry.label !== undefined) {
+      return workRowSizing.fixedRowHeight === undefined ? undefined : runStatusLineSize;
+    }
     if (isAndroidChatNotice(entry)) return undefined;
     if (entry.type === "html-render") {
       return htmlRenderRowHeight(htmlRenderFrameHeight(entry.render, contentWidth));
@@ -3852,7 +3857,12 @@ export const ThreadFeed = memo(function ThreadFeed({
                   : `message:${entry.message.role}`;
               }}
               getFixedItemSize={getFixedItemSize}
-              getEstimatedItemSize={(entry) => rememberedRowSizes.get(entry.id)}
+              getEstimatedItemSize={(entry) =>
+                rememberedRowSizes.get(entry.id) ??
+                (entry.type === "thinking" && entry.label !== undefined
+                  ? runStatusLineSize
+                  : undefined)
+              }
               // Native layout transitions retain stale row positions during sync, even at duration zero.
               onItemSizeChanged={handleItemSizeChanged}
               drawDistance={500}

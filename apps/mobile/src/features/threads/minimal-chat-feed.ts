@@ -51,7 +51,10 @@ export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFee
 export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): string | null {
   for (let index = presented.length - 1; index >= 0; index--) {
     const row = presented[index]!;
-    if (row.type === "work-toggle" && row.live) return row.summary;
+    if (row.type === "work-toggle" && row.live) {
+      // A finished thought is no step; the next one has not started.
+      return row.summaryKind === "reasoning" && row.summary !== "Thinking" ? null : row.summary;
+    }
     if (row.type === "activity-group" && row.activities[0]?.live) {
       return row.activities[0].groupStandIn?.label ?? null;
     }
@@ -91,8 +94,7 @@ export function appendRunStatusLine(
   const runId: RunId | null = run?.runId ?? null;
   const startedAt =
     input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";
-  const step = run?.status === "waiting" ? null : input.activity;
-  const label = `${run?.status === "waiting" ? "Waiting" : "Working"}${step ? ` · ${step}` : ""}`;
+  const label = input.activity ? `Working · ${input.activity}` : "Working";
   if (
     cachedRunStatusRow?.createdAt !== startedAt ||
     cachedRunStatusRow.runId !== runId ||
