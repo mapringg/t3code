@@ -2476,7 +2476,11 @@ function AssistantMessageRow({
     !assistantTurnStillInProgress &&
     !message.streaming;
   if (renderedText.trim().length === 0 && attachments.length === 0) {
-    return null;
+    // Android shows only a run's latest reply, so a reply that starts empty holds the line
+    // of the one it replaced instead of letting the feed drop and regrow.
+    return Platform.OS === "android" && message.streaming ? (
+      <View className="mb-1 px-1" style={{ height: styles.nativeTextStyle.lineHeight }} />
+    ) : null;
   }
 
   const enterAnimated = Platform.OS !== "android" && isFreshTimestamp(message.createdAt);

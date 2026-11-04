@@ -28,11 +28,29 @@ function keepActivity(activity: ThreadFeedActivity) {
   }
 }
 
+/**
+ * A run shows only its latest reply, live or settled, so ending a run never folds text away.
+ * Earlier replies stay in the run sheet.
+ */
 export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFeedEntry[] {
+  const latestReplyByRun = new Map<RunId, string>();
+  for (const entry of feed) {
+    if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
+      latestReplyByRun.set(entry.message.runId, entry.id);
+    }
+  }
   return feed.flatMap((entry): ThreadFeedEntry[] => {
     switch (entry.type) {
       case "message":
-        return isCompactionCommandMessage(entry.message) ? [] : [entry];
+        if (isCompactionCommandMessage(entry.message)) return [];
+        if (
+          entry.message.role === "assistant" &&
+          entry.message.runId &&
+          latestReplyByRun.get(entry.message.runId) !== entry.id
+        ) {
+          return [];
+        }
+        return [entry];
       case "html-render":
       case "mcp-app":
         return [entry];

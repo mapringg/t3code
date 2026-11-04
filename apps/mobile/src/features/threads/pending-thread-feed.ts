@@ -195,6 +195,8 @@ export function resolveFooterMessageIds(
     if (message.role === "user") {
       if (user === null && !isCompactionCommandFeedEntry(entry)) user = message.id;
     } else if (
+      // A reply above the newest prompt gives up its footer at send, while the feed moves anyway.
+      user === null &&
       assistant === null &&
       !message.streaming &&
       message.runId !== null &&
