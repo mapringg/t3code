@@ -5,7 +5,15 @@ import {
   PullRequestMediaContext,
 } from "./PullRequestMedia";
 import { PullRequestSectionHeading } from "./PullRequestSectionHeading";
-import { useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+  type ReactNode,
+} from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { pullRequestImageSource } from "./pullRequestMediaSource";
@@ -29,6 +37,13 @@ export function PullRequestDescription(props: {
 }) {
   const { expanded, onExpandedChange } = props;
   const [bodyHeight, setBodyHeight] = useState(0);
+  const body = useRef<ComponentRef<typeof View>>(null);
+  // Fabric lays out before paint, so measuring here gives the first frame its clipped height and
+  // "Show more" instead of growing from zero a frame later.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reads the markdown's native layout before the first paint
+  useLayoutEffect(() => {
+    body.current?.measure((_x, _y, _width, height) => setBodyHeight(height));
+  }, []);
   const mediaContext = useContext(PullRequestMediaContext);
   const { themeVariables: colors } = useAppearancePreferences();
   const fadeColor = colors[Platform.OS === "android" ? "--color-sheet-solid" : "--color-screen"];
@@ -63,6 +78,7 @@ export function PullRequestDescription(props: {
               }}
             >
               <View
+                ref={body}
                 style={{ position: "absolute", top: 0, left: 0, right: 0 }}
                 onLayout={(event) => setBodyHeight(event.nativeEvent.layout.height)}
               >

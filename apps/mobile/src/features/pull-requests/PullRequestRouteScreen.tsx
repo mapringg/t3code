@@ -13,12 +13,14 @@ import {
 import { PullRequestActivityFilters } from "./PullRequestActivityFilters";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import Animated from "react-native-reanimated";
+import Animated, { ReduceMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import {
   PR_ROW_LAYOUT,
   PR_ROW_ENTER,
   PR_ROW_EXIT,
   PR_POSITION_LAYOUT,
+  PR_REVEAL_ENTER,
+  PR_REVEAL_MS,
 } from "./pullRequestAnimations";
 import {
   canPerformPullRequestAction,
@@ -47,10 +49,11 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
 import { type PullRequestDetail, type PullRequestListEntry } from "@t3tools/contracts";
-import { PullRequestOverviewLoading } from "./PullRequestOverviewLoading";
+import { PullRequestOverviewLoading, PullRequestStatusPreview } from "./PullRequestOverviewLoading";
+import { pullRequestOpening } from "./pullRequestOpening";
 import { copyPullRequestLink, sharePullRequestLink } from "./pullRequestLink";
 import { pullRequestStatus } from "./pullRequestStatus";
-import { use, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { use, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
   Platform,
@@ -112,6 +115,7 @@ import {
 } from "./PullRequestPresentation";
 import { usePullRequestFilesSection } from "./PullRequestFiles";
 import { usePullRequestMaintainerEdits } from "./usePullRequestMaintainerEdits";
+import { PullRequestLinkedThreadsPrefetch } from "./usePullRequestThreads";
 import { PullRequestDescription } from "./PullRequestDescription";
 import { PullRequestMediaVisibleContext } from "./PullRequestMedia";
 import { PullRequestMarkdownRepository } from "./PullRequestMarkdown";
@@ -302,10 +306,13 @@ function PullRequestOverview(props: {
   readonly stack: PullRequestStackState;
   readonly onDescriptionLayout: (y: number) => void;
   readonly onDescriptionCollapse: () => void;
+  readonly onMounted: () => void;
   readonly descriptionExpanded: boolean;
   readonly onDescriptionExpandedChange: (expanded: boolean) => void;
 }) {
-  const { pr } = props;
+  const { pr, onMounted } = props;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- tells the screen the overview's commit landed, which LegendList applies frames after the route renders
+  useLayoutEffect(() => onMounted(), [onMounted]);
   return (
     <View className="gap-5">
       <PullRequestStackCard params={props.params} state={props.stack} />
@@ -319,18 +326,24 @@ function PullRequestOverview(props: {
           <PullRequestMergeControls pr={pr} params={props.params} stack={props.stack} />
         </Animated.View>
       </PullRequestCardGroup>
-      <PullRequestLabels pr={pr} params={props.params} />
+      {/* Android drew the status rows during the push; the rest fades in below them. */}
       <Animated.View
-        layout={Platform.OS === "android" ? undefined : PR_POSITION_LAYOUT}
-        onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
+        entering={Platform.OS === "android" ? PR_REVEAL_ENTER : undefined}
+        className="gap-5"
       >
-        <PullRequestDescription
-          markdown={pr.body}
-          onCollapse={props.onDescriptionCollapse}
-          expanded={props.descriptionExpanded}
-          onExpandedChange={props.onDescriptionExpandedChange}
-          footer={<PullRequestReactions params={props.params} />}
-        />
+        <PullRequestLabels pr={pr} params={props.params} />
+        <Animated.View
+          layout={Platform.OS === "android" ? undefined : PR_POSITION_LAYOUT}
+          onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
+        >
+          <PullRequestDescription
+            markdown={pr.body}
+            onCollapse={props.onDescriptionCollapse}
+            expanded={props.descriptionExpanded}
+            onExpandedChange={props.onDescriptionExpandedChange}
+            footer={<PullRequestReactions params={props.params} />}
+          />
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -347,7 +360,8 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const navigation =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "PullRequest">>();
-  // Android waits for the push before mounting the complete overview, including cached visits.
+  // Android slides in with the header and status rows, and mounts the rest of the overview once
+  // the push ends.
   const entered = usePullRequestDiffEntry(navigation) || Platform.OS !== "android";
   const entryStage = entered ? 2 : 0;
   const insets = useSafeAreaInsets();
@@ -361,6 +375,15 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const requestedSection = useRef(chosenSection);
   const [listAnimationsReady, setListAnimationsReady] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  // LegendList draws a changed row a few frames after the route renders it, so Android's action bar
+  // mounts hidden and fades in from the overview's own commit.
+  const toolbarOpacity = useSharedValue(Platform.OS === "android" ? 0 : 1);
+  const [revealToolbar] = useState(() => () => {
+    toolbarOpacity.value = withTiming(1, {
+      duration: PR_REVEAL_MS,
+      reduceMotion: ReduceMotion.System,
+    });
+  });
   const filesContent = usePullRequestFilesSection(params);
   const guidesEnabled = useReviewGuidesEnabled(params);
   // The guide tab goes away while guides are off and overview stands in. The pick is kept, so
@@ -422,7 +445,9 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   useFocusEffect(refreshDetail);
   const pr = usePullRequestLiveChecks(params, result.data);
   const summary = params.initialSummary;
-  const identity = Platform.OS === "android" ? (entered ? pr : null) : (pr ?? summary);
+  const { identity, body } = pullRequestOpening({ entered, detail: pr, summary });
+  // Android reveals the rest of the page with the overview, so nothing below the status rows moves.
+  const showsBelowOverview = Platform.OS !== "android" || body === "overview";
   const terminology = sourceControlClients.get((pr ?? summary)?.provider).changeRequest;
   const permissions = usePullRequestPermissions(params, pr);
   const action = usePullRequestAction(params, pr);
@@ -763,7 +788,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                 host={params.host}
                                 repository={params.repository}
                               />
-                              {pr && (Platform.OS === "android" || entered || !summary) ? (
+                              {pr && body === "overview" ? (
                                 <PullRequestOverview
                                   pr={pr}
                                   params={params}
@@ -773,31 +798,36 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                   onDescriptionLayout={(y) => {
                                     descriptionY.current = y;
                                   }}
+                                  onMounted={revealToolbar}
                                   onDescriptionCollapse={() => {
                                     pendingDescriptionJump.current = true;
                                   }}
                                 />
-                              ) : summary ? (
+                              ) : pr && body === "status" ? (
+                                <PullRequestStatusPreview pr={pr} params={params} stack={stack} />
+                              ) : summary && body === "loading" ? (
                                 <PullRequestOverviewLoading
                                   summary={summary}
                                   params={params}
                                   stack={stack}
                                 />
                               ) : null}
-                              <View
-                                className="py-5"
-                                onLayout={(event) => {
-                                  filesY.current = event.nativeEvent.layout.y;
-                                  if (pendingFilesJump.current) {
-                                    requestAnimationFrame(() => {
-                                      if (shown(requestedSection.current) === "overview")
-                                        jumpToFiles();
-                                    });
-                                  }
-                                }}
-                              >
-                                {filesContent.header}
-                              </View>
+                              {showsBelowOverview ? (
+                                <View
+                                  className="py-5"
+                                  onLayout={(event) => {
+                                    filesY.current = event.nativeEvent.layout.y;
+                                    if (pendingFilesJump.current) {
+                                      requestAnimationFrame(() => {
+                                        if (shown(requestedSection.current) === "overview")
+                                          jumpToFiles();
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {filesContent.header}
+                                </View>
+                              ) : null}
                             </View>
                           ) : null}
                           {tab === "guide" ? (
@@ -824,7 +854,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ),
                     },
                     ...(tab === "overview"
-                      ? identity && entryStage > 0
+                      ? identity && entryStage > 0 && showsBelowOverview
                         ? filesContent.rows
                         : []
                       : tab === "activity"
@@ -912,14 +942,20 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                       ) : null}
                     </>
                   }
-                  ListFooterComponent={tab === "overview" && identity ? filesContent.footer : null}
+                  ListFooterComponent={
+                    tab === "overview" && identity && showsBelowOverview
+                      ? filesContent.footer
+                      : null
+                  }
                 />
               </View>
             ))}
         </View>
-        {Platform.OS !== "android" || identity ? (
+        {Platform.OS === "android" ? <PullRequestLinkedThreadsPrefetch params={params} /> : null}
+        {Platform.OS !== "android" || body === "overview" ? (
           <PullRequestActionToolbar
             pr={pr}
+            opacity={toolbarOpacity}
             params={params}
             onOpenFiles={openFiles}
             onHeightChange={setToolbarHeight}

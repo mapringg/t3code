@@ -46,6 +46,30 @@ import {
 
 type LinkedThread = PullRequestLinkedThreadsResult["threads"][number];
 
+function linkedThreadsReference(params: PullRequestParams, url: string | undefined) {
+  const target = pullRequestTarget(params);
+  const parsed = url ? sourceControlClients.parseChangeRequestUrl(url)?.link : undefined;
+  return {
+    ...target,
+    input: { ...target.input, ...(parsed ? normalizeThreadPullRequestKey(parsed) : {}) },
+  };
+}
+
+/** Starts the linked-threads read from the list row, so the action bar has it when the page reveals. */
+export function PullRequestLinkedThreadsPrefetch(props: { readonly params: PullRequestParams }) {
+  const { params } = props;
+  const config = useEnvironmentServerConfig(pullRequestTarget(params).environmentId);
+  const supported = threadPullRequestLinkMode(config?.environment.capabilities) === "multiple";
+  useEnvironmentQuery(
+    supported && params.initialSummary
+      ? composerPullRequests.linkedThreads(
+          linkedThreadsReference(params, params.initialSummary.url),
+        )
+      : null,
+  );
+  return null;
+}
+
 export function usePullRequestThreads(
   params: PullRequestParams,
   pr: PullRequestDetail | null,
@@ -54,11 +78,7 @@ export function usePullRequestThreads(
   const target = pullRequestTarget(params);
   const config = useEnvironmentServerConfig(target.environmentId);
   const supported = threadPullRequestLinkMode(config?.environment.capabilities) === "multiple";
-  const parsed = pr ? sourceControlClients.parseChangeRequestUrl(pr.url)?.link : undefined;
-  const reference = {
-    ...target,
-    input: { ...target.input, ...(parsed ? normalizeThreadPullRequestKey(parsed) : {}) },
-  };
+  const reference = linkedThreadsReference(params, pr?.url);
   const key = JSON.stringify(reference);
   const route = useRoute();
   // The iOS synthetic workspace parent's focus differs from the visible detail's focus.
