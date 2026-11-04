@@ -1,4 +1,10 @@
-import { isCompactionCommandMessage, type MessageId, type RunId } from "@t3tools/contracts";
+import {
+  isCompactionCommandMessage,
+  worktreeSetupStageLabel,
+  type MessageId,
+  type RunId,
+  type WorktreeSetupSnapshot,
+} from "@t3tools/contracts";
 import {
   threadFeedRunIsUnsettled,
   type ThreadFeedActivity,
@@ -63,6 +69,23 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
   return null;
 }
 
+/** The setup step the status line names until the thread's first turn starts. */
+export function worktreeSetupRunStep(
+  setup: { readonly snapshot: WorktreeSetupSnapshot; readonly turnStarted: boolean } | null,
+): { readonly label: string; readonly startedAt: string } | null {
+  if (setup === null || setup.turnStarted) return null;
+  const { snapshot } = setup;
+  if (snapshot.phase === "failed" || snapshot.phase === "cancelled") return null;
+  const stage = snapshot.stages.find((candidate) => candidate.status === "running");
+  const label =
+    stage === undefined
+      ? "Setting up worktree"
+      : stage.id === "setup-script"
+        ? (snapshot.setupScript?.name ?? worktreeSetupStageLabel(stage.id))
+        : worktreeSetupStageLabel(stage.id);
+  return { label, startedAt: snapshot.startedAt };
+}
+
 type RunStatusRow = Extract<ThreadFeedEntry, { readonly type: "thinking" }>;
 let cachedRunStatusRow: RunStatusRow | null = null;
 
@@ -85,8 +108,13 @@ export function appendRunStatusLine(
     readonly activeWorkStartedAt: string | null;
     readonly runlessWorkActive: boolean;
     readonly dispatchingMessageId: MessageId | null;
+    readonly setupStep: { readonly label: string; readonly startedAt: string } | null;
   },
 ): ReadonlyArray<PendingThreadFeedEntry> {
+  if (input.setupStep !== null) {
+    const { label, startedAt } = input.setupStep;
+    return [...rows, runStatusRow(startedAt, null, `Working · ${label}`, undefined)];
+  }
   const last = rows.at(-1);
   const sending =
     last?.type === "message" &&

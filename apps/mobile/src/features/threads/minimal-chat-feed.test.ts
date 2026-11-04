@@ -6,13 +6,19 @@ import {
   RuntimeRequestId,
   ThreadId,
   TurnItemId,
+  type WorktreeSetupSnapshot,
   type OrchestrationV2ProjectedTurnItem,
   type OrchestrationV2TurnItem,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import { expect, it } from "vite-plus/test";
 import { buildThreadFeed, deriveThreadFeedPresentation } from "../../lib/threadActivity";
-import { appendRunStatusLine, minimalChatFeed, runStatusActivity } from "./minimal-chat-feed";
+import {
+  appendRunStatusLine,
+  minimalChatFeed,
+  runStatusActivity,
+  worktreeSetupRunStep,
+} from "./minimal-chat-feed";
 import { resolveFooterMessageIds } from "./pending-thread-feed";
 
 const threadId = ThreadId.make("thread");
@@ -232,6 +238,7 @@ const idle = {
   activeWorkStartedAt: null,
   runlessWorkActive: false,
   dispatchingMessageId: null,
+  setupStep: null,
 } as const;
 
 it("names the live step, and none when the provider reports no step", () => {
@@ -345,5 +352,64 @@ it("shows the status line from send, below pending messages, until the run settl
   expect(last({ latestRun: { ...running, status: "waiting" } })).toMatchObject({
     label: "Working · Running pwd",
     createdAt: at,
+  });
+});
+
+it("names the worktree setup step on the status line until the first turn starts", () => {
+  const setupAt = "2026-11-03T09:59:50.000Z";
+  const stage = (
+    id: WorktreeSetupSnapshot["stages"][number]["id"],
+    status: "running" | "done",
+  ) => ({
+    id,
+    status,
+    startedAt: setupAt,
+    endedAt: null,
+    percent: null,
+    detail: null,
+    tail: [],
+  });
+  const snapshot: WorktreeSetupSnapshot = {
+    threadId,
+    sequence: 1,
+    phase: "running",
+    startedAt: setupAt,
+    endedAt: null,
+    branch: "feature",
+    baseRef: "main",
+    worktreePath: null,
+    setupScript: { name: "Setup Worktree", command: "node setup.ts", terminalId: "setup" },
+    stages: [],
+    error: null,
+  };
+  const step = (input: Partial<WorktreeSetupSnapshot>, turnStarted = false) =>
+    worktreeSetupRunStep({ snapshot: { ...snapshot, ...input }, turnStarted })?.label ?? null;
+  expect(step({})).toBe("Setting up worktree");
+  expect(step({ stages: [stage("fetch", "done"), stage("checkout", "running")] })).toBe(
+    "Check out files",
+  );
+  expect(step({ stages: [stage("setup-script", "running")] })).toBe("Setup Worktree");
+  expect(step({ stages: [stage("setup-script", "running")], setupScript: null })).toBe(
+    "Run setup script",
+  );
+  // Setup that finished before the turn starts keeps the line until the agent takes it over.
+  expect(step({ phase: "done", stages: [stage("agent", "running")] })).toBe("Start agent");
+  expect(step({ phase: "failed" })).toBeNull();
+  expect(step({ phase: "cancelled" })).toBeNull();
+  expect(step({ stages: [stage("setup-script", "running")] }, true)).toBeNull();
+
+  const rows = minimalChatFeed(deriveThreadFeedPresentation(feed([userMessage]), null));
+  const line = appendRunStatusLine(rows, {
+    ...idle,
+    activity: null,
+    latestRun: { ...running, status: "preparing", startedAt: null },
+    setupStep: worktreeSetupRunStep({ snapshot, turnStarted: false }),
+  }).at(-1);
+  expect(line).toMatchObject({
+    type: "thinking",
+    id: "run-status-line",
+    label: "Working · Setting up worktree",
+    createdAt: setupAt,
+    runId: null,
   });
 });

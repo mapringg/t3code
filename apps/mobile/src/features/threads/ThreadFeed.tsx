@@ -15,7 +15,12 @@ import {
   enrichedSkillReference,
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
-import { appendRunStatusLine, minimalChatFeed, runStatusActivity } from "./minimal-chat-feed";
+import {
+  appendRunStatusLine,
+  minimalChatFeed,
+  runStatusActivity,
+  worktreeSetupRunStep,
+} from "./minimal-chat-feed";
 import { RunStatusLine } from "./run-status-line";
 import { rememberedThreadFeedRowSizes } from "./threadFeedRowSizes";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
@@ -27,8 +32,10 @@ import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import {
   WorktreeWorkingHeader,
   WorktreeSetupCard,
+  WorktreeSetupDetailsSheet,
   type WorktreeSetupCardProps,
 } from "./worktree-setup-card";
+import { worktreeSetupCardVisible } from "./worktree-setup-state";
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
 import { useViewabilityAmount, type LegendListRef } from "@legendapp/list/react-native";
@@ -1797,6 +1804,8 @@ function renderFeedEntry(
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
     readonly onOpenRun: (anchor: string, title: string) => void;
+    /** Opens worktree setup progress, which the status line reports before the first turn. */
+    readonly onOpenSetup: (() => void) | null;
     readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
     readonly onPressPreview: (source: FilePreviewSource) => void;
     readonly onPlaybackStart: () => void;
@@ -1882,7 +1891,7 @@ function renderFeedEntry(
         startedAt={entry.createdAt}
         endedAt={entry.endedAt}
         height={props.replyActionSize.button}
-        onOpen={runId === null ? null : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
+        onOpen={runId === null ? props.onOpenSetup : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
       />
     );
   }
@@ -2841,6 +2850,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
       activeWorkStartedAt: props.activeWorkStartedAt,
       runlessWorkActive: props.runlessWorkActive ?? false,
       dispatchingMessageId: props.dispatchingMessageId,
+      setupStep: worktreeSetupRunStep(props.worktreeSetup ?? null),
     },
   );
 }
@@ -2923,6 +2933,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     readonly anchor: string;
     readonly title: string;
   } | null>(null);
+  const [setupSheetThreadId, setSetupSheetThreadId] = useState<ThreadId | null>(null);
   const markdownLinkRequest = useRef<AbortController | null>(null);
   const onInlinePlaybackStart = () => {
     markdownLinkRequest.current?.abort();
@@ -3662,6 +3673,16 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const onOpenRun = (anchor: string, title: string) => setRunSheet({ anchor, title });
+  const onOpenSetup =
+    worktreeSetupRunStep(props.worktreeSetup ?? null) === null
+      ? null
+      : () => setSetupSheetThreadId(props.threadId);
+  // Android reports running setup on the status line; the card stays for outcomes to act on.
+  const setupCard =
+    props.worktreeSetup &&
+    (Platform.OS !== "android" || worktreeSetupCardVisible(props.worktreeSetup.snapshot))
+      ? props.worktreeSetup
+      : null;
 
   const onPressPreview = (source: FilePreviewSource) => {
     markdownLinkRequest.current?.abort();
@@ -3734,6 +3755,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           failedRunIds,
           onCopyWorkRow,
           onOpenRun,
+          onOpenSetup,
           onOpenTurnDiff,
           onPressPreview,
           onPlaybackStart: onInlinePlaybackStart,
@@ -3758,9 +3780,11 @@ export const ThreadFeed = memo(function ThreadFeed({
           workspaceRoot: props.workspaceRoot,
           workflowOpening,
         })}
-        {props.worktreeSetup && info.index === setupAnchorIndex ? (
-          <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />
-        ) : props.setupWorkingStartedAt && info.index === setupAnchorIndex ? (
+        {setupCard && info.index === setupAnchorIndex ? (
+          <WorktreeSetupCard key={props.threadId} {...setupCard} />
+        ) : props.setupWorkingStartedAt &&
+          Platform.OS !== "android" &&
+          info.index === setupAnchorIndex ? (
           <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
         ) : null}
       </ThreadMediaVisibility>
@@ -3897,8 +3921,8 @@ export const ThreadFeed = memo(function ThreadFeed({
               ListHeaderComponent={
                 <>
                   {usesNativeAutomaticInsets ? null : <View style={{ height: topContentInset }} />}
-                  {setupAnchorIndex < 0 && props.worktreeSetup ? (
-                    <WorktreeSetupCard key={props.threadId} {...props.worktreeSetup} />
+                  {setupAnchorIndex < 0 && setupCard ? (
+                    <WorktreeSetupCard key={props.threadId} {...setupCard} />
                   ) : null}
                   {props.historyControls ? (
                     <ThreadFeedLoadEarlierControl {...props.historyControls} />
@@ -3959,6 +3983,12 @@ export const ThreadFeed = memo(function ThreadFeed({
               onClose={() => setRunSheet(null)}
             />
           </InlineFoldsContext>
+        ) : null}
+        {setupSheetThreadId === props.threadId && props.worktreeSetup ? (
+          <WorktreeSetupDetailsSheet
+            {...props.worktreeSetup}
+            onClose={() => setSetupSheetThreadId(null)}
+          />
         ) : null}
         <VideoPreviewModal source={expandedVideo} onRequestClose={closeVideoPreview} />
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />

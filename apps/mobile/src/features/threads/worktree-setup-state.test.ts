@@ -1,7 +1,7 @@
 import { ThreadId, type WorktreeSetupSnapshot } from "@t3tools/contracts";
 import { resolveVisibleWorktreeSetup } from "@t3tools/client-runtime/worktree-setup";
 import { describe, expect, it } from "vite-plus/test";
-import { resolveWorktreeSetupSnapshot } from "./worktree-setup-state";
+import { resolveWorktreeSetupSnapshot, worktreeSetupCardVisible } from "./worktree-setup-state";
 
 const threadId = ThreadId.make("setup-thread");
 const running: WorktreeSetupSnapshot = {
@@ -74,4 +74,27 @@ describe("mobile worktree setup handoff", () => {
     const other = { ...running, threadId: otherId };
     expect(resolveWorktreeSetupSnapshot(otherId, other, running)).toBe(other);
   });
+});
+
+it("keeps the Android setup card only for outcomes the user must act on", () => {
+  const scriptFailed = {
+    ...running,
+    phase: "done" as const,
+    stages: [
+      {
+        id: "setup-script" as const,
+        status: "failed" as const,
+        startedAt: running.startedAt,
+        endedAt: running.startedAt,
+        percent: null,
+        detail: null,
+        tail: [],
+      },
+    ],
+  };
+  expect(worktreeSetupCardVisible(running)).toBe(false);
+  expect(worktreeSetupCardVisible({ ...running, phase: "done" })).toBe(false);
+  expect(worktreeSetupCardVisible({ ...running, phase: "failed" })).toBe(true);
+  expect(worktreeSetupCardVisible({ ...running, phase: "cancelled" })).toBe(true);
+  expect(worktreeSetupCardVisible(scriptFailed)).toBe(true);
 });
