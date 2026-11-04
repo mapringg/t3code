@@ -38,16 +38,12 @@ export function pullRequestTarget(params: PullRequestParams) {
 
 const NO_PAGES: readonly PullRequestDiffPage[] = [];
 
-export function usePullRequestDiffEntry(
-  navigation: {
-    readonly addListener: (
-      type: "transitionStart" | "transitionEnd",
-      listener: (event: { readonly data: { readonly closing: boolean } }) => void,
-    ) => () => void;
-  },
-  // "start" overlaps the deferred work with the opening slide instead of following it.
-  readyAt: "start" | "end" = "end",
-) {
+export function usePullRequestDiffEntry(navigation: {
+  readonly addListener: (
+    type: "transitionStart" | "transitionEnd",
+    listener: (event: { readonly data: { readonly closing: boolean } }) => void,
+  ) => () => void;
+}) {
   const [ready, setReady] = useState(false);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to navigator transition events and frames to defer the diff until the opening transition ends
   useLayoutEffect(() => {
@@ -59,9 +55,7 @@ export function usePullRequestDiffEntry(
     };
     const removeStart = navigation.addListener("transitionStart", ({ data }) => {
       closing = data.closing;
-      if (closing) return;
-      opening = true;
-      if (readyAt === "start") finish();
+      if (!closing) opening = true;
     });
     const removeEnd = navigation.addListener("transitionEnd", ({ data }) => {
       closing = data.closing;
@@ -83,7 +77,7 @@ export function usePullRequestDiffEntry(
       cancelAnimationFrame(frame);
       clearTimeout(fallback);
     };
-  }, [navigation, ready, readyAt]);
+  }, [navigation, ready]);
   return ready;
 }
 

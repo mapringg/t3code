@@ -293,7 +293,7 @@ index ce1fe00001c9e5aee6c6ea8bb2d4757d4586d002..388e567ba7f7d4822be33364839d94f1
       * Number of columns to render items in.
       * @default 1
 diff --git a/react-native.js b/react-native.js
-index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409c4ed022f 100644
+index b3c5a306b293f797a8b338adfca3060c0f6db22b..4b1bc1e76f22f830b2c5d9976c1346844b935a78 100644
 --- a/react-native.js
 +++ b/react-native.js
 @@ -717,6 +717,15 @@ function hasActiveInitialScroll(state) {
@@ -610,14 +610,13 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
                state.scroll = maxScroll;
                state.scrollPending = maxScroll;
                diff = 0;
-@@ -2320,8 +2427,122 @@ function scrollToIndex(ctx, {
+@@ -2320,8 +2427,121 @@ function scrollToIndex(ctx, {
  }
  
  // src/core/initialScroll.ts
 +var INSET_END_SETTLE_WATCHDOG_FRAMES = 150;
 +var INSET_END_SETTLE_WATCHDOG_STABLE_FRAMES = 20;
-+// T3 patch: Android lands while its push slides, so one stable frame per settle phase is enough.
-+var INSET_END_REVEAL_STABLE_FRAMES = Platform.OS === "android" ? 1 : 3;
++var INSET_END_REVEAL_STABLE_FRAMES = 3;
 +var INSET_END_REVEAL_MAX_HOLD_FRAMES = 40;
 +function startInsetEndSettleWatchdog(ctx) {
 +  const state = ctx.state;
@@ -733,7 +732,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    const requestedIndex = target.index;
    const index = requestedIndex !== void 0 ? clampScrollIndex(requestedIndex, ctx.state.props.data.length) : void 0;
    const itemSize = getItemSizeAtIndex(ctx, index);
-@@ -2747,7 +2968,9 @@ function clearFinishedBootstrapInitialScrollTargetIfMovedAway(ctx) {
+@@ -2747,7 +2967,9 @@ function clearFinishedBootstrapInitialScrollTargetIfMovedAway(ctx) {
      return;
    }
    if (didFinishedInitialScrollMoveAwayFromTarget(ctx, initialScroll)) {
@@ -744,7 +743,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      if (!shouldKeepEndTargetAlive) {
        if (shouldPreserveInitialScrollForFooterLayout(initialScroll)) {
          clearPendingInitialScrollFooterLayout(ctx, {
-@@ -4672,7 +4895,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
+@@ -4672,7 +4894,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);
        isReady = !hasUnknownTailSize;
@@ -754,7 +753,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      } else if (anchorIndex >= 0) {
        isReady = false;
      }
-@@ -4692,6 +4916,12 @@ function maybeUpdateAnchoredEndSpace(ctx) {
+@@ -4692,6 +4915,12 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        updateScroll(ctx, state.scroll, true, { markHasScrolled: false });
      }
      (_b = anchoredEndSpace == null ? void 0 : anchoredEndSpace.onReady) == null ? void 0 : _b.call(anchoredEndSpace, { anchorIndex: nextAnchorIndex, anchorKey: nextAnchorKey, size: nextSize });
@@ -767,7 +766,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    }
    return nextSize;
  }
-@@ -5715,8 +5945,11 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5715,8 +5944,11 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
    horizontal
  }) {
    const ctx = useStateContext();
@@ -780,7 +779,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    const [readyToRender, numColumns, otherAxisSize = 0] = useArr$(["readyToRender", "numColumns", "otherAxisSize"]);
    const isVisible = useFreshDataTransitionVisibility(!!readyToRender, freshDataTransitionEpoch);
    const style = horizontal ? {
-@@ -5725,6 +5958,13 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5725,6 +5957,13 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
      opacity: isVisible ? 1 : 0,
      width: animSize
    } : { height: animSize, minWidth: otherAxisSize, opacity: isVisible ? 1 : 0 };
@@ -794,7 +793,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    if (columnWrapperStyle) {
      const { columnGap, rowGap, gap } = columnWrapperStyle;
      const gapX = columnGap || gap || 0;
-@@ -5745,7 +5985,8 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5745,7 +5984,8 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
        }
      }
    }
@@ -804,7 +803,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
  });
  var Containers = typedMemo(function Containers2({
    freshDataTransitionEpoch,
-@@ -5896,7 +6137,12 @@ var StyleSheet = ReactNative.StyleSheet;
+@@ -5896,7 +6136,12 @@ var StyleSheet = ReactNative.StyleSheet;
  
  // src/components/ListComponent.tsx
  var AlignItemsAtEndSpacer = typedMemo(function AlignItemsAtEndSpacer2({ horizontal }) {
@@ -817,7 +816,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    if (alignItemsAtEndPadding <= 0) {
      return null;
    }
-@@ -5929,8 +6175,12 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -5929,8 +6174,12 @@ var ListComponent = typedMemo(function ListComponent2({
    refScrollView,
    renderScrollComponent,
    onLayoutFooter,
@@ -830,7 +829,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    scrollAdjustHandler,
    snapToIndices,
    stickyHeaderConfig,
-@@ -6001,7 +6251,17 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -6001,7 +6250,17 @@ var ListComponent = typedMemo(function ListComponent2({
      SnapOrScroll,
      {
        ...rest,
@@ -849,7 +848,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        contentContainerStyle: [
          horizontal ? { height: "100%" } : {},
          contentContainerStyle,
-@@ -6010,7 +6270,10 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -6010,7 +6269,10 @@ var ListComponent = typedMemo(function ListComponent2({
        ],
        contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
        horizontal,
@@ -861,7 +860,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        onLayout,
        onScroll: onScroll2,
        ref: refScrollView,
-@@ -6267,7 +6530,8 @@ function handleLayout(ctx, layoutParam, setCanRender) {
+@@ -6267,7 +6529,8 @@ function handleLayout(ctx, layoutParam, setCanRender) {
      if (scrollLength > 0) {
        doInitialAllocateContainers(ctx);
      }
@@ -871,7 +870,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        calculateItemsInView(ctx, { doMVCP: true });
      }
      if (didChange || otherAxisSize !== prevOtherAxisSize) {
-@@ -6347,6 +6611,25 @@ function onScroll(ctx, event) {
+@@ -6347,6 +6610,25 @@ function onScroll(ctx, event) {
    if (shouldIgnoreNegativeInsetChange) {
      return;
    }
@@ -897,7 +896,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    state.lastNativeScroll = newScroll;
    state.lastNativeScrollTime = Date.now();
    if (state.scrollingTo && state.scrollingTo.offset >= newScroll) {
-@@ -6751,7 +7034,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
+@@ -6751,7 +7033,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
        endBuffered: state.endBuffered,
        getAverageItemSizes: () => getAverageItemSizes(state),
        indexByKey: (key) => state.indexByKey.get(key),
@@ -906,7 +905,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        isAtStart: peek$(ctx, "isAtStart"),
        isEndReached: state.isEndReached,
        isNearEnd: peek$(ctx, "isNearEnd"),
-@@ -7075,9 +7358,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7075,9 +7357,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      dataVersion,
      drawDistance = 250,
      contentInsetEndAdjustment,
@@ -918,7 +917,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      getFixedItemSize,
      getItemType,
      horizontal,
-@@ -7096,6 +7381,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7096,6 +7380,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      maintainScrollAtEnd = false,
      maintainScrollAtEndThreshold = 0.1,
      maintainVisibleContentPosition: maintainVisibleContentPositionProp,
@@ -926,7 +925,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      numColumns: numColumnsProp = 1,
      overrideItemLayout,
      onEndReached,
-@@ -7132,10 +7418,12 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7132,10 +7417,12 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
    const animatedPropsInternal = props.animatedPropsInternal;
    const anchoredEndSpaceOwner = (_a3 = props.anchoredEndSpaceOwnerInternal) != null ? _a3 : "list";
    const positionComponentInternal = props.positionComponentInternal;
@@ -939,7 +938,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      stickyPositionComponentInternal: _stickyPositionComponentInternal,
      ...restProps
    } = rest;
-@@ -7200,7 +7488,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7200,7 +7487,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
    const combinedRef = useCombinedRef(refScroller, refScrollView);
    const keyExtractor = keyExtractorProp != null ? keyExtractorProp : ((_item, index) => index.toString());
    const stickyHeaderIndices = stickyHeaderIndicesProp;
@@ -948,7 +947,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
    const previousContentInsetEndAdjustmentRef = React2.useRef(contentInsetEndAdjustmentResolved);
    const alwaysRenderIndices = React2.useMemo(() => {
      const indices = getAlwaysRenderIndices(alwaysRender, dataProp, keyExtractor, anchoredEndSpace == null ? void 0 : anchoredEndSpace.anchorIndex);
-@@ -7341,11 +7629,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7341,11 +7628,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      contentContainerAlignItems: contentContainerStyle.alignItems,
      contentInset,
      contentInsetEndAdjustment: contentInsetEndAdjustmentResolved,
@@ -962,7 +961,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      getFixedItemSize: useWrapIfItem(getFixedItemSize),
      getItemType: useWrapIfItem(getItemType),
      horizontal: !!horizontal,
-@@ -7354,6 +7644,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7354,6 +7643,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      maintainScrollAtEnd: maintainScrollAtEndConfig,
      maintainScrollAtEndThreshold,
      maintainVisibleContentPosition: maintainVisibleContentPositionConfig,
@@ -970,7 +969,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      numColumns: numColumnsProp,
      onEndReached,
      onEndReachedThreshold,
-@@ -7372,6 +7663,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7372,6 +7662,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      renderItem,
      rtl,
      snapToIndices,
@@ -978,7 +977,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      stickyHeaderIndicesArr: stickyHeaderIndices != null ? stickyHeaderIndices : [],
      stickyHeaderIndicesSet: React2.useMemo(() => new Set(stickyHeaderIndices != null ? stickyHeaderIndices : []), [stickyHeaderIndices == null ? void 0 : stickyHeaderIndices.join(",")]),
      stickyPositionComponentInternal,
-@@ -7423,6 +7715,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7423,6 +7714,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        return void 0;
      }
      const resolvedOffset = (_a4 = initialScroll.contentOffset) != null ? _a4 : resolveInitialScrollOffset(ctx, initialScroll);
@@ -992,7 +991,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
      return usesBootstrapInitialScroll && ((_b2 = state.initialScrollSession) == null ? void 0 : _b2.kind) === "bootstrap" && Platform.OS === "web" ? void 0 : resolvedOffset;
    }, [usesBootstrapInitialScroll]);
    React2.useLayoutEffect(() => {
-@@ -7547,6 +7846,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7547,6 +7845,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      [
        dataKey,
        dataVersion,
@@ -1000,7 +999,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        memoizedLastItemKeys.join(","),
        numColumnsProp,
        nextScrollAxisGap,
-@@ -7643,6 +7943,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7643,6 +7942,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      () => ({
        getRenderedItem: (key) => getRenderedItem(ctx, key),
        onMomentumScrollEnd: (event) => {
@@ -1008,7 +1007,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
          checkFinishedScrollFallback(ctx);
          if (state.props.onMomentumScrollEnd) {
            state.props.onMomentumScrollEnd(event);
-@@ -7651,6 +7952,8 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7651,6 +7951,8 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        onScroll: (event) => onScroll(ctx, event),
        onScrollBeginDrag: (event) => {
          var _a4, _b2;
@@ -1017,7 +1016,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
          prepareReachedEdgeForNextUserScroll(ctx);
          (_b2 = (_a4 = state.props).onScrollBeginDrag) == null ? void 0 : _b2.call(_a4, event);
        },
-@@ -7676,11 +7979,18 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7676,11 +7978,18 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        ListFooterComponent,
        ListFooterComponentStyle,
        ListHeaderComponent,
@@ -1037,7 +1036,7 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..ad02508cf6c7b8c78489b706c32fb409
        recycleItems,
        refreshControl: refreshControlElement ? stylePaddingTopState > 0 ? React2__namespace.cloneElement(refreshControlElement, {
 diff --git a/react-native.mjs b/react-native.mjs
-index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db6835780bbe5 100644
+index 40e87cda8c9bc79a889e5542f29af429a24b24d4..5c4ead5597382d93946d70d9bea99ee9c45dbd6f 100644
 --- a/react-native.mjs
 +++ b/react-native.mjs
 @@ -696,6 +696,15 @@ function hasActiveInitialScroll(state) {
@@ -1354,14 +1353,13 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
                state.scroll = maxScroll;
                state.scrollPending = maxScroll;
                diff = 0;
-@@ -2299,8 +2406,122 @@ function scrollToIndex(ctx, {
+@@ -2299,8 +2406,121 @@ function scrollToIndex(ctx, {
  }
  
  // src/core/initialScroll.ts
 +var INSET_END_SETTLE_WATCHDOG_FRAMES = 150;
 +var INSET_END_SETTLE_WATCHDOG_STABLE_FRAMES = 20;
-+// T3 patch: Android lands while its push slides, so one stable frame per settle phase is enough.
-+var INSET_END_REVEAL_STABLE_FRAMES = Platform.OS === "android" ? 1 : 3;
++var INSET_END_REVEAL_STABLE_FRAMES = 3;
 +var INSET_END_REVEAL_MAX_HOLD_FRAMES = 40;
 +function startInsetEndSettleWatchdog(ctx) {
 +  const state = ctx.state;
@@ -1477,7 +1475,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    const requestedIndex = target.index;
    const index = requestedIndex !== void 0 ? clampScrollIndex(requestedIndex, ctx.state.props.data.length) : void 0;
    const itemSize = getItemSizeAtIndex(ctx, index);
-@@ -2726,7 +2947,9 @@ function clearFinishedBootstrapInitialScrollTargetIfMovedAway(ctx) {
+@@ -2726,7 +2946,9 @@ function clearFinishedBootstrapInitialScrollTargetIfMovedAway(ctx) {
      return;
    }
    if (didFinishedInitialScrollMoveAwayFromTarget(ctx, initialScroll)) {
@@ -1488,7 +1486,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      if (!shouldKeepEndTargetAlive) {
        if (shouldPreserveInitialScrollForFooterLayout(initialScroll)) {
          clearPendingInitialScrollFooterLayout(ctx, {
-@@ -4651,7 +4874,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
+@@ -4651,7 +4873,8 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        contentBelowAnchor = Math.max(0, contentBelowAnchor - ctx.scrollAxisGap);
        contentBelowAnchor += (ctx.values.get("footerSize") || 0) + getStylePaddingEnd(state.props);
        isReady = !hasUnknownTailSize;
@@ -1498,7 +1496,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      } else if (anchorIndex >= 0) {
        isReady = false;
      }
-@@ -4671,6 +4895,12 @@ function maybeUpdateAnchoredEndSpace(ctx) {
+@@ -4671,6 +4894,12 @@ function maybeUpdateAnchoredEndSpace(ctx) {
        updateScroll(ctx, state.scroll, true, { markHasScrolled: false });
      }
      (_b = anchoredEndSpace == null ? void 0 : anchoredEndSpace.onReady) == null ? void 0 : _b.call(anchoredEndSpace, { anchorIndex: nextAnchorIndex, anchorKey: nextAnchorKey, size: nextSize });
@@ -1511,7 +1509,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    }
    return nextSize;
  }
-@@ -5694,8 +5924,11 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5694,8 +5923,11 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
    horizontal
  }) {
    const ctx = useStateContext();
@@ -1524,7 +1522,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    const [readyToRender, numColumns, otherAxisSize = 0] = useArr$(["readyToRender", "numColumns", "otherAxisSize"]);
    const isVisible = useFreshDataTransitionVisibility(!!readyToRender, freshDataTransitionEpoch);
    const style = horizontal ? {
-@@ -5704,6 +5937,13 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5704,6 +5936,13 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
      opacity: isVisible ? 1 : 0,
      width: animSize
    } : { height: animSize, minWidth: otherAxisSize, opacity: isVisible ? 1 : 0 };
@@ -1538,7 +1536,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    if (columnWrapperStyle) {
      const { columnGap, rowGap, gap } = columnWrapperStyle;
      const gapX = columnGap || gap || 0;
-@@ -5724,7 +5964,8 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
+@@ -5724,7 +5963,8 @@ var ContainersLayer = typedMemo(function ContainersLayer2({
        }
      }
    }
@@ -1548,7 +1546,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
  });
  var Containers = typedMemo(function Containers2({
    freshDataTransitionEpoch,
-@@ -5875,7 +6116,12 @@ var StyleSheet = StyleSheet$1;
+@@ -5875,7 +6115,12 @@ var StyleSheet = StyleSheet$1;
  
  // src/components/ListComponent.tsx
  var AlignItemsAtEndSpacer = typedMemo(function AlignItemsAtEndSpacer2({ horizontal }) {
@@ -1561,7 +1559,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    if (alignItemsAtEndPadding <= 0) {
      return null;
    }
-@@ -5908,8 +6154,12 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -5908,8 +6153,12 @@ var ListComponent = typedMemo(function ListComponent2({
    refScrollView,
    renderScrollComponent,
    onLayoutFooter,
@@ -1574,7 +1572,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    scrollAdjustHandler,
    snapToIndices,
    stickyHeaderConfig,
-@@ -5980,7 +6230,17 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -5980,7 +6229,17 @@ var ListComponent = typedMemo(function ListComponent2({
      SnapOrScroll,
      {
        ...rest,
@@ -1593,7 +1591,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
        contentContainerStyle: [
          horizontal ? { height: "100%" } : {},
          contentContainerStyle,
-@@ -5989,7 +6249,10 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -5989,7 +6248,10 @@ var ListComponent = typedMemo(function ListComponent2({
        ],
        contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
        horizontal,
@@ -1605,7 +1603,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
        onLayout,
        onScroll: onScroll2,
        ref: refScrollView,
-@@ -6246,7 +6509,8 @@ function handleLayout(ctx, layoutParam, setCanRender) {
+@@ -6246,7 +6508,8 @@ function handleLayout(ctx, layoutParam, setCanRender) {
      if (scrollLength > 0) {
        doInitialAllocateContainers(ctx);
      }
@@ -1615,7 +1613,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
        calculateItemsInView(ctx, { doMVCP: true });
      }
      if (didChange || otherAxisSize !== prevOtherAxisSize) {
-@@ -6326,6 +6590,25 @@ function onScroll(ctx, event) {
+@@ -6326,6 +6589,25 @@ function onScroll(ctx, event) {
    if (shouldIgnoreNegativeInsetChange) {
      return;
    }
@@ -1641,7 +1639,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    state.lastNativeScroll = newScroll;
    state.lastNativeScrollTime = Date.now();
    if (state.scrollingTo && state.scrollingTo.offset >= newScroll) {
-@@ -6730,7 +7013,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
+@@ -6730,7 +7012,7 @@ function createImperativeHandle(ctx, scheduleImperativeScrollCommit) {
        endBuffered: state.endBuffered,
        getAverageItemSizes: () => getAverageItemSizes(state),
        indexByKey: (key) => state.indexByKey.get(key),
@@ -1650,7 +1648,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
        isAtStart: peek$(ctx, "isAtStart"),
        isEndReached: state.isEndReached,
        isNearEnd: peek$(ctx, "isNearEnd"),
-@@ -7054,9 +7337,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7054,9 +7336,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      dataVersion,
      drawDistance = 250,
      contentInsetEndAdjustment,
@@ -1662,7 +1660,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      getFixedItemSize,
      getItemType,
      horizontal,
-@@ -7075,6 +7360,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7075,6 +7359,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      maintainScrollAtEnd = false,
      maintainScrollAtEndThreshold = 0.1,
      maintainVisibleContentPosition: maintainVisibleContentPositionProp,
@@ -1670,7 +1668,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      numColumns: numColumnsProp = 1,
      overrideItemLayout,
      onEndReached,
-@@ -7111,10 +7397,12 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7111,10 +7396,12 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
    const animatedPropsInternal = props.animatedPropsInternal;
    const anchoredEndSpaceOwner = (_a3 = props.anchoredEndSpaceOwnerInternal) != null ? _a3 : "list";
    const positionComponentInternal = props.positionComponentInternal;
@@ -1683,7 +1681,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      stickyPositionComponentInternal: _stickyPositionComponentInternal,
      ...restProps
    } = rest;
-@@ -7179,7 +7467,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7179,7 +7466,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
    const combinedRef = useCombinedRef(refScroller, refScrollView);
    const keyExtractor = keyExtractorProp != null ? keyExtractorProp : ((_item, index) => index.toString());
    const stickyHeaderIndices = stickyHeaderIndicesProp;
@@ -1692,7 +1690,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
    const previousContentInsetEndAdjustmentRef = useRef(contentInsetEndAdjustmentResolved);
    const alwaysRenderIndices = useMemo(() => {
      const indices = getAlwaysRenderIndices(alwaysRender, dataProp, keyExtractor, anchoredEndSpace == null ? void 0 : anchoredEndSpace.anchorIndex);
-@@ -7320,11 +7608,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7320,11 +7607,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      contentContainerAlignItems: contentContainerStyle.alignItems,
      contentInset,
      contentInsetEndAdjustment: contentInsetEndAdjustmentResolved,
@@ -1706,7 +1704,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      getFixedItemSize: useWrapIfItem(getFixedItemSize),
      getItemType: useWrapIfItem(getItemType),
      horizontal: !!horizontal,
-@@ -7333,6 +7623,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7333,6 +7622,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      maintainScrollAtEnd: maintainScrollAtEndConfig,
      maintainScrollAtEndThreshold,
      maintainVisibleContentPosition: maintainVisibleContentPositionConfig,
@@ -1714,7 +1712,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      numColumns: numColumnsProp,
      onEndReached,
      onEndReachedThreshold,
-@@ -7351,6 +7642,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7351,6 +7641,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      renderItem,
      rtl,
      snapToIndices,
@@ -1722,7 +1720,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      stickyHeaderIndicesArr: stickyHeaderIndices != null ? stickyHeaderIndices : [],
      stickyHeaderIndicesSet: useMemo(() => new Set(stickyHeaderIndices != null ? stickyHeaderIndices : []), [stickyHeaderIndices == null ? void 0 : stickyHeaderIndices.join(",")]),
      stickyPositionComponentInternal,
-@@ -7402,6 +7694,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7402,6 +7693,13 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        return void 0;
      }
      const resolvedOffset = (_a4 = initialScroll.contentOffset) != null ? _a4 : resolveInitialScrollOffset(ctx, initialScroll);
@@ -1736,7 +1734,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
      return usesBootstrapInitialScroll && ((_b2 = state.initialScrollSession) == null ? void 0 : _b2.kind) === "bootstrap" && Platform.OS === "web" ? void 0 : resolvedOffset;
    }, [usesBootstrapInitialScroll]);
    useLayoutEffect(() => {
-@@ -7526,6 +7825,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7526,6 +7824,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      [
        dataKey,
        dataVersion,
@@ -1744,7 +1742,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
        memoizedLastItemKeys.join(","),
        numColumnsProp,
        nextScrollAxisGap,
-@@ -7622,6 +7922,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7622,6 +7921,7 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
      () => ({
        getRenderedItem: (key) => getRenderedItem(ctx, key),
        onMomentumScrollEnd: (event) => {
@@ -1752,7 +1750,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
          checkFinishedScrollFallback(ctx);
          if (state.props.onMomentumScrollEnd) {
            state.props.onMomentumScrollEnd(event);
-@@ -7630,6 +7931,8 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7630,6 +7930,8 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        onScroll: (event) => onScroll(ctx, event),
        onScrollBeginDrag: (event) => {
          var _a4, _b2;
@@ -1761,7 +1759,7 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..94502f972bef982d19611a07285db683
          prepareReachedEdgeForNextUserScroll(ctx);
          (_b2 = (_a4 = state.props).onScrollBeginDrag) == null ? void 0 : _b2.call(_a4, event);
        },
-@@ -7655,11 +7958,18 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
+@@ -7655,11 +7957,18 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
        ListFooterComponent,
        ListFooterComponentStyle,
        ListHeaderComponent,

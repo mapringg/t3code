@@ -110,7 +110,7 @@ it("reuses the parsed snapshot when a new route reads the same query result", as
   expect(screen.requests).toHaveLength(1);
 });
 
-function setupEntry(readyAt: "start" | "end" = "end") {
+function setupEntry() {
   vi.useFakeTimers();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const frames = new Map<number, FrameRequestCallback>();
@@ -151,7 +151,7 @@ function setupEntry(readyAt: "start" | "end" = "end") {
     return <div>{data.files.map((file) => file.path).join(",")}</div>;
   }
   function Entry() {
-    const ready = usePullRequestDiffEntry(navigation, readyAt);
+    const ready = usePullRequestDiffEntry(navigation);
     useLayoutEffect(() => {
       events.push(ready ? "body-commit" : "shell-commit");
     }, [ready]);
@@ -197,14 +197,6 @@ it("commits the loading shell and waits for the opening transition before buildi
   screen.event("transitionEnd");
   expect(screen.events).toEqual(["shell-commit", "prepare", "body-commit"]);
   expect(screen.container.textContent).toBe("first.ts,neighbor.ts");
-});
-
-it("builds with the opening slide when asked to start at transitionStart", () => {
-  using screen = setupEntry("start");
-  screen.event("transitionStart", true);
-  expect(screen.prepare).not.toHaveBeenCalled();
-  screen.event("transitionStart");
-  expect(screen.events).toEqual(["shell-commit", "prepare", "body-commit"]);
 });
 
 it.each(["unanimated", "missing-completion"] as const)(
