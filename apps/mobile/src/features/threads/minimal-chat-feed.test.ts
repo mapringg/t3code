@@ -1,4 +1,6 @@
 import {
+  CommandId,
+  EnvironmentId,
   MessageId,
   RunId,
   RuntimeRequestId,
@@ -10,7 +12,8 @@ import {
 import * as DateTime from "effect/DateTime";
 import { expect, it } from "vite-plus/test";
 import { buildThreadFeed, deriveThreadFeedPresentation } from "../../lib/threadActivity";
-import { minimalChatFeed } from "./minimal-chat-feed";
+import { appendRunStatusLine, minimalChatFeed, runStatusActivity } from "./minimal-chat-feed";
+import { resolveFooterMessageIds } from "./pending-thread-feed";
 
 const threadId = ThreadId.make("thread");
 const runId = RunId.make("run");
@@ -204,4 +207,118 @@ it("preserves requests and generated content when tool details are hidden", () =
   ]);
   expect(minimal[3]).toBe(presented.find((entry) => entry.type === "html-render"));
   expect(minimal[4]).toBe(presented.find((entry) => entry.type === "mcp-app"));
+});
+
+const userMessage: OrchestrationV2TurnItem = {
+  ...base("user"),
+  type: "user_message",
+  messageId: MessageId.make("user"),
+  createdBy: "user",
+  creationSource: "mobile",
+  inputIntent: "turn_start",
+  text: "Run the tests",
+  attachments: [],
+};
+const reply: OrchestrationV2TurnItem = {
+  ...base("reply"),
+  type: "assistant_message",
+  messageId: MessageId.make("reply"),
+  text: "All green.",
+  streaming: false,
+};
+const running = { runId, status: "running", startedAt: at, completedAt: null } as const;
+const completed = { runId, status: "completed", startedAt: at, completedAt: at } as const;
+const idle = {
+  activeWorkStartedAt: null,
+  runlessWorkActive: false,
+  dispatchingMessageId: null,
+} as const;
+
+it("names the live step, and none when the provider reports no step", () => {
+  const { output: _output, exitCode: _exitCode, ...pending } = command;
+  const runningCommand: OrchestrationV2TurnItem = {
+    ...pending,
+    status: "running",
+    completedAt: null,
+  };
+  const step = deriveThreadFeedPresentation(feed([userMessage, runningCommand]), running, at);
+  expect(runStatusActivity(step)).toBe("Running pwd");
+  const thinking = deriveThreadFeedPresentation(feed([userMessage]), running, at);
+  expect(runStatusActivity(thinking)).toBeNull();
+});
+
+it("hands the last slot between the status line and the reply footer as the run settles", () => {
+  const slot = (latestRun: typeof running | typeof completed) => {
+    const workStartedAt = latestRun === running ? at : null;
+    const presented = deriveThreadFeedPresentation(
+      feed([userMessage, reply]),
+      latestRun,
+      workStartedAt,
+    );
+    const rows = appendRunStatusLine(minimalChatFeed(presented), {
+      ...idle,
+      activity: runStatusActivity(presented),
+      latestRun,
+      activeWorkStartedAt: workStartedAt,
+    });
+    return {
+      last: rows.at(-1),
+      footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
+    };
+  };
+  expect(slot(running)).toMatchObject({
+    last: { type: "thinking", label: "Working", createdAt: at, runId },
+    footer: null,
+  });
+  expect(slot(completed)).toMatchObject({ last: { id: "reply" }, footer: "reply" });
+  expect(slot(running).last).toBe(slot(running).last);
+});
+
+it("shows the status line from send, below pending messages, and says when the run waits", () => {
+  const rows = minimalChatFeed(deriveThreadFeedPresentation(feed([userMessage]), null));
+  const sentAt = "2026-11-03T10:01:00.000Z";
+  const pendingMessage = {
+    environmentId: EnvironmentId.make("local"),
+    threadId,
+    messageId: MessageId.make("sent"),
+    commandId: CommandId.make("command"),
+    text: "Another",
+    attachments: [],
+    createdAt: sentAt,
+  };
+  const pending = {
+    type: "message" as const,
+    id: pendingMessage.messageId,
+    createdAt: sentAt,
+    pendingMessage,
+    message: {
+      id: pendingMessage.messageId,
+      role: "user" as const,
+      text: pendingMessage.text,
+      attachments: [],
+      createdAt: sentAt,
+      updatedAt: sentAt,
+      runId: null,
+      streaming: false,
+      visibility: "local" as const,
+      sourceThreadId: threadId,
+    },
+  };
+  const last = (input: Partial<Parameters<typeof appendRunStatusLine>[1]>) =>
+    appendRunStatusLine([...rows, pending], {
+      ...idle,
+      activity: "Running pwd",
+      latestRun: null,
+      ...input,
+    }).at(-1);
+  expect(last({})).toBe(pending);
+  expect(last({ dispatchingMessageId: pendingMessage.messageId })).toMatchObject({
+    type: "thinking",
+    label: "Working · Running pwd",
+    createdAt: sentAt,
+  });
+  expect(last({ latestRun: { ...running, status: "waiting" } })).toMatchObject({
+    label: "Waiting",
+    createdAt: at,
+  });
 });

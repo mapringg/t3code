@@ -15,7 +15,8 @@ import {
   enrichedSkillReference,
 } from "../../lib/enrichedLinkPresentation";
 import { ThreadContextDivider } from "./thread-context-divider";
-import { minimalChatFeed } from "./minimal-chat-feed";
+import { appendRunStatusLine, minimalChatFeed, runStatusActivity } from "./minimal-chat-feed";
+import { RunStatusLine } from "./run-status-line";
 import { rememberedThreadFeedRowSizes } from "./threadFeedRowSizes";
 import { ThreadHandoffDivider, ThreadHandoffRow } from "./thread-handoff-row";
 import { GuestBubbleTint, GuestMessageName } from "./guestMessageStyle";
@@ -1873,6 +1874,18 @@ function renderFeedEntry(
     );
   }
 
+  if (entry.type === "thinking" && entry.label !== undefined) {
+    const { runId, label } = entry;
+    return (
+      <RunStatusLine
+        label={label}
+        startedAt={entry.createdAt}
+        height={props.replyActionSize.button}
+        onOpen={runId === null ? null : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
+      />
+    );
+  }
+
   if (entry.type === "thinking") {
     return <ThreadThinkingRow rowSizing={props.workRowSizing} iconSubtleColor={iconSubtleColor} />;
   }
@@ -2816,10 +2829,18 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     props.runlessWorkActive ?? false,
     feedCache,
   );
-  return appendPendingThreadMessages(
-    Platform.OS === "android" ? minimalChatFeed(presented) : presented,
-    props.feed,
-    props.queuedMessages,
+  if (Platform.OS !== "android") {
+    return appendPendingThreadMessages(presented, props.feed, props.queuedMessages);
+  }
+  return appendRunStatusLine(
+    appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
+    {
+      activity: runStatusActivity(presented),
+      latestRun: props.latestRun,
+      activeWorkStartedAt: props.activeWorkStartedAt,
+      runlessWorkActive: props.runlessWorkActive ?? false,
+      dispatchingMessageId: props.dispatchingMessageId,
+    },
   );
 }
 
