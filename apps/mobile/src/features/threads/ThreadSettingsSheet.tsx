@@ -168,12 +168,11 @@ function ProviderHeader(props: {
 }) {
   const content = (
     <>
-      {/* Android: icon and chevron sit in the rows' radio and star columns. */}
       <View className="android:w-6 android:items-center">
         <ProviderIcon iconUrl={props.iconUrl} provider={props.driver} size={15} />
       </View>
       <Text className="text-sm font-t3-medium text-foreground-muted">{props.label}</Text>
-      {props.collapsible ? (
+      {props.collapsible && Platform.OS !== "android" ? (
         <>
           <View className="flex-1" />
           {props.collapsed ? (
@@ -194,7 +193,7 @@ function ProviderHeader(props: {
     </>
   );
 
-  if (props.collapsible) {
+  if (props.collapsible && Platform.OS !== "android") {
     return (
       <Pressable
         accessibilityLabel={`${props.label}, ${props.modelCount} models`}
@@ -211,7 +210,7 @@ function ProviderHeader(props: {
   return (
     <View
       accessibilityRole="header"
-      className="mx-4 min-h-9 flex-row items-center gap-2 px-1 pt-1 android:px-4"
+      className="mx-4 min-h-9 flex-row items-center gap-2 px-1 pt-1 android:mt-1 android:min-h-12 android:px-4 android:pt-2"
     >
       {content}
     </View>
@@ -794,11 +793,13 @@ function buildThreadSettingsCatalogItems(
     const containsAppliedSelection = group.models.some(session.isApplied);
     const isNarrowed = session.providerFilter !== null || session.searchQuery.trim().length > 0;
     const collapsible = !isNarrowed;
-    const collapsed = providerSectionIsCollapsed({
-      defaultExpanded: isPrimary || containsAppliedSelection,
-      hasExpansionOverride: session.providerExpansionOverrides.has(group.providerKey),
-      isNarrowed,
-    });
+    const collapsed =
+      Platform.OS !== "android" &&
+      providerSectionIsCollapsed({
+        defaultExpanded: isPrimary || containsAppliedSelection,
+        hasExpansionOverride: session.providerExpansionOverrides.has(group.providerKey),
+        isNarrowed,
+      });
     const provider: ThreadSettingsProviderCatalog = {
       key: group.providerKey,
       driver,
@@ -853,9 +854,9 @@ function ThreadSettingsOptionsItem(props: {
   return (
     <View style={{ paddingBottom: insets.bottom + bottomToolbarInset + 12 }}>
       <ChatGptSharingStatus provider={selectedProvider} />
-      <Text className="px-5 pb-2 pt-2 text-sm font-t3-medium text-foreground-muted android:px-8">
-        Options
-      </Text>
+      <View className="px-5 pb-2 pt-2 android:mt-1 android:min-h-12 android:justify-center android:pl-16 android:pr-8 android:pb-0">
+        <Text className="text-sm font-t3-medium text-foreground-muted">Options</Text>
+      </View>
       <Animated.View
         className="mx-4 overflow-hidden rounded-2xl bg-grouped-card"
         layout={Platform.OS === "android" ? undefined : THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}

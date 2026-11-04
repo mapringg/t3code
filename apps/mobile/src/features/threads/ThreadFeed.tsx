@@ -1827,6 +1827,7 @@ function renderFeedEntry(
     readonly workflowOpening: WorkflowOpening | null;
     readonly userMessageGrouping: GroupedThreadFeedRow["userMessageGrouping"];
     readonly precedesUserMessage: boolean;
+    readonly isLastFeedRow: boolean;
   },
 ) {
   const entry = info.item;
@@ -2485,7 +2486,8 @@ function AssistantMessageRow({
     <Animated.View
       className={cn(
         (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
-          props.precedesUserMessage
+          props.precedesUserMessage ||
+          (Platform.OS === "android" && props.isLastFeedRow)
           ? "mb-5 px-1"
           : "mb-1 px-1",
         hasWideBlock && "w-full",
@@ -3692,6 +3694,7 @@ export const ThreadFeed = memo(function ThreadFeed({
         {renderFeedEntry(info, {
           userMessageGrouping: info.item.userMessageGrouping,
           precedesUserMessage: info.item.precedesUserMessage,
+          isLastFeedRow: info.index === groupedFeed.length - 1,
           environmentId: props.environmentId,
           dispatchingMessageId: props.dispatchingMessageId,
           onEditPendingMessage: props.onEditPendingMessage,
