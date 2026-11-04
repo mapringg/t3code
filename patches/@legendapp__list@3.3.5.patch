@@ -339,12 +339,14 @@ index b3c5a306b293f797a8b338adfca3060c0f6db22b..7d57cbdb9bdeb412b35ae4eaeef61b82
    if (isReadyToRender && !peek$(ctx, "readyToRender")) {
      set$(ctx, "readyToRender", true);
      setAdaptiveRender(ctx, "normal", "ready");
-@@ -1090,7 +1108,7 @@ function getRawContentLength(ctx) {
+@@ -1090,7 +1108,9 @@ function getRawContentLength(ctx) {
  function getAlignItemsAtEndPadding(ctx) {
    const { state } = ctx;
    const shouldPad = !!state.props.alignItemsAtEndPaddingEnabled && !state.props.horizontal && state.props.data.length > 0 && state.scrollLength > 0;
 -  return shouldPad ? Math.max(0, state.scrollLength - getRawContentLength(ctx) - getContentInsetEnd(ctx)) : 0;
-+  return shouldPad ? Math.max(0, state.scrollLength - getContentInsetStartAdjustment(ctx) - getRawContentLength(ctx) - getContentInsetEnd(ctx)) : 0;
++  // Native scroll absorbs a reported keyboard inset; resizing this spacer for it moves rows a JS frame apart from the keyboard.
++  const keyboardInset = state.contentInsetOverride && state.contentInsetOverride.keyboard || 0;
++  return shouldPad ? Math.max(0, state.scrollLength - getContentInsetStartAdjustment(ctx) - getRawContentLength(ctx) - (getContentInsetEnd(ctx) - keyboardInset)) : 0;
  }
  function updateContentMetricsState(ctx) {
    const previousPadding = peek$(ctx, "alignItemsAtEndPadding") || 0;
@@ -1030,12 +1032,14 @@ index 40e87cda8c9bc79a889e5542f29af429a24b24d4..88ea26da50f2466a026443219902abf9
    if (isReadyToRender && !peek$(ctx, "readyToRender")) {
      set$(ctx, "readyToRender", true);
      setAdaptiveRender(ctx, "normal", "ready");
-@@ -1069,7 +1087,7 @@ function getRawContentLength(ctx) {
+@@ -1069,7 +1087,9 @@ function getRawContentLength(ctx) {
  function getAlignItemsAtEndPadding(ctx) {
    const { state } = ctx;
    const shouldPad = !!state.props.alignItemsAtEndPaddingEnabled && !state.props.horizontal && state.props.data.length > 0 && state.scrollLength > 0;
 -  return shouldPad ? Math.max(0, state.scrollLength - getRawContentLength(ctx) - getContentInsetEnd(ctx)) : 0;
-+  return shouldPad ? Math.max(0, state.scrollLength - getContentInsetStartAdjustment(ctx) - getRawContentLength(ctx) - getContentInsetEnd(ctx)) : 0;
++  // Native scroll absorbs a reported keyboard inset; resizing this spacer for it moves rows a JS frame apart from the keyboard.
++  const keyboardInset = state.contentInsetOverride && state.contentInsetOverride.keyboard || 0;
++  return shouldPad ? Math.max(0, state.scrollLength - getContentInsetStartAdjustment(ctx) - getRawContentLength(ctx) - (getContentInsetEnd(ctx) - keyboardInset)) : 0;
  }
  function updateContentMetricsState(ctx) {
    const previousPadding = peek$(ctx, "alignItemsAtEndPadding") || 0;
