@@ -1880,6 +1880,7 @@ function renderFeedEntry(
       <RunStatusLine
         label={label}
         startedAt={entry.createdAt}
+        endedAt={entry.endedAt}
         height={props.replyActionSize.button}
         onOpen={runId === null ? null : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
       />

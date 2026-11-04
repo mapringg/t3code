@@ -274,6 +274,30 @@ it("hands the last slot between the status line and the reply footer as the run 
   expect(slot(running).last).toBe(slot(running).last);
 });
 
+it("keeps the slot as a still end line when a run stops or fails without its reply last", () => {
+  const endedAt = "2026-11-03T10:00:42.000Z";
+  const failure: OrchestrationV2TurnItem = {
+    ...base("failure"),
+    type: "error",
+    status: "failed",
+    failure: { class: "provider_error", message: "Please retry", code: null, retryable: true },
+  };
+  const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
+    const latestRun = { runId, status, startedAt: at, completedAt: endedAt };
+    const presented = deriveThreadFeedPresentation(feed(items), latestRun);
+    return appendRunStatusLine(minimalChatFeed(presented), {
+      ...idle,
+      activity: runStatusActivity(presented),
+      latestRun,
+    }).at(-1);
+  };
+  const ended = { type: "thinking", id: "run-status-line", createdAt: at, endedAt, runId };
+  expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
+  expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
+  // A stopped run's partial reply takes the slot with its footer, as a finished reply does.
+  expect(last([userMessage, reply], "interrupted")).toMatchObject({ id: "reply" });
+});
+
 it("shows the status line from send, below pending messages, until the run settles", () => {
   const rows = minimalChatFeed(deriveThreadFeedPresentation(feed([userMessage]), null));
   const sentAt = "2026-11-03T10:01:00.000Z";

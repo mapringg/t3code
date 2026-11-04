@@ -171,7 +171,11 @@ import {
   FLOATING_WORKING_CONTROL_COVERAGE,
   FloatingWorkingControl,
 } from "./floating-working-control";
-import { connectionFloatingStatus, type FloatingWorkingStatus } from "./floating-working-status";
+import {
+  connectionFloatingStatus,
+  floatingStatusReservesRoom,
+  type FloatingWorkingStatus,
+} from "./floating-working-status";
 import {
   derivePendingUserInputMaxHeight,
   ESTIMATED_KEYBOARD_HEIGHT,
@@ -689,15 +693,18 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   // Android shows no label for a running turn, so it reserves no room for one.
   const showWorkingControl =
     floatingStatus !== null && !(Platform.OS === "android" && floatingStatus.kind === "working");
-  const showFloatingStatus =
-    showWorkingControl ||
-    queuedCount > 0 ||
-    (Platform.OS !== "android" && (devicePreviews.length > 0 || browserTabs.tabs.length > 0)) ||
-    (Platform.OS !== "android" && props.connectionStateLabel !== "connected") ||
-    props.queuedMessages.length > 0 ||
-    props.selectedThreadFeed.some(
-      (entry) => "acknowledged" in entry && entry.acknowledged === true,
-    );
+  const showFloatingStatus = floatingStatusReservesRoom({
+    platform: Platform.OS,
+    showWorkingControl,
+    queuedCount,
+    hasPreviews: devicePreviews.length > 0 || browserTabs.tabs.length > 0,
+    connected: props.connectionStateLabel === "connected",
+    sendInFlight:
+      props.queuedMessages.length > 0 ||
+      props.selectedThreadFeed.some(
+        (entry) => "acknowledged" in entry && entry.acknowledged === true,
+      ),
+  });
   const selectedThreadFeed = props.selectedThreadFeed;
   // A palette message result opens the thread at that message: earlier
   // history loads until the message is in the feed, which then scrolls to it.

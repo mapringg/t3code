@@ -15,8 +15,16 @@ function formatElapsed(startedAt: string, nowMs: number): string | null {
 }
 
 // The only part that ticks, so the feed and its rows stay put each second.
-function RunStatusText(props: { readonly label: string; readonly startedAt: string }) {
-  const elapsed = formatElapsed(props.startedAt, useVisibleSecondClock(true));
+function RunStatusText(props: {
+  readonly label: string;
+  readonly startedAt: string;
+  readonly endedAt: string | undefined;
+}) {
+  const nowMs = useVisibleSecondClock(props.endedAt === undefined);
+  const elapsed = formatElapsed(
+    props.startedAt,
+    props.endedAt === undefined ? nowMs : Date.parse(props.endedAt),
+  );
   return (
     <Text
       numberOfLines={1}
@@ -31,6 +39,7 @@ function RunStatusText(props: { readonly label: string; readonly startedAt: stri
 export function RunStatusLine(props: {
   readonly label: string;
   readonly startedAt: string;
+  readonly endedAt: string | undefined;
   readonly height: number;
   readonly onOpen: (() => void) | null;
 }) {
@@ -53,7 +62,7 @@ export function RunStatusLine(props: {
       className="mb-1 max-w-full flex-row items-center self-start px-1 active:opacity-70"
       style={{ minHeight: props.height }}
     >
-      <RunStatusText label={props.label} startedAt={props.startedAt} />
+      <RunStatusText label={props.label} startedAt={props.startedAt} endedAt={props.endedAt} />
     </Pressable>
   );
 }

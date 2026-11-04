@@ -66,9 +66,16 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
 type RunStatusRow = Extract<ThreadFeedEntry, { readonly type: "thinking" }>;
 let cachedRunStatusRow: RunStatusRow | null = null;
 
+const END_LABELS: Partial<Record<ThreadFeedLatestRun["status"], string>> = {
+  interrupted: "Stopped",
+  cancelled: "Stopped",
+  failed: "Failed",
+};
+
 /**
  * Android's one-line run status. It is the last row from send until the run settles, the same
  * moment the newest reply gains its footer, so the slot changes owner instead of the feed moving.
+ * A run that stops or fails without its reply last keeps the slot as a still end line.
  */
 export function appendRunStatusLine(
   rows: ReadonlyArray<PendingThreadFeedEntry>,
@@ -89,16 +96,37 @@ export function appendRunStatusLine(
       : null;
   const run = threadFeedRunIsUnsettled(input.latestRun) ? input.latestRun : null;
   const runless = input.runlessWorkActive && input.activeWorkStartedAt !== null;
-  if (run === null && !runless && sending === null) return rows;
+  if (run !== null || runless || sending !== null) {
+    const startedAt =
+      input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";
+    const label = input.activity ? `Working · ${input.activity}` : "Working";
+    return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
+  }
 
-  const runId: RunId | null = run?.runId ?? null;
-  const startedAt =
-    input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";
-  const label = input.activity ? `Working · ${input.activity}` : "Working";
+  const ended = input.latestRun;
+  const endLabel = ended ? END_LABELS[ended.status] : undefined;
+  const replyIsLast =
+    last?.type === "message" &&
+    last.message.role === "assistant" &&
+    last.message.runId === ended?.runId;
+  if (!ended || endLabel === undefined || replyIsLast || ended.startedAt === null) return rows;
+  return [
+    ...rows,
+    runStatusRow(ended.startedAt, ended.runId, endLabel, ended.completedAt ?? ended.startedAt),
+  ];
+}
+
+function runStatusRow(
+  startedAt: string,
+  runId: RunId | null,
+  label: string,
+  endedAt: string | undefined,
+): RunStatusRow {
   if (
     cachedRunStatusRow?.createdAt !== startedAt ||
     cachedRunStatusRow.runId !== runId ||
-    cachedRunStatusRow.label !== label
+    cachedRunStatusRow.label !== label ||
+    cachedRunStatusRow.endedAt !== endedAt
   ) {
     cachedRunStatusRow = {
       type: "thinking",
@@ -106,7 +134,8 @@ export function appendRunStatusLine(
       createdAt: startedAt,
       runId,
       label,
+      ...(endedAt === undefined ? {} : { endedAt }),
     };
   }
-  return [...rows, cachedRunStatusRow];
+  return cachedRunStatusRow;
 }
