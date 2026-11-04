@@ -65,7 +65,7 @@ const command = {
   exitCode: 0,
 };
 
-it("keeps the final reply and live text while removing run details and redundant thinking", () => {
+it("shows only each run's latest reply, live and settled, without run details or thinking", () => {
   const items: OrchestrationV2TurnItem[] = [
     {
       ...base("user"),
@@ -102,7 +102,7 @@ it("keeps the final reply and live text while removing run details and redundant
       at,
     ),
   );
-  expect(live.map((entry) => entry.type)).toEqual(["message", "message", "message"]);
+  expect(live.map((entry) => entry.id)).toEqual(["user", "final"]);
 });
 
 it("keeps provider failures while removing adjacent tool activity", () => {
@@ -255,13 +255,33 @@ it("names the live step, and none when the provider reports no step", () => {
 });
 
 it("hands the last slot between the status line and the reply footer as the run settles", () => {
-  const slot = (latestRun: typeof running | typeof completed) => {
+  const previousRunId = RunId.make("previous");
+  const previousTurn: OrchestrationV2TurnItem[] = [
+    {
+      ...userMessage,
+      id: TurnItemId.make("prev-user"),
+      messageId: MessageId.make("prev-user"),
+      runId: previousRunId,
+    },
+    {
+      ...reply,
+      id: TurnItemId.make("prev-reply"),
+      messageId: MessageId.make("prev-reply"),
+      runId: previousRunId,
+    },
+  ];
+  const intermediate: OrchestrationV2TurnItem = {
+    ...base("intermediate"),
+    type: "assistant_message",
+    messageId: MessageId.make("intermediate"),
+    text: "Running them now.",
+    streaming: false,
+  };
+  const turn = [...previousTurn, userMessage, intermediate, command, reply];
+  const interrupted = { ...completed, status: "interrupted" } as const;
+  const slot = (latestRun: typeof running | typeof completed | typeof interrupted) => {
     const workStartedAt = latestRun === running ? at : null;
-    const presented = deriveThreadFeedPresentation(
-      feed([userMessage, reply]),
-      latestRun,
-      workStartedAt,
-    );
+    const presented = deriveThreadFeedPresentation(feed(turn), latestRun, workStartedAt);
     const rows = appendRunStatusLine(minimalChatFeed(presented), {
       ...idle,
       activity: runStatusActivity(presented),
@@ -269,15 +289,26 @@ it("hands the last slot between the status line and the reply footer as the run 
       activeWorkStartedAt: workStartedAt,
     });
     return {
+      above: rows
+        .slice(
+          0,
+          rows.findIndex((row) => row.id === "reply"),
+        )
+        .map((row) => row.id),
       last: rows.at(-1),
       footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
     };
   };
+  // Nothing above the final reply changes when the run ends: earlier text and the previous
+  // reply's footer are already gone while it runs.
+  const above = ["prev-user", "prev-reply", "user"];
   expect(slot(running)).toMatchObject({
+    above,
     last: { type: "thinking", label: "Working", createdAt: at, runId },
     footer: null,
   });
-  expect(slot(completed)).toMatchObject({ last: { id: "reply" }, footer: "reply" });
+  expect(slot(completed)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
+  expect(slot(interrupted)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
   expect(slot(running).last).toBe(slot(running).last);
 });
 

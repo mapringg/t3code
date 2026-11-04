@@ -206,7 +206,7 @@ describe("pending timeline messages", () => {
     ]);
   });
 
-  it("keeps the reply footer on the last settled run while the next reply streams", () => {
+  it("moves the reply footer off the previous reply at send and onto the next once it settles", () => {
     const [prompt, followUp] = appendPendingThreadMessages(
       [],
       [],
@@ -227,15 +227,14 @@ describe("pending timeline messages", () => {
         streaming,
       },
     });
-    const settled = [prompt, reply("first", "run-1", false), followUp];
-    expect(resolveFooterMessageIds(settled, null)).toEqual({
-      user: "follow-up",
-      assistant: "first",
-    });
-    const streaming = [...settled, reply("second", "run-2", true)];
-    expect(resolveFooterMessageIds(streaming, RunId.make("run-2")).assistant).toBe("first");
-    const between = [...settled, reply("second", "run-2", false)];
-    expect(resolveFooterMessageIds(between, RunId.make("run-2")).assistant).toBe("first");
+    const answered = [prompt, reply("first", "run-1", false)];
+    expect(resolveFooterMessageIds(answered, null)).toEqual({ user: "prompt", assistant: "first" });
+    const sent = [...answered, followUp];
+    expect(resolveFooterMessageIds(sent, null)).toEqual({ user: "follow-up", assistant: null });
+    const streaming = [...sent, reply("second", "run-2", true)];
+    expect(resolveFooterMessageIds(streaming, RunId.make("run-2")).assistant).toBeNull();
+    const between = [...sent, reply("second", "run-2", false)];
+    expect(resolveFooterMessageIds(between, RunId.make("run-2")).assistant).toBeNull();
     expect(resolveFooterMessageIds(between, null).assistant).toBe("second");
   });
 });
