@@ -597,7 +597,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       environmentLabel: props.environmentLabel,
       onReconnect: props.onReconnectEnvironment,
     });
-    if (connectionStatus !== null && !props.draftMode) {
+    if (connectionStatus !== null && !props.draftMode && Platform.OS !== "android") {
       return connectionStatus;
     }
     // Before the request check: an agent stuck on an approval may also ignore Stop.
@@ -639,7 +639,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     if (props.creationState?.kind === "failed") {
       return null;
     }
-    if (shownSyncLabel !== null) {
+    if (shownSyncLabel !== null && Platform.OS !== "android") {
       return { kind: "syncing", label: shownSyncLabel };
     }
     const childInput = childThreadInputs[0];
@@ -693,7 +693,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     showWorkingControl ||
     queuedCount > 0 ||
     (Platform.OS !== "android" && (devicePreviews.length > 0 || browserTabs.tabs.length > 0)) ||
-    props.connectionStateLabel !== "connected" ||
+    (Platform.OS !== "android" && props.connectionStateLabel !== "connected") ||
     props.queuedMessages.length > 0 ||
     props.selectedThreadFeed.some(
       (entry) => "acknowledged" in entry && entry.acknowledged === true,
@@ -1122,10 +1122,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       hasUserMessage,
       queuedMessageCount: props.selectedThreadQueueCount,
       deliveryDeferred: props.connectionStateLabel !== "connected",
+      anchorFirstMessage: Platform.OS !== "android",
     });
     feedRef.current?.resetEndFollow();
     setAnchorMessageId(nextAnchorMessageId);
-    composerEditorRef.current?.blur();
+    if (Platform.OS !== "android") composerEditorRef.current?.blur();
     // The send enqueued the message optimistically, so it is in the feed or
     // the queue by the next frame, once the new anchor has rendered.
     if (nextAnchorMessageId === messageId && contentPresentationKind === "ready") {

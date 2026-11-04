@@ -21,8 +21,14 @@ export function resolveThreadFeedSubmissionAnchor<AnchorId>(input: {
   readonly hasUserMessage: boolean;
   readonly queuedMessageCount: number;
   readonly deliveryDeferred: boolean;
+  readonly anchorFirstMessage?: boolean;
 }): AnchorId | null {
-  if (input.deliveryDeferred || input.hasStartedTurn || input.hasUserMessage) {
+  if (
+    input.anchorFirstMessage === false ||
+    input.deliveryDeferred ||
+    input.hasStartedTurn ||
+    input.hasUserMessage
+  ) {
     return null;
   }
 

@@ -91,6 +91,7 @@ import { useProjects } from "../../state/entities";
 import {
   feedAwaitsThreadCatchUp,
   projectThreadContentPresentation,
+  threadHeaderConnectionLabel,
 } from "./threadContentPresentation";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import {
@@ -1027,6 +1028,14 @@ function ThreadRouteContent(
               <ThreadHeader
                 title={selectedThread.title}
                 subtitle={headerSubtitle}
+                connectionStatusLabel={threadHeaderConnectionLabel({
+                  connectionState: routeConnectionState,
+                  syncStatus: selectedThreadDetailState.status,
+                  contentKind: contentPresentation.kind,
+                })}
+                onReconnect={
+                  routeConnectionState === "connected" ? undefined : handleReconnectEnvironment
+                }
                 headerColor={headerColor}
                 usesNativeHeaderGlass={usesNativeHeaderGlass}
                 gitControls={threadGitControlProps}

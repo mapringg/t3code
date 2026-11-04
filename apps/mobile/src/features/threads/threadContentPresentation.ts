@@ -59,6 +59,28 @@ export function threadSyncLabel(input: {
   return input.contentKind === "ready" ? "Syncing messages…" : "Loading messages…";
 }
 
+export function threadHeaderConnectionLabel(input: {
+  readonly connectionState: EnvironmentConnectionPhase;
+  readonly syncStatus: EnvironmentThreadStatus | undefined;
+  readonly contentKind: ThreadContentPresentation["kind"];
+}): string | null {
+  switch (input.connectionState) {
+    case "connecting":
+    case "reconnecting":
+      return "Reconnecting…";
+    case "offline":
+      return "Offline";
+    case "available":
+      return "Not connected";
+    case "unsupported":
+      return "Client not supported";
+    case "error":
+      return "Connection failed";
+    case "connected":
+      return threadSyncLabel(input);
+  }
+}
+
 /**
  * A shown sync pill keeps its first label: a cold open's "Loading" would otherwise swap to
  * "Syncing" the moment content lands, restarting the pill's minimum hold over a ready feed.

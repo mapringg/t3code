@@ -2485,11 +2485,12 @@ function AssistantMessageRow({
   return (
     <Animated.View
       className={cn(
-        (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
-          props.precedesUserMessage ||
-          (Platform.OS === "android" && props.isLastFeedRow)
-          ? "mb-5 px-1"
-          : "mb-1 px-1",
+        Platform.OS === "android" && props.isLastFeedRow
+          ? "mb-1 px-1"
+          : (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
+              props.precedesUserMessage
+            ? "mb-5 px-1"
+            : "mb-1 px-1",
         hasWideBlock && "w-full",
       )}
       {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
@@ -2975,19 +2976,18 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   const theme = useUniwindTheme();
   const iconSubtleColor = theme["--color-icon-subtle"];
-  const { buttonSize: androidButtonSize, smallIconSize: androidIconSize } =
-    useAndroidControlSizing();
+  const { smallIconSize: androidIconSize } = useAndroidControlSizing();
   const replyActionSize = useMemo(
     () =>
       Platform.OS === "android"
         ? {
-            button: androidButtonSize,
+            button: 28,
             width: androidIconSize + ANDROID_REPLY_ACTION_INSET * 2,
             inset: ANDROID_REPLY_ACTION_INSET,
             icon: androidIconSize,
           }
         : { button: 28, width: 28, inset: 0, icon: 13 },
-    [androidButtonSize, androidIconSize],
+    [androidIconSize],
   );
   const screenColor = theme["--color-screen"];
   const userBubbleColor = theme["--color-user-bubble"];
