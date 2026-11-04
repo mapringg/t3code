@@ -20,6 +20,10 @@ function createList(bundle: string) {
     source.indexOf("// src/core/finishInitialScroll.ts"),
     source.indexOf("// src/core/calculateOffsetForIndex.ts"),
   );
+  const drawDistance = source.slice(
+    source.indexOf("function getEffectiveDrawDistance("),
+    source.indexOf("\n}\n", source.indexOf("function getEffectiveDrawDistance(")) + 3,
+  );
   const frames: Array<() => void> = [];
   const values = new Map<string, unknown>();
   const scrollTo = vi.fn();
@@ -44,7 +48,7 @@ function createList(bundle: string) {
   let contentSize = 1200;
   let inset = 100;
   const api = NodeVM.runInNewContext(
-    `${renderState}\n${watchdog}\n${finish}\n({ start: startInsetEndSettleWatchdog, complete: setInitialRenderState, finish: finishInitialScroll })`,
+    `${renderState}\n${watchdog}\n${finish}\n${drawDistance}\n({ start: startInsetEndSettleWatchdog, complete: setInitialRenderState, finish: finishInitialScroll, drawDistance: getEffectiveDrawDistance })`,
     {
       Platform: { OS: "android" },
       initialScrollWatchdog: { clear: vi.fn() },
@@ -61,6 +65,7 @@ function createList(bundle: string) {
   ) as {
     start: (context: typeof ctx) => void;
     finish: (context: typeof ctx) => void;
+    drawDistance: (context: typeof ctx) => number;
     complete: (context: typeof ctx, flags: Record<string, boolean>) => void;
   };
   return {
@@ -69,6 +74,7 @@ function createList(bundle: string) {
     onLoad,
     start: () => api.start(ctx),
     finish: () => api.finish(ctx),
+    drawDistance: () => api.drawDistance(ctx),
     complete: () => api.complete(ctx, {}),
     layout: () => api.complete(ctx, { didLayout: true }),
     ready: () => values.get("readyToRender") === true,
@@ -105,6 +111,8 @@ describe.each(["react-native.js", "react-native.mjs"])(
         list.layout();
         list.advance(8);
         expect(list.ready()).toBe(false);
+        // Rows the reveal would add must mount and measure while hidden.
+        expect(list.drawDistance()).toBe(500);
         expect(list.scrollTo).toHaveBeenCalledWith({ animated: false, x: 0, y: 400 });
         list.state.lastNativeScroll = 400;
         list.advance(7);
