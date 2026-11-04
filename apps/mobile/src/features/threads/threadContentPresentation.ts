@@ -103,7 +103,9 @@ export function feedAwaitsThreadCatchUp(input: {
   readonly connectionState: EnvironmentConnectionPhase;
 }): boolean {
   return (
-    (input.syncStatus === "cached" || input.syncStatus === "synchronizing") &&
+    (input.syncStatus === "empty" ||
+      input.syncStatus === "cached" ||
+      input.syncStatus === "synchronizing") &&
     input.detailError === null &&
     (input.connectionState === "connected" || input.connectionState === "connecting")
   );
