@@ -13,5 +13,7 @@ export function rescaleEditorContentHeight(input: {
   if (measuredWidth <= 0 || width <= 0 || measuredWidth === width) return contentHeight;
   const lines = Math.round(contentHeight / lineHeight);
   if (lines <= 1) return contentHeight;
-  return Math.ceil((lines * measuredWidth) / width) * lineHeight;
+  // Only the full lines are known to be filled; a short last line may fit on the
+  // line above. Erring low lets a later measurement grow the editor, never shrink it.
+  return Math.max(1, Math.ceil(((lines - 1) * measuredWidth) / width)) * lineHeight;
 }
