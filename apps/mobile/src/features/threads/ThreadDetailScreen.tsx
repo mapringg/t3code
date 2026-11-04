@@ -488,6 +488,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   // each frame would re-render the whole screen for the length of the animation.
   const composerHeightSettle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleComposerHeightChange = (height: number) => {
+    // Android sets the composer height in one step, so the space above it follows in the same frame.
+    if (Platform.OS === "android") {
+      setComposerHeight(height);
+      return;
+    }
     setComposerHeight((current) => current ?? height);
     if (composerHeightSettle.current !== null) clearTimeout(composerHeightSettle.current);
     composerHeightSettle.current = setTimeout(() => {
