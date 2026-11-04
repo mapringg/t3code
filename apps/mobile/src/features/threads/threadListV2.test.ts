@@ -1,5 +1,8 @@
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
-import { createInboxReturnTracker } from "@t3tools/client-runtime/state/thread-inbox";
+import {
+  createInboxReturnTracker,
+  isThreadWorking,
+} from "@t3tools/client-runtime/state/thread-inbox";
 import { presentThreadShell } from "@t3tools/client-runtime/state/models";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
@@ -34,6 +37,7 @@ import {
   buildThreadListV2Items,
   buildThreadListV2ListItems,
   getThreadListV2OrderedSection,
+  nextWorkingEntryHold,
   resolveThreadListV2SnoozeMenuSelection,
   resolveThreadListV2SnoozePresets,
   resolveThreadListV2Status,
@@ -1651,6 +1655,50 @@ describe("Working section beta", () => {
       tracker.observe(null);
       vi.useRealTimers();
     }
+  });
+
+  it("keeps a row that starts working on screen in place until the list is covered", () => {
+    const idle = makeThread({ id: ThreadId.make("starts"), title: "starts" });
+    const started = { ...idle, runtime: running };
+    const others = threads.filter((thread) => thread.id !== "pinned-working");
+    const layoutWith = (list: EnvironmentThreadShell[], held: ReadonlySet<string>) =>
+      ids(
+        build({
+          threads: list,
+          workingShelfExpanded: true,
+          isWorking: (thread) =>
+            !held.has(`${thread.environmentId}:${thread.id}`) && isThreadWorking(thread),
+        }),
+      );
+
+    const cached = nextWorkingEntryHold(null, [idle, ...others], isThreadWorking, true);
+    const live = nextWorkingEntryHold(
+      cached.shownIdle,
+      [started, ...others],
+      isThreadWorking,
+      true,
+    );
+    expect(layoutWith([started, ...others], live.held)).toEqual(
+      layoutWith([idle, ...others], cached.held),
+    );
+    const later = nextWorkingEntryHold(live.shownIdle, [started, ...others], isThreadWorking, true);
+    expect(later.held).toEqual(live.held);
+
+    const covered = nextWorkingEntryHold(
+      later.shownIdle,
+      [started, ...others],
+      isThreadWorking,
+      false,
+    );
+    expect(layoutWith([started, ...others], covered.held).slice(-2)).toEqual(["starts", "working"]);
+    // A thread already working when the list appears goes straight to Working.
+    const back = nextWorkingEntryHold(
+      covered.shownIdle,
+      [started, ...others],
+      isThreadWorking,
+      true,
+    );
+    expect(back.held.size).toBe(0);
   });
 
   it("orders the inbox by the latest return this device observed", () => {

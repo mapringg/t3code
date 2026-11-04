@@ -45,6 +45,31 @@ import {
 
 export const threadListInboxReturns = createInboxReturnTracker();
 
+const NO_HELD_ENTRIES: ReadonlySet<string> = new Set();
+
+/**
+ * A thread that starts working while its row is on screen keeps its place until the list is
+ * covered, so live status (e.g. a cold start replacing the cached shell) never reorders rows the
+ * user is reading; its status updates in place. `shownIdle` is the previous call's result.
+ */
+export function nextWorkingEntryHold(
+  shownIdle: ReadonlySet<string> | null,
+  threads: ReadonlyArray<EnvironmentThreadShell>,
+  isWorking: (thread: EnvironmentThreadShell) => boolean,
+  onScreen: boolean,
+): { readonly held: ReadonlySet<string>; readonly shownIdle: ReadonlySet<string> | null } {
+  if (!onScreen) return { held: NO_HELD_ENTRIES, shownIdle: null };
+  const held = new Set<string>();
+  const nextShownIdle = new Set<string>();
+  for (const thread of threads) {
+    const key = `${thread.environmentId}:${thread.id}`;
+    const working = isWorking(thread);
+    if (working && shownIdle?.has(key)) held.add(key);
+    if (!working || held.has(key)) nextShownIdle.add(key);
+  }
+  return { held: held.size === 0 ? NO_HELD_ENTRIES : held, shownIdle: nextShownIdle };
+}
+
 export function resolveThreadListV2ProviderDrivers(
   thread: Pick<EnvironmentThreadShell, "providerInstanceHistory" | "modelSelection" | "runtime">,
   providers: ReadonlyArray<ThreadListProvider> | undefined,

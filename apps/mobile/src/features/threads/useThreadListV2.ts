@@ -1,6 +1,6 @@
 import type { OlderSettledScope } from "@t3tools/client-runtime/state/threads";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { scopedProjectKey } from "../../lib/scopedEntities";
 import { useOlderSettledShelf, useOlderSettledShelfGrowth } from "../../state/olderSettledShelf";
@@ -9,6 +9,7 @@ import {
   buildThreadListV2Items,
   buildThreadListV2ListItems,
   getThreadListV2OrderedSection,
+  nextWorkingEntryHold,
   threadListInboxReturns,
   threadListV2LayoutTime,
 } from "./threadListV2";
@@ -65,6 +66,8 @@ export function useThreadListV2(input: {
   readonly snoozedShelfExpanded: boolean;
   readonly settledShelfExpanded: boolean;
   readonly selectedThreadKey: string | null;
+  /** Holds rows that start working in place while the list is on screen; omit to never hold. */
+  readonly onScreen?: boolean;
 }) {
   const { threads, workingShelfEnabled } = input;
   const layoutTime = useMemo(
@@ -80,6 +83,23 @@ export function useThreadListV2(input: {
     () => observeInbox(workingShelfEnabled ? threads : null, inboxVersion),
     [threads, workingShelfEnabled, inboxVersion],
   );
+  const onScreen = input.onScreen === true;
+  const holdAfter = (shownIdle: ReadonlySet<string> | null) => {
+    const hold = nextWorkingEntryHold(shownIdle, threads, inbox.isWorking, onScreen);
+    const isWorking =
+      hold.held.size === 0
+        ? inbox.isWorking
+        : (thread: Parameters<typeof inbox.isWorking>[0]) =>
+            !hold.held.has(`${thread.environmentId}:${thread.id}`) && inbox.isWorking(thread);
+    return { inbox, onScreen, shownIdle: hold.shownIdle, isWorking };
+  };
+  const [entryHold, setEntryHold] = useState(() => holdAfter(null));
+  const currentHold =
+    entryHold.inbox === inbox && entryHold.onScreen === onScreen
+      ? entryHold
+      : holdAfter(entryHold.shownIdle);
+  if (currentHold !== entryHold) setEntryHold(currentHold);
+  const { isWorking } = currentHold;
   // Compute move availability per section; per-row planning is quadratic.
   const moveAvailability = useMemo(() => {
     const sectionAvailability = (section: "pinned" | "active") =>
@@ -148,7 +168,7 @@ export function useThreadListV2(input: {
         workingShelfEnabled,
         workingShelfExpanded: input.workingShelfExpanded,
         inboxReturnAt: inbox.returnedAt,
-        isWorking: inbox.isWorking,
+        isWorking,
         snoozedShelfExpanded: input.snoozedShelfExpanded,
         settledShelfExpanded: input.settledShelfExpanded,
         selectedThreadKey: input.selectedThreadKey,
@@ -180,7 +200,7 @@ export function useThreadListV2(input: {
       workingShelfEnabled,
       input.workingShelfExpanded,
       inbox.returnedAt,
-      inbox.isWorking,
+      isWorking,
       input.snoozedShelfExpanded,
       input.settledShelfExpanded,
       input.selectedThreadKey,
