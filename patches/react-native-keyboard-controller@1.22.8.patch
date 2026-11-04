@@ -920,3 +920,166 @@ index 99cc6c6..d883e76 100644
    );
  }
  
+diff --git a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js b/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
+--- a/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
++++ b/lib/commonjs/components/KeyboardChatScrollView/useChatKeyboard/index.js
+@@ -7,6 +7,7 @@
+ var _react = require("react");
+ var _reactNativeReanimated = require("react-native-reanimated");
+ var _hooks = require("../../../hooks");
++var _module = require("../../../module");
+ var _useScrollState = _interopRequireDefault(require("../../hooks/useScrollState"));
+ var _safeScrollTo = require("../../utils/safeScrollTo");
+ var _helpers = require("./helpers");
+@@ -33,13 +34,16 @@
+     blankSpace,
+     extraContentPadding
+   } = options;
+-  const padding = (0, _reactNativeReanimated.useSharedValue)(0);
+-  const currentHeight = (0, _reactNativeReanimated.useSharedValue)(0);
++
++  // A list can mount after the IME opened, without receiving another open event.
++  const initialKeyboardHeight = _module.KeyboardController.isVisible() ? _module.KeyboardController.state().height : 0;
++  const padding = (0, _reactNativeReanimated.useSharedValue)(Math.max(0, initialKeyboardHeight - offset));
++  const currentHeight = (0, _reactNativeReanimated.useSharedValue)(initialKeyboardHeight);
+   const offsetBeforeScroll = (0, _reactNativeReanimated.useSharedValue)(0);
+-  const targetKeyboardHeight = (0, _reactNativeReanimated.useSharedValue)(0);
++  const targetKeyboardHeight = (0, _reactNativeReanimated.useSharedValue)(initialKeyboardHeight);
+   const closing = (0, _reactNativeReanimated.useSharedValue)(false);
+   const minimumPaddingFractionOnOpen = (0, _reactNativeReanimated.useSharedValue)(0);
+-  const actualOpenShift = (0, _reactNativeReanimated.useSharedValue)(0);
++  const actualOpenShift = (0, _reactNativeReanimated.useSharedValue)(Math.max(0, initialKeyboardHeight - offset));
+   const {
+     layout,
+     size,
+diff --git a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js b/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
+--- a/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
++++ b/lib/module/components/KeyboardChatScrollView/useChatKeyboard/index.js
+@@ -1,6 +1,7 @@
+ import { useCallback } from "react";
+ import { useSharedValue } from "react-native-reanimated";
+ import { useKeyboardHandler } from "../../../hooks";
++import { KeyboardController } from "../../../module";
+ import useScrollState from "../../hooks/useScrollState";
+ import { safeScrollTo } from "../../utils/safeScrollTo";
+ import { clampedScrollTarget, getEffectiveHeight, getMinimumPaddingAbsorbed, getScrollEffective, getVisibleMinimumPaddingFraction, isScrollAtEnd, shouldShiftContent } from "./helpers";
+@@ -26,13 +27,16 @@
+     blankSpace,
+     extraContentPadding
+   } = options;
+-  const padding = useSharedValue(0);
+-  const currentHeight = useSharedValue(0);
++
++  // A list can mount after the IME opened, without receiving another open event.
++  const initialKeyboardHeight = KeyboardController.isVisible() ? KeyboardController.state().height : 0;
++  const padding = useSharedValue(Math.max(0, initialKeyboardHeight - offset));
++  const currentHeight = useSharedValue(initialKeyboardHeight);
+   const offsetBeforeScroll = useSharedValue(0);
+-  const targetKeyboardHeight = useSharedValue(0);
++  const targetKeyboardHeight = useSharedValue(initialKeyboardHeight);
+   const closing = useSharedValue(false);
+   const minimumPaddingFractionOnOpen = useSharedValue(0);
+-  const actualOpenShift = useSharedValue(0);
++  const actualOpenShift = useSharedValue(Math.max(0, initialKeyboardHeight - offset));
+   const {
+     layout,
+     size,
+diff --git a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts b/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
+--- a/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
++++ b/src/components/KeyboardChatScrollView/useChatKeyboard/index.ts
+@@ -2,6 +2,7 @@
+ import { useSharedValue } from "react-native-reanimated";
+ 
+ import { useKeyboardHandler } from "../../../hooks";
++import { KeyboardController } from "../../../module";
+ import useScrollState from "../../hooks/useScrollState";
+ import { safeScrollTo } from "../../utils/safeScrollTo";
+ 
+@@ -45,13 +46,15 @@
+     extraContentPadding,
+   } = options;
+ 
+-  const padding = useSharedValue(0);
+-  const currentHeight = useSharedValue(0);
++  // A list can mount after the IME opened, without receiving another open event.
++  const initialKeyboardHeight = KeyboardController.isVisible() ? KeyboardController.state().height : 0;
++  const padding = useSharedValue(Math.max(0, initialKeyboardHeight - offset));
++  const currentHeight = useSharedValue(initialKeyboardHeight);
+   const offsetBeforeScroll = useSharedValue(0);
+-  const targetKeyboardHeight = useSharedValue(0);
++  const targetKeyboardHeight = useSharedValue(initialKeyboardHeight);
+   const closing = useSharedValue(false);
+   const minimumPaddingFractionOnOpen = useSharedValue(0);
+-  const actualOpenShift = useSharedValue(0);
++  const actualOpenShift = useSharedValue(Math.max(0, initialKeyboardHeight - offset));
+   const {
+     layout,
+     size,
+diff --git a/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts b/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
+--- a/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
++++ b/src/components/KeyboardChatScrollView/useFrozenPadding/index.ts
+@@ -1,6 +1,7 @@
+ import { useSharedValue } from "react-native-reanimated";
+ 
+ import { useKeyboardHandler } from "../../../hooks";
++import { KeyboardController } from "../../../module";
+ import { useAnimatedReaction } from "../../../reanimated";
+ import { getEffectiveHeight } from "../useChatKeyboard/helpers";
+ 
+@@ -39,8 +40,9 @@
+   offset,
+   padding,
+ }: UseFrozenPaddingOptions): void {
+-  const lastHeight = useSharedValue(0);
+-  const targetKeyboardHeight = useSharedValue(0);
++  const initialKeyboardHeight = KeyboardController.isVisible() ? KeyboardController.state().height : 0;
++  const lastHeight = useSharedValue(initialKeyboardHeight);
++  const targetKeyboardHeight = useSharedValue(initialKeyboardHeight);
+ 
+   useKeyboardHandler(
+     {
+diff --git a/lib/module/components/KeyboardChatScrollView/useFrozenPadding/index.js b/lib/module/components/KeyboardChatScrollView/useFrozenPadding/index.js
+--- a/lib/module/components/KeyboardChatScrollView/useFrozenPadding/index.js
++++ b/lib/module/components/KeyboardChatScrollView/useFrozenPadding/index.js
+@@ -1,5 +1,6 @@
+ import { useSharedValue } from "react-native-reanimated";
+ import { useKeyboardHandler } from "../../../hooks";
++import { KeyboardController } from "../../../module";
+ import { useAnimatedReaction } from "../../../reanimated";
+ import { getEffectiveHeight } from "../useChatKeyboard/helpers";
+ /**
+@@ -26,8 +27,9 @@
+   offset,
+   padding
+ }) {
+-  const lastHeight = useSharedValue(0);
+-  const targetKeyboardHeight = useSharedValue(0);
++  const initialKeyboardHeight = KeyboardController.isVisible() ? KeyboardController.state().height : 0;
++  const lastHeight = useSharedValue(initialKeyboardHeight);
++  const targetKeyboardHeight = useSharedValue(initialKeyboardHeight);
+   useKeyboardHandler({
+     onStart: e => {
+       "worklet";
+diff --git a/lib/commonjs/components/KeyboardChatScrollView/useFrozenPadding/index.js b/lib/commonjs/components/KeyboardChatScrollView/useFrozenPadding/index.js
+--- a/lib/commonjs/components/KeyboardChatScrollView/useFrozenPadding/index.js
++++ b/lib/commonjs/components/KeyboardChatScrollView/useFrozenPadding/index.js
+@@ -6,6 +6,7 @@
+ exports.useFrozenPadding = useFrozenPadding;
+ var _reactNativeReanimated = require("react-native-reanimated");
+ var _hooks = require("../../../hooks");
++var _module = require("../../../module");
+ var _reanimated = require("../../../reanimated");
+ var _helpers = require("../useChatKeyboard/helpers");
+ /**
+@@ -32,8 +33,9 @@
+   offset,
+   padding
+ }) {
+-  const lastHeight = (0, _reactNativeReanimated.useSharedValue)(0);
+-  const targetKeyboardHeight = (0, _reactNativeReanimated.useSharedValue)(0);
++  const initialKeyboardHeight = _module.KeyboardController.isVisible() ? _module.KeyboardController.state().height : 0;
++  const lastHeight = (0, _reactNativeReanimated.useSharedValue)(initialKeyboardHeight);
++  const targetKeyboardHeight = (0, _reactNativeReanimated.useSharedValue)(initialKeyboardHeight);
+   (0, _hooks.useKeyboardHandler)({
+     onStart: e => {
+       "worklet";

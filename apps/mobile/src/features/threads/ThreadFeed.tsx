@@ -628,7 +628,7 @@ function MessageImage(props: {
   const imageStyle = useResolveClassNames(props.className);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const displaySize =
-    props.maxWidth !== undefined && size !== null
+    Platform.OS !== "android" && props.maxWidth !== undefined && size !== null
       ? resolveMarkdownImageDisplaySize({
           sourceWidth: size.width,
           sourceHeight: size.height,
@@ -652,7 +652,7 @@ function MessageImage(props: {
       ]}
       contentFit={props.maxWidth === undefined ? "cover" : "contain"}
       onLoad={(event) => {
-        if (props.maxWidth !== undefined) setSize(event.source);
+        if (Platform.OS !== "android" && props.maxWidth !== undefined) setSize(event.source);
         props.onLoad?.();
       }}
       onError={props.onError}
@@ -3484,10 +3484,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     setupAnchorIndex:
       props.worktreeSetup || props.setupWorkingStartedAt ? setupAnchorIndex : undefined,
   });
-  // The empty↔filled key below remounts the list and resets its imperative
-  // content-inset override. Seed each fresh instance as it attaches with the
-  // current overlay height before the scroll integration's next reaction;
-  // on Android the declarative contentInset floor covers this same window.
   const listMountKey = `${feedThreadKey}:${presentedFeed.some((entry) => entry.type !== "thinking") ? "filled" : "empty"}`;
   const [revealedListKey, setRevealedListKey] = useState<string | null>(null);
   // Latched per thread: a later resync of a feed already on screen follows in place.
@@ -3767,7 +3763,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           {holdsForCatchUp || props.awaitsEntry ? null : (
             /* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */
             <KeyboardAwareLegendList
-              ref={attachList}
+              ref={Platform.OS === "android" ? listRef : attachList}
               // LegendList cannot see adjustedContentInset; remount so initial positioning waits for UIKit attachment.
               key={listMountKey}
               style={{ flex: 1 }}
