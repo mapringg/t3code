@@ -11,6 +11,10 @@ export const PR_ROW_LAYOUT = LinearTransition.duration(180).reduceMotion(ReduceM
 export const PR_ROW_ENTER = FadeIn.duration(140).reduceMotion(ReduceMotion.System);
 export const PR_ROW_EXIT = FadeOut.duration(100).reduceMotion(ReduceMotion.System);
 
+/** Content that appears below what is already on screen, such as an opened pull request's body. */
+export const PR_REVEAL_MS = 180;
+export const PR_REVEAL_ENTER = FadeIn.duration(PR_REVEAL_MS).reduceMotion(ReduceMotion.System);
+
 export const PR_DISCLOSURE_ENTER = FadeIn.delay(80).duration(120).reduceMotion(ReduceMotion.System);
 
 // Follow expanding status rows without interpolating the clipped markdown's height.

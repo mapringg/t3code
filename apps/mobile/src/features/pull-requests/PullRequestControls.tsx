@@ -1,5 +1,5 @@
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import Animated from "react-native-reanimated";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { PR_ROW_LAYOUT } from "./pullRequestAnimations";
 import { useNavigation } from "@react-navigation/native";
 import type { PullRequestDetail } from "@t3tools/contracts";
@@ -110,8 +110,12 @@ export function PullRequestActionToolbar(props: {
   readonly filePath?: string;
   readonly onOpenFiles?: () => void;
   readonly onHeightChange?: (height: number) => void;
+  /** Android only: lets the screen fade the bar in with the content it reveals. */
+  readonly opacity?: SharedValue<number>;
 }) {
   const navigation = useNavigation();
+  const { opacity } = props;
+  const fade = useAnimatedStyle(() => ({ opacity: opacity ? opacity.value : 1 }));
   const { draft } = usePullRequestReviewDraft(props.params);
   const { themeVariables: colors } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
@@ -137,6 +141,9 @@ export function PullRequestActionToolbar(props: {
   const openFiles =
     props.onOpenFiles ?? (() => navigation.navigate("PullRequestFiles", props.params));
   if (!props.pr) return null;
+  // Android shows the bar once its thread links answer, so it appears enabled with its final label.
+  if (Platform.OS === "android" && permissions.connected && agent.isPending && !agent.data)
+    return null;
   const primaryDisabled = pendingReview ? false : agent.disabled;
   const showPrimary = pendingReview || canOpenThread;
   if (Platform.OS === "android") {
@@ -149,10 +156,10 @@ export function PullRequestActionToolbar(props: {
       />
     );
     return (
-      <View
+      <Animated.View
         pointerEvents="box-none"
         className="absolute inset-x-0 bottom-0 z-10 items-center px-4 pt-2"
-        style={{ paddingBottom: insets.bottom + 16 }}
+        style={[{ paddingBottom: insets.bottom + 16 }, fade]}
         onLayout={(event) => props.onHeightChange?.(event.nativeEvent.layout.height)}
       >
         <Toolbar>
@@ -190,7 +197,7 @@ export function PullRequestActionToolbar(props: {
             <IconButton icon="file.diff" accessibilityLabel="Changed files" onPress={openFiles} />
           </View>
         </Toolbar>
-      </View>
+      </Animated.View>
     );
   }
   const nativeThreadItems = threadMenuItems.map((item) => (
