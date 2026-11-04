@@ -3,7 +3,7 @@ import * as NodeFS from "node:fs";
 import * as NodeVM from "node:vm";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-function createList(bundle: string) {
+function createList(bundle: string, platform: "android" | "ios" = "android") {
   const source = NodeFS.readFileSync(
     new URL(`../apps/mobile/node_modules/@legendapp/list/${bundle}`, import.meta.url),
     "utf8",
@@ -50,7 +50,7 @@ function createList(bundle: string) {
   const api = NodeVM.runInNewContext(
     `${renderState}\n${watchdog}\n${finish}\n${drawDistance}\n({ start: startInsetEndSettleWatchdog, complete: setInitialRenderState, finish: finishInitialScroll, drawDistance: getEffectiveDrawDistance })`,
     {
-      Platform: { OS: "android" },
+      Platform: { OS: platform },
       initialScrollWatchdog: { clear: vi.fn() },
       setInitialScrollSession: vi.fn(),
       requestAnimationFrame: (callback: () => void) => frames.push(callback),
@@ -97,14 +97,14 @@ describe.each(["react-native.js", "react-native.mjs"])(
   "initial inset end reveal (%s)",
   (bundle) => {
     it.each([
-      { inset: 0, layoutFirst: true },
-      { inset: 100, layoutFirst: true },
-      { inset: 0, layoutFirst: false },
-      { inset: 100, layoutFirst: false },
-    ])(
-      "waits for the native offset ($inset-point inset, layout first: $layoutFirst)",
-      ({ inset, layoutFirst }) => {
-        const list = createList(bundle);
+      { platform: "android", inset: 0, layoutFirst: true },
+      { platform: "ios", inset: 100, layoutFirst: true },
+      { platform: "android", inset: 0, layoutFirst: false },
+      { platform: "ios", inset: 100, layoutFirst: false },
+    ] as const)(
+      "waits for the native offset ($platform, layout first: $layoutFirst)",
+      ({ platform, inset, layoutFirst }) => {
+        const list = createList(bundle, platform);
         list.setInset(inset);
         list.state.didContainersLayout = layoutFirst;
         list.finish();
@@ -115,7 +115,10 @@ describe.each(["react-native.js", "react-native.mjs"])(
         expect(list.drawDistance()).toBe(500);
         expect(list.scrollTo).toHaveBeenCalledWith({ animated: false, x: 0, y: 400 });
         list.state.lastNativeScroll = 400;
-        list.advance(7);
+        // Android reveals one stable frame per settle phase; iOS keeps three.
+        list.advance(3);
+        expect(list.ready()).toBe(platform === "android");
+        list.advance(4);
         expect(list.ready()).toBe(true);
         expect(list.onLoad).toHaveBeenCalledTimes(1);
       },

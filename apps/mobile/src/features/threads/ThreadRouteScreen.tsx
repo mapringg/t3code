@@ -439,10 +439,10 @@ function ThreadRouteContent(
     };
   })();
   const navigation = useNavigation();
-  const entered =
-    usePullRequestDiffEntry(
-      useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "Thread">>(),
-    );
+  const entered = usePullRequestDiffEntry(
+    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList, "Thread">>(),
+    "start",
+  );
   const selectDetail = useSelectWorkspaceDetail();
   const openPullRequest = useOpenPullRequest();
   const mergeBack = useAtomCommand(threadEnvironment.mergeBack, "merge thread back");
@@ -1113,7 +1113,7 @@ function ThreadRouteContent(
               connectionState: routeConnectionState,
             })
           }
-          // Mounting and landing the feed during the push drops frames on Android.
+          // The feed mounts hidden from the push's first frame so it lands while the screen slides.
           feedAwaitsEntry={Platform.OS === "android" && !entered}
           historyControls={historyControls}
           activeThreadBusy={composer.activeThreadBusy}
