@@ -13,12 +13,14 @@ import {
 import { PullRequestActivityFilters } from "./PullRequestActivityFilters";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import Animated from "react-native-reanimated";
+import Animated, { ReduceMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import {
   PR_ROW_LAYOUT,
   PR_ROW_ENTER,
   PR_ROW_EXIT,
   PR_POSITION_LAYOUT,
+  PR_REVEAL_ENTER,
+  PR_REVEAL_MS,
 } from "./pullRequestAnimations";
 import {
   canPerformPullRequestAction,
@@ -51,7 +53,7 @@ import { PullRequestOverviewLoading, PullRequestStatusPreview } from "./PullRequ
 import { pullRequestOpening } from "./pullRequestOpening";
 import { copyPullRequestLink, sharePullRequestLink } from "./pullRequestLink";
 import { pullRequestStatus } from "./pullRequestStatus";
-import { use, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { use, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
   Platform,
@@ -113,6 +115,7 @@ import {
 } from "./PullRequestPresentation";
 import { usePullRequestFilesSection } from "./PullRequestFiles";
 import { usePullRequestMaintainerEdits } from "./usePullRequestMaintainerEdits";
+import { PullRequestLinkedThreadsPrefetch } from "./usePullRequestThreads";
 import { PullRequestDescription } from "./PullRequestDescription";
 import { PullRequestMediaVisibleContext } from "./PullRequestMedia";
 import { PullRequestMarkdownRepository } from "./PullRequestMarkdown";
@@ -303,10 +306,13 @@ function PullRequestOverview(props: {
   readonly stack: PullRequestStackState;
   readonly onDescriptionLayout: (y: number) => void;
   readonly onDescriptionCollapse: () => void;
+  readonly onMounted: () => void;
   readonly descriptionExpanded: boolean;
   readonly onDescriptionExpandedChange: (expanded: boolean) => void;
 }) {
-  const { pr } = props;
+  const { pr, onMounted } = props;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- tells the screen the overview's commit landed, which LegendList applies frames after the route renders
+  useLayoutEffect(() => onMounted(), [onMounted]);
   return (
     <View className="gap-5">
       <PullRequestStackCard params={props.params} state={props.stack} />
@@ -320,18 +326,24 @@ function PullRequestOverview(props: {
           <PullRequestMergeControls pr={pr} params={props.params} stack={props.stack} />
         </Animated.View>
       </PullRequestCardGroup>
-      <PullRequestLabels pr={pr} params={props.params} />
+      {/* Android drew the status rows during the push; the rest fades in below them. */}
       <Animated.View
-        layout={Platform.OS === "android" ? undefined : PR_POSITION_LAYOUT}
-        onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
+        entering={Platform.OS === "android" ? PR_REVEAL_ENTER : undefined}
+        className="gap-5"
       >
-        <PullRequestDescription
-          markdown={pr.body}
-          onCollapse={props.onDescriptionCollapse}
-          expanded={props.descriptionExpanded}
-          onExpandedChange={props.onDescriptionExpandedChange}
-          footer={<PullRequestReactions params={props.params} />}
-        />
+        <PullRequestLabels pr={pr} params={props.params} />
+        <Animated.View
+          layout={Platform.OS === "android" ? undefined : PR_POSITION_LAYOUT}
+          onLayout={(event) => props.onDescriptionLayout(event.nativeEvent.layout.y)}
+        >
+          <PullRequestDescription
+            markdown={pr.body}
+            onCollapse={props.onDescriptionCollapse}
+            expanded={props.descriptionExpanded}
+            onExpandedChange={props.onDescriptionExpandedChange}
+            footer={<PullRequestReactions params={props.params} />}
+          />
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -363,6 +375,15 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const requestedSection = useRef(chosenSection);
   const [listAnimationsReady, setListAnimationsReady] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  // LegendList draws a changed row a few frames after the route renders it, so Android's action bar
+  // mounts hidden and fades in from the overview's own commit.
+  const toolbarOpacity = useSharedValue(Platform.OS === "android" ? 0 : 1);
+  const [revealToolbar] = useState(() => () => {
+    toolbarOpacity.value = withTiming(1, {
+      duration: PR_REVEAL_MS,
+      reduceMotion: ReduceMotion.System,
+    });
+  });
   const filesContent = usePullRequestFilesSection(params);
   const guidesEnabled = useReviewGuidesEnabled(params);
   // The guide tab goes away while guides are off and overview stands in. The pick is kept, so
@@ -777,6 +798,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                                   onDescriptionLayout={(y) => {
                                     descriptionY.current = y;
                                   }}
+                                  onMounted={revealToolbar}
                                   onDescriptionCollapse={() => {
                                     pendingDescriptionJump.current = true;
                                   }}
@@ -929,9 +951,11 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
               </View>
             ))}
         </View>
+        {Platform.OS === "android" ? <PullRequestLinkedThreadsPrefetch params={params} /> : null}
         {Platform.OS !== "android" || body === "overview" ? (
           <PullRequestActionToolbar
             pr={pr}
+            opacity={toolbarOpacity}
             params={params}
             onOpenFiles={openFiles}
             onHeightChange={setToolbarHeight}
