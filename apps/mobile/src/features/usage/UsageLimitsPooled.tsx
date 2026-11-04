@@ -469,8 +469,10 @@ export function UsageLimitsSection({
           <Fragment key={pool.driver}>
             {index === cursorPromptAt ? cursorPrompt : null}
             <View className="gap-3">
-              <View className="flex-row items-center gap-2 px-1">
-                <ProviderIcon provider={pool.driver} size={18} />
+              <View className="flex-row items-center gap-2 px-1 android:px-4">
+                <View className="android:w-6 android:items-center">
+                  <ProviderIcon provider={pool.driver} size={Platform.OS === "android" ? 15 : 18} />
+                </View>
                 <Text className="text-base font-t3-medium text-foreground">
                   {DRIVER_LABEL[pool.driver] ?? pool.driver}
                 </Text>

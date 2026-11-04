@@ -561,8 +561,10 @@ function CursorEnableLimits({
 }) {
   return (
     <View className="gap-3">
-      <View className="flex-row items-center gap-2 px-1">
-        <ProviderIcon provider="cursor" size={18} />
+      <View className="flex-row items-center gap-2 px-1 android:px-4">
+        <View className="android:w-6 android:items-center">
+          <ProviderIcon provider="cursor" size={Platform.OS === "android" ? 15 : 18} />
+        </View>
         <Text className="text-base font-t3-medium text-foreground">Cursor</Text>
       </View>
       <View className="items-start gap-3 rounded-[24px] android:rounded-xl border-continuous bg-grouped-card p-4">
