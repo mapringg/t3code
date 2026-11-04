@@ -78,6 +78,12 @@ describe("thread content presentation", () => {
     const catchUp = { detailError: null, connectionState: "connected" } as const;
     expect(feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "cached" })).toBe(true);
     expect(feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "synchronizing" })).toBe(true);
+    // A first open starts empty; releasing the hold there lands on the snapshot before catch-up.
+    expect(feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "empty" })).toBe(true);
+    expect(
+      feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "empty", connectionState: "connecting" }),
+    ).toBe(true);
+    expect(feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "deleted" })).toBe(false);
     expect(
       feedAwaitsThreadCatchUp({ ...catchUp, syncStatus: "cached", connectionState: "connecting" }),
     ).toBe(true);
