@@ -5,9 +5,27 @@ import {
   lockThreadSyncLabel,
   projectThreadContentPresentation,
   threadSyncLabel,
+  threadHeaderConnectionLabel,
 } from "./threadContentPresentation";
 
 describe("thread content presentation", () => {
+  it("prioritizes connection state over stale sync state in the header", () => {
+    const input = { syncStatus: "cached", contentKind: "ready" } as const;
+    expect(threadHeaderConnectionLabel({ ...input, connectionState: "reconnecting" })).toBe(
+      "Reconnecting…",
+    );
+    expect(threadHeaderConnectionLabel({ ...input, connectionState: "offline" })).toBe("Offline");
+    expect(threadHeaderConnectionLabel({ ...input, connectionState: "error" })).toBe(
+      "Connection failed",
+    );
+    expect(threadHeaderConnectionLabel({ ...input, connectionState: "connected" })).toBe(
+      "Syncing messages…",
+    );
+    expect(
+      threadHeaderConnectionLabel({ ...input, syncStatus: "live", connectionState: "connected" }),
+    ).toBeNull();
+  });
+
   it("renders cached detail while its environment reconnects", () => {
     expect(
       projectThreadContentPresentation({

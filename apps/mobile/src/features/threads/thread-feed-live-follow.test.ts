@@ -35,6 +35,20 @@ describe("resolveThreadFeedSubmissionAnchor", () => {
     ).toBe("first-message");
   });
 
+  it("keeps a first message at the end when top anchoring is disabled", () => {
+    expect(
+      resolveThreadFeedSubmissionAnchor({
+        currentAnchorMessageId: null,
+        submittedMessageId: "android-first",
+        hasStartedTurn: false,
+        hasUserMessage: false,
+        deliveryDeferred: false,
+        queuedMessageCount: 0,
+        anchorFirstMessage: false,
+      }),
+    ).toBeNull();
+  });
+
   it("preserves the first-message anchor when another message is queued", () => {
     expect(
       resolveThreadFeedSubmissionAnchor({

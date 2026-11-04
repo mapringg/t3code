@@ -21,6 +21,8 @@ export function ThreadHeader(
     readonly onOpenFilesInspector: () => void;
     /** Android shows it in the subtitle and overflow menu; iOS shows it floating over the feed. */
     readonly lifecycleStatus?: ThreadLifecycleStatus | null;
+    readonly connectionStatusLabel?: string | null;
+    readonly onReconnect?: () => void;
   },
 ) {
   const lifecycle = Platform.OS === "android" ? (props.lifecycleStatus ?? null) : null;
@@ -30,6 +32,7 @@ export function ThreadHeader(
   const { onOpenTerminal, onMergeBack } = props.gitControls;
   const native = useThreadHeaderOptions(props);
   const lifecycleAction = lifecycle?.action ?? null;
+  const connectionStatusLabel = Platform.OS === "android" ? props.connectionStatusLabel : null;
   const androidHeaderActions = useMemo<ReadonlyArray<AppBarAction>>(() => {
     const actions: AppBarAction[] = [];
     if (props.onReturnToThread) {
@@ -73,6 +76,14 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
+    if (Platform.OS === "android" && props.onReconnect) {
+      actions.push({
+        accessibilityLabel: "Reconnect environment",
+        icon: "arrow.clockwise",
+        onPress: props.onReconnect,
+        overflowOnly: true,
+      });
+    }
     if (lifecycleAction) {
       actions.push({
         accessibilityLabel: lifecycleAction.label,
@@ -96,15 +107,16 @@ export function ThreadHeader(
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
     lifecycleAction,
+    props.onReconnect,
   ]);
 
   return (
     <>
       <AppBar
         title={props.title}
-        subtitle={
-          lifecycle ? [props.subtitle, lifecycle.label].filter(Boolean).join(" · ") : props.subtitle
-        }
+        subtitle={[connectionStatusLabel, props.subtitle, lifecycle?.label]
+          .filter(Boolean)
+          .join(" · ")}
         sidebar={native.sidebar}
         options={native.options}
         optionsVersion={native.optionsVersion}

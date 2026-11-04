@@ -663,7 +663,7 @@ export function NewTaskDraftScreen(props: {
       );
       return null;
     }
-    promptInputRef.current?.blur();
+    if (Platform.OS !== "android") promptInputRef.current?.blur();
     navigation.dispatch(
       CommonActions.setParams(
         submittedThreadParams(String(message.environmentId), String(message.threadId)),
