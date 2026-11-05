@@ -93,7 +93,7 @@ import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 import { Menu } from "../../components/ui/Menu";
 import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
-import { estimateUnmeasuredEditorText, rescaleEditorContentHeight } from "./composerEditorHeight";
+import { estimateUnmeasuredEditorText } from "./composerEditorHeight";
 import {
   resolveComposerSendPresentation,
   type ComposerSendPresentation,
@@ -139,15 +139,8 @@ function collapsedEditorInset(text: ScaledTextRole): number {
 }
 
 function useCompactComposerEditor(text: ScaledTextRole, value: string) {
-  const [contentSize, setContentSize] = useState({
-    width: 0,
-    height: 0,
-    measuredWidth: 0,
-    chars: 0,
-    charWidth: 0,
-  });
+  const [contentSize, setContentSize] = useState({ width: 0, height: 0, chars: 0, charWidth: 0 });
   const [compactWidth, setCompactWidth] = useState(0);
-  const [expandedWidth, setExpandedWidth] = useState(0);
   const contentHeight = contentSize.height;
   const rowWidth = useSharedValue(0);
   const editorX = useSharedValue(0);
@@ -162,35 +155,26 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
       ? estimateUnmeasuredEditorText({
           text: value,
           charWidth: contentSize.charWidth > 0 ? contentSize.charWidth : text.fontSize * 0.5,
-          compactWidth,
-          expandedWidth,
+          width: compactWidth,
           lineHeight: text.lineHeight,
         })
       : null;
+  // Android keeps one row and grows upward: the feed trails a layout swap by a frame.
   // A line that fits the expanded editor may still overflow its compact slot.
   // Compare its measured width too so widening cannot trigger a collapse loop.
   const isExpanded =
+    Platform.OS !== "android" &&
     value.length > 0 &&
     (contentHeight > text.lineHeight * 1.5 ||
-      (compactWidth > 0 && contentSize.width > compactWidth) ||
-      unmeasured?.overflowsCompact === true);
-  const wrapWidth = isExpanded ? expandedWidth : compactWidth;
-  const laidOutHeight =
-    unmeasured?.overflowsCompact === true
-      ? unmeasured.height
-      : Platform.OS === "android"
-        ? rescaleEditorContentHeight({
-            contentHeight,
-            lineHeight: text.lineHeight,
-            measuredWidth: contentSize.measuredWidth,
-            width: wrapWidth,
-          })
-        : contentHeight;
+      (compactWidth > 0 && contentSize.width > compactWidth));
+  const laidOutHeight = unmeasured?.wraps === true ? unmeasured.height : contentHeight;
   const height = Math.max(
     minimum,
     Math.min(text.lineHeight * 4 + 2 * inset, laidOutHeight + 2 * inset),
   );
   const compactRowHeight = Math.max(44, minimum);
+  const compactSlotHeight =
+    Platform.OS === "android" ? compactRowHeight + height - minimum : compactRowHeight;
   const isRTL = I18nManager.isRTL;
   const editorStyle = useAnimatedStyle(() => ({
     position: "absolute",
@@ -209,11 +193,10 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
   }));
   return {
     isExpanded,
-    containerStyle: { height: isExpanded ? height + 52 : compactRowHeight },
+    containerStyle: { height: isExpanded ? height + 52 : compactSlotHeight },
     editorStyle,
     onRowLayout: (event: { nativeEvent: { layout: { width: number } } }) => {
       rowWidth.set(event.nativeEvent.layout.width);
-      setExpandedWidth(Math.max(0, event.nativeEvent.layout.width - 28 - 8));
     },
     onEditorLayout: (event: { nativeEvent: { layout: { x: number; width: number } } }) => {
       // The expanded toolbar gives this slot to the model control. Keep the
@@ -225,13 +208,12 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
       }
     },
     editorProps: {
-      singleLineCentered: !isExpanded,
+      singleLineCentered: !isExpanded && (Platform.OS !== "android" || height <= minimum),
       scrollEnabled: Platform.OS === "android" || contentHeight >= text.lineHeight * 4,
       contentInsetVertical: inset,
       onContentSizeChange: (size: { width: number; height: number }) => {
         setContentSize((current) => ({
           ...size,
-          measuredWidth: wrapWidth,
           chars: value.length,
           charWidth:
             size.width > 0 && value.length > 0 ? size.width / value.length : current.charWidth,
