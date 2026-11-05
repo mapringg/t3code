@@ -729,6 +729,30 @@ export function NewTaskDraftScreen(props: {
       The shared content is no longer in the inbox. You can continue editing this task draft.
     </Text>
   ) : null;
+  const androidHero = (
+    <View className="items-start gap-1 px-4 pt-4" testID="new-task-hero">
+      <Pressable
+        accessibilityHint="Opens the project picker"
+        accessibilityLabel={
+          flow.isScratchDraft ? "No project" : (selectedProjectLabel ?? selectedProject.title)
+        }
+        accessibilityRole="button"
+        disabled={isComposerInteractionLocked}
+        onPress={chooseProject}
+        className="max-w-full flex-row items-center gap-1.5 active:opacity-65"
+      >
+        <Text
+          className={`shrink text-2xl font-t3-medium tracking-tight ${flow.isScratchDraft ? "text-foreground-muted" : "text-foreground"}`}
+          numberOfLines={1}
+        >
+          {flow.isScratchDraft ? "No project" : (selectedProjectLabel ?? selectedProject.title)}
+        </Text>
+        <SymbolView name="chevron.down" size={14} tintColorClassName="accent-icon-muted" />
+      </Pressable>
+      <View className="-ml-3">{environmentControl}</View>
+      {shareUnavailableNotice}
+    </View>
+  );
   const hero = flow.isScratchDraft ? (
     <View className="items-center gap-2 px-6" testID="new-task-hero">
       <Text className="text-center text-2xl font-t3-medium tracking-tight text-foreground">
@@ -781,7 +805,12 @@ export function NewTaskDraftScreen(props: {
   );
   // The nested hero scroll view does not receive UIKit's automatic navigation inset in split columns.
   const heroViewport = (headerInset: number, bottomInset: number, availableHeight: number) =>
-    availableHeight < 180 ? null : (
+    // Android pins the hero to the top so it never reads the keyboard height, which goes stale after the app resumes.
+    Platform.OS === "android" ? (
+      <View style={{ position: "absolute", top: headerInset, left: 0, right: 0 }}>
+        {androidHero}
+      </View>
+    ) : availableHeight < 180 ? null : (
       <NativeScrollEdgeEffectsContext
         value={{ top: "hidden", bottom: "hidden", left: "hidden", right: "hidden" }}
       >
@@ -932,7 +961,7 @@ export function NewTaskDraftScreen(props: {
               {flow.canChooseWorkspace ? (
                 workspaceControls
               ) : Platform.OS === "android" ? (
-                // Holds the row's height so "No project" doesn't shrink the composer and recenter the hero late.
+                // Holds the row's height so "No project" doesn't shrink the composer.
                 <View
                   aria-hidden
                   importantForAccessibility="no-hide-descendants"
