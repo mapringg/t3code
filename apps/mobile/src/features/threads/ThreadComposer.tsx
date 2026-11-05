@@ -220,6 +220,7 @@ export interface ThreadComposerProps {
   readonly placeholder: string;
   readonly contentMaxWidth?: number;
   readonly draftControls?: ReactNode;
+  readonly draftControlsArePlaceholder?: boolean;
   readonly bottomInset?: number;
   readonly connectionState: RemoteClientConnectionState;
   readonly environmentLabel: string | null;
@@ -822,6 +823,21 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     </View>
   );
 
+  const commandPopover =
+    !isSubmissionLocked &&
+    composerMenu.trigger &&
+    (composerMenu.items.length > 0 || composerMenu.trigger.kind === "pull-request") ? (
+      <ComposerPopoverAnchor>
+        <ComposerCommandPopover
+          items={composerMenu.items}
+          triggerKind={composerMenu.trigger.kind}
+          isLoading={composerMenu.isLoading}
+          error={composerMenu.error}
+          onSelect={composerMenu.onSelect}
+        />
+      </ComposerPopoverAnchor>
+    ) : null;
+
   return (
     <Animated.View
       onLayout={(event) => props.onHeightChange?.(event.nativeEvent.layout.height)}
@@ -847,19 +863,12 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
         style={{ maxWidth: props.contentMaxWidth }}
       >
         {props.draftControls}
-        {!isSubmissionLocked &&
-        composerMenu.trigger &&
-        (composerMenu.items.length > 0 || composerMenu.trigger.kind === "pull-request") ? (
-          <ComposerPopoverAnchor>
-            <ComposerCommandPopover
-              items={composerMenu.items}
-              triggerKind={composerMenu.trigger.kind}
-              isLoading={composerMenu.isLoading}
-              error={composerMenu.error}
-              onSelect={composerMenu.onSelect}
-            />
-          </ComposerPopoverAnchor>
-        ) : null}
+        {props.draftControlsArePlaceholder ? (
+          // Zero-height slot below the placeholder controls, so the popover anchors at the editor.
+          <View>{commandPopover}</View>
+        ) : (
+          commandPopover
+        )}
 
         {selectedProviderStatus?.compatibilityAdvisory?.message &&
         (selectedProviderStatus.compatibilityAdvisory.status === "unsupported" ||

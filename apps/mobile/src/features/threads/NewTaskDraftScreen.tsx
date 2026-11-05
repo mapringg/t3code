@@ -973,6 +973,7 @@ export function NewTaskDraftScreen(props: {
               ) : null}
             </View>
           ),
+          controlsArePlaceholder: !flow.canChooseWorkspace,
           editorRef: promptInputRef,
           sendBlockedReason: setupBlockReason,
           interactionLocked: isComposerInteractionLocked,
