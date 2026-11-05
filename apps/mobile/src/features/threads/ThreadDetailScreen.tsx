@@ -210,6 +210,8 @@ export interface ThreadDetailScreenProps {
       availableHeight: number,
     ) => React.ReactNode;
     readonly controls: React.ReactNode;
+    /** Controls only reserve height; popovers should sit on the editor, not above them. */
+    readonly controlsArePlaceholder?: boolean;
     readonly editorRef: React.RefObject<ComposerEditorHandle | null>;
     readonly sendBlockedReason: string | null;
     readonly interactionLocked: boolean;
@@ -1600,6 +1602,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                         }
                         contentMaxWidth={contentMaxWidth}
                         draftControls={props.draftMode?.controls}
+                        draftControlsArePlaceholder={props.draftMode?.controlsArePlaceholder}
                         connectionState={props.connectionStateLabel}
                         environmentLabel={props.environmentLabel}
                         selectedThread={props.selectedThread}
