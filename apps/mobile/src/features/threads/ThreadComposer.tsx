@@ -32,7 +32,7 @@ import {
 import { StackActions, useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { ReactNode } from "react";
 import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
-import { I18nManager, Keyboard, Platform, View, type ViewStyle } from "react-native";
+import { I18nManager, Keyboard, PixelRatio, Platform, View, type ViewStyle } from "react-native";
 import { composerImageGallery } from "../../lib/composerImageGallery";
 import { filePreviewGallery } from "../../lib/filePreviewGallery";
 import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
@@ -155,10 +155,13 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
     value.length > 0 &&
     (contentHeight > text.lineHeight * 1.5 ||
       (compactWidth > 0 && contentSize.width > compactWidth));
-  const height = Math.max(
-    minimum,
-    Math.min(text.lineHeight * 4 + 2 * inset, contentHeight + 2 * inset),
-  );
+  // Native line pitch is the line height floored to pixels; four of them fill the
+  // capped Android editor with no partial line above.
+  const cappedTextHeight =
+    Platform.OS === "android"
+      ? (4 * Math.floor(text.lineHeight * PixelRatio.get())) / PixelRatio.get()
+      : text.lineHeight * 4;
+  const height = Math.max(minimum, Math.min(cappedTextHeight, contentHeight) + 2 * inset);
   const compactRowHeight = Math.max(44, minimum);
   const compactSlotHeight =
     Platform.OS === "android" ? compactRowHeight + height - minimum : compactRowHeight;
@@ -167,9 +170,11 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
   const editorStyle = useAnimatedStyle(() => ({
     position: "absolute",
     overflow: "hidden",
-    // Android spans the row, which the slot sizes in the same layout pass, so a
-    // separately applied height can never leave the editor taller than its box.
-    ...(Platform.OS === "android" ? { top: compactGap, bottom: compactGap } : { height }),
+    // Android spans the row, which the slot sizes in the same layout pass. The text
+    // inset sits outside the scrolling EditText, which does not clip to its padding.
+    ...(Platform.OS === "android"
+      ? { top: compactGap + inset, bottom: compactGap + inset }
+      : { height }),
     ...(isExpanded
       ? { left: 14, right: 14 }
       : compactEditorInsets({
@@ -200,7 +205,7 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
     editorProps: {
       singleLineCentered: !isExpanded && (Platform.OS !== "android" || height <= minimum),
       scrollEnabled: Platform.OS === "android" || contentHeight >= text.lineHeight * 4,
-      contentInsetVertical: inset,
+      contentInsetVertical: Platform.OS === "android" ? 0 : inset,
       onContentSizeChange: (size: { width: number; height: number }) => {
         setContentSize(size);
       },
