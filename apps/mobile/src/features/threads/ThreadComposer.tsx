@@ -163,10 +163,13 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
   const compactSlotHeight =
     Platform.OS === "android" ? compactRowHeight + height - minimum : compactRowHeight;
   const isRTL = I18nManager.isRTL;
+  const compactGap = (compactRowHeight - minimum) / 2;
   const editorStyle = useAnimatedStyle(() => ({
     position: "absolute",
     overflow: "hidden",
-    height,
+    // Android spans the row, which the slot sizes in the same layout pass, so a
+    // separately applied height can never leave the editor taller than its box.
+    ...(Platform.OS === "android" ? { top: compactGap, bottom: compactGap } : { height }),
     ...(isExpanded
       ? { left: 14, right: 14 }
       : compactEditorInsets({
@@ -176,7 +179,7 @@ function useCompactComposerEditor(text: ScaledTextRole, value: string) {
           isRTL,
         })),
     // The full-width editor must move above the controls in the same frame it widens.
-    bottom: isExpanded ? 52 : (compactRowHeight - minimum) / 2,
+    ...(Platform.OS === "android" ? {} : { bottom: isExpanded ? 52 : compactGap }),
   }));
   return {
     isExpanded,
