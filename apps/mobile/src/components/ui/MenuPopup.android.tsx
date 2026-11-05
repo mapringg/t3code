@@ -158,7 +158,8 @@ export function MenuPopup(props: MenuPopupProps) {
       <NativeThemeHost
         ignoreSafeAreaKeyboardInsets
         matchContents
-        style={{ width: props.menuWidth }}
+        style={{ width: props.menuWidth, height: props.inlineHeight }}
+        onLayoutContent={(event) => props.onInlineContentHeight?.(event.nativeEvent.height)}
       >
         <Column>{items}</Column>
       </NativeThemeHost>

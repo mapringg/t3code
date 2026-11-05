@@ -7,7 +7,9 @@ import { useKeyboardState } from "react-native-keyboard-controller";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { useHardwareBack } from "../../lib/backHandler";
+import { resolveScaledTextRole } from "../../lib/appearancePreferences";
 import { deriveMenuHorizontalPlacement } from "../../lib/menu-placement";
+import { useAppearancePreferences } from "../../features/settings/appearance/AppearancePreferencesProvider";
 import { WindowHingeContext } from "../../native/window-hinge-context";
 import { OverlayPortal } from "./OverlayPortal";
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
@@ -49,6 +51,8 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const [path, setPath] = useState<readonly MenuAction[]>([]);
   const [rootHeight, setRootHeight] = useState<number | null>(null);
   const [overlay, setOverlay] = useState<OverlayFrame | null>(null);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const { appearance } = useAppearancePreferences();
   const windowHinge = use(WindowHingeContext);
   // State, not a ref: `open` reaches render-prop children, and the compiler
   // bails out of the whole component when a ref might be read during render.
@@ -62,6 +66,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     setPath([]);
     setOverlay(null);
     setRootHeight(null);
+    setContentHeight(null);
   };
 
   const open = () => {
@@ -129,6 +134,17 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     0,
     Math.min(opensDown ? spaceBelow : spaceAbove, menuItemHeight * MAX_VISIBLE_ITEMS + 14 * scale),
   );
+  const menuPadding = 7 * scale;
+  const headerHeight =
+    parent !== null
+      ? menuItemHeight
+      : props.title
+        ? 16 * scale + resolveScaledTextRole("caption", appearance.baseFontSize).lineHeight
+        : 0;
+  // The Compose host's matchContents size does not stick here; Yoga falls back to the RN icon
+  // views inside it. Size the host and panel from Compose's reported content height instead.
+  const listHeight = contentHeight ?? headerHeight + levelActions.length * menuItemHeight;
+  const menuHeight = Math.min(listHeight + menuPadding * 2, maxHeight);
   const placeable = local !== null && rootHeight !== null;
 
   const onPressItem = (action: MenuAction) => {
@@ -198,7 +214,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
                 className="absolute overflow-hidden bg-card-alt shadow-md"
                 style={{
                   left,
-                  maxHeight,
+                  height: menuHeight,
                   width: menuWidth,
                   borderRadius: 4 * scale,
                   ...(opensDown
@@ -210,13 +226,17 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
 
                 {/* The first item tap must act while the keyboard is open. */}
                 <ScrollView
-                  contentContainerStyle={{ paddingVertical: 7 * scale }}
+                  contentContainerStyle={{ paddingVertical: menuPadding }}
                   bounces={false}
                   keyboardShouldPersistTaps="always"
                   showsVerticalScrollIndicator={false}
                 >
                   <MenuPopup
                     inline
+                    inlineHeight={listHeight}
+                    onInlineContentHeight={(height) => {
+                      if (height > 0) setContentHeight(height);
+                    }}
                     anchor={local}
                     menuWidth={menuWidth}
                     actions={levelActions}

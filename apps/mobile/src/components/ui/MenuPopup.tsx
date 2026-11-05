@@ -15,6 +15,8 @@ export interface MenuPopupProps {
   readonly onBack: () => void;
   readonly onClose: () => void;
   readonly inline?: boolean;
+  readonly inlineHeight?: number;
+  readonly onInlineContentHeight?: (height: number) => void;
 }
 
 export function MenuPopup(_props: MenuPopupProps) {
