@@ -4,7 +4,7 @@ import * as NodeModule from "node:module";
 import * as NodeVM from "node:vm";
 import { expect, it, vi } from "vite-plus/test";
 
-it("mounts above an open keyboard, closes back to the unoccluded end, and ignores a later hide", () => {
+it("mounts above an open keyboard, closes back to the unoccluded end, ignores a later hide, and replays moves made during a freeze", () => {
   const root = new URL(
     "../apps/mobile/node_modules/react-native-keyboard-controller/src/components/KeyboardChatScrollView/useChatKeyboard/",
     import.meta.url,
@@ -16,6 +16,8 @@ it("mounts above an open keyboard, closes back to the unoccluded end, and ignore
       .replace(/\{ useChatKeyboard \};/, "");
   const scrollTo = vi.fn();
   const scroll = { value: 796 };
+  const freeze = { value: false };
+  let replay: ((isFrozen: boolean, wasFrozen: boolean | null) => void) | undefined;
   let handlers:
     | { onStart: (event: { height: number }) => void; onMove: (event: { height: number }) => void }
     | undefined;
@@ -27,6 +29,10 @@ it("mounts above an open keyboard, closes back to the unoccluded end, and ignore
       useKeyboardHandler: (value: typeof handlers) => {
         handlers = value;
       },
+      useAnimatedReaction: (_read: unknown, react: typeof replay) => {
+        replay = react;
+      },
+      requestAnimationFrame: () => {},
       KeyboardController: { state: () => ({ height: 320 }), isVisible: () => true },
       useScrollState: () => ({
         layout: { value: { height: 800 } },
@@ -45,7 +51,7 @@ it("mounts above an open keyboard, closes back to the unoccluded end, and ignore
     {},
     {
       offset: 24,
-      freeze: { value: false },
+      freeze,
       blankSpace: { value: 0 },
       extraContentPadding: { value: 100 },
       keyboardLiftBehavior: "whenAtEnd",
@@ -85,6 +91,26 @@ it("mounts above an open keyboard, closes back to the unoccluded end, and ignore
   handlers!.onStart({ height: 0 });
   handlers!.onMove({ height: 0 });
   expect(scrollTo).toHaveBeenCalledTimes(1);
+  // A scroll-to-end freezes the handlers; the keyboard opening meanwhile lifts the feed once it ends.
+  freeze.value = true;
+  replay!(true, false);
+  handlers!.onStart({ height: 320 });
+  handlers!.onMove({ height: 320 });
+  expect(scrollTo).toHaveBeenCalledTimes(1);
+  freeze.value = false;
+  replay!(false, true);
+  expect(chat.padding.value).toBe(296);
+  expect(scrollTo).toHaveBeenLastCalledWith({}, 0, 696, false);
+  // And a close during the next freeze drops it back.
+  scroll.value = 696;
+  freeze.value = true;
+  replay!(true, false);
+  handlers!.onStart({ height: 0 });
+  handlers!.onMove({ height: 0 });
+  freeze.value = false;
+  replay!(false, true);
+  expect(chat.padding.value).toBe(0);
+  expect(scrollTo).toHaveBeenLastCalledWith({}, 0, 400, false);
 });
 
 it("keeps the end-aligned spacer of a short list while the keyboard scrolls in", () => {
