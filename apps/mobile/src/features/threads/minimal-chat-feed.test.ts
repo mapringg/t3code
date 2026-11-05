@@ -235,6 +235,7 @@ const reply: OrchestrationV2TurnItem = {
 const running = { runId, status: "running", startedAt: at, completedAt: null } as const;
 const completed = { runId, status: "completed", startedAt: at, completedAt: at } as const;
 const idle = {
+  liveSubagents: 0,
   activeWorkStartedAt: null,
   runlessWorkActive: false,
   dispatchingMessageId: null,
@@ -384,6 +385,13 @@ it("shows the status line from send, below pending messages, until the run settl
     label: "Working · Running pwd",
     createdAt: at,
   });
+  expect(last({ latestRun: running, liveSubagents: 1 })).toMatchObject({
+    label: "Working · 1 agent",
+  });
+  expect(last({ latestRun: running, liveSubagents: 2 })).toMatchObject({
+    label: "Working · 2 agents",
+  });
+  expect(last({ latestRun: completed, liveSubagents: 2 })).toBe(pending);
 });
 
 it("names the worktree setup step on the status line until the first turn starts", () => {

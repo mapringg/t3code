@@ -1,3 +1,4 @@
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import { Platform, ScrollView, View, type ColorValue } from "react-native";
@@ -12,8 +13,10 @@ import type { MarkdownImageRenderer } from "../../native/SelectableMarkdownText"
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { THREAD_WORK_ROW_MIN_HEIGHT } from "../../lib/layout";
+import { ThreadRunSubagentRow } from "./thread-run-subagent-row";
 import { ThreadWorkLog } from "./thread-work-log";
-import { WorkLogIconSlot, WorkLogRows } from "./work-log-layout";
+import { useThreadSubagents } from "./use-live-subagents";
+import { WorkLogBlock, WorkLogIconSlot, WorkLogRows } from "./work-log-layout";
 
 /** A run's work, opened from its line in the feed. Rows expand here, never in the feed. */
 export function ThreadRunSheet(props: {
@@ -32,6 +35,7 @@ export function ThreadRunSheet(props: {
   readonly onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const subagents = useThreadSubagents(scopeThreadRef(props.environmentId, props.threadId));
   const [expandedRows, setExpandedRows] = useState<Readonly<Record<string, boolean>>>({});
   const loadWork = useAtomCommand(threadEnvironment.loadEarlierHistory, { reportFailure: false });
   const [settled, setSettled] = useState<{
@@ -78,14 +82,19 @@ export function ThreadRunSheet(props: {
 
   const toggleRow = (row: ThreadFeedActivity) =>
     setExpandedRows((current) => ({ ...current, [row.id]: !(current[row.id] ?? false) }));
+  type SubagentItem = Extract<ThreadFeedRunWorkItem, { readonly type: "subagent" }>;
   const blocks: Array<
     | { readonly type: "work"; readonly activities: ThreadFeedActivity[] }
+    | { readonly type: "subagents"; readonly items: SubagentItem[] }
     | Extract<ThreadFeedRunWorkItem, { readonly type: "message" }>
   > = [];
   for (const item of props.items) {
     const last = blocks.at(-1);
     if (item.type === "message") blocks.push(item);
-    else if (last?.type === "work") last.activities.push(item.activity);
+    else if (item.type === "subagent") {
+      if (last?.type === "subagents") last.items.push(item);
+      else blocks.push({ type: "subagents", items: [item] });
+    } else if (last?.type === "work") last.activities.push(item.activity);
     else blocks.push({ type: "work", activities: [item.activity] });
   }
 
@@ -106,6 +115,20 @@ export function ThreadRunSheet(props: {
             <View key={block.entry.id} className="mb-3 px-1">
               {props.renderMarkdown(block.entry.message.text)}
             </View>
+          ) : block.type === "subagents" ? (
+            <WorkLogBlock key={block.items[0]!.id}>
+              <WorkLogRows>
+                {block.items.map(({ id, item }) => (
+                  <ThreadRunSubagentRow
+                    key={id}
+                    environmentId={props.environmentId}
+                    item={item}
+                    live={subagents.find((agent) => agent.id === item.subagentId)}
+                    onOpen={props.onClose}
+                  />
+                ))}
+              </WorkLogRows>
+            </WorkLogBlock>
           ) : (
             <ThreadWorkLog
               key={block.activities[0]!.id}

@@ -239,6 +239,7 @@ import {
   ThreadWorkLog,
 } from "./thread-work-log";
 import { ThreadRunSheet } from "./thread-run-sheet";
+import { useLiveSubagentCount } from "./use-live-subagents";
 import {
   appendGuestPendingMessages,
   appendPendingThreadMessages,
@@ -2832,6 +2833,7 @@ function ThreadFeedPlaceholder(props: {
 // hooks can't drag this derivation into an uncached scope.
 function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
+  const liveSubagents = useLiveSubagentCount(props.detailRef);
   const presented = deriveThreadFeedPresentation(
     props.feed.filter(
       (entry) =>
@@ -2850,6 +2852,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
     {
       activity: runStatusActivity(presented),
+      liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,
       runlessWorkActive: props.runlessWorkActive ?? false,

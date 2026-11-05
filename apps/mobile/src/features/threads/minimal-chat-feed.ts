@@ -122,6 +122,8 @@ export function appendRunStatusLine(
   rows: ReadonlyArray<PendingThreadFeedEntry>,
   input: {
     readonly activity: string | null;
+    /** Subagents of this thread still working; named on the line only while it is live. */
+    readonly liveSubagents: number;
     readonly latestRun: ThreadFeedLatestRun | null;
     readonly activeWorkStartedAt: string | null;
     readonly runlessWorkActive: boolean;
@@ -145,7 +147,11 @@ export function appendRunStatusLine(
   if (run !== null || runless || sending !== null) {
     const startedAt =
       input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";
-    const label = input.activity ? `Working · ${input.activity}` : "Working";
+    const step =
+      input.liveSubagents > 0
+        ? `${input.liveSubagents} ${input.liveSubagents === 1 ? "agent" : "agents"}`
+        : input.activity;
+    const label = step ? `Working · ${step}` : "Working";
     return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
   }
 
