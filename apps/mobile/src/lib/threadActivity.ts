@@ -1122,6 +1122,11 @@ function groupThreadFeedRuns(feed: ReadonlyArray<ThreadFeedEntry>) {
 export type ThreadFeedRunWorkItem =
   | { readonly type: "activity"; readonly activity: ThreadFeedActivity }
   | {
+      readonly type: "subagent";
+      readonly id: string;
+      readonly item: Extract<OrchestrationV2TurnItem, { readonly type: "subagent" }>;
+    }
+  | {
       readonly type: "message";
       readonly entry: Extract<ThreadFeedEntry, { readonly type: "message" }>;
     };
@@ -1136,8 +1141,8 @@ function isThreadFeedCardGroup(entry: ThreadFeedActivityGroup): boolean {
 
 /**
  * What the run sheet lists for the run keyed by `anchor`, or holding the
- * activity `anchor`: its work and its assistant messages, in order. Cards the
- * feed always shows stay out.
+ * activity `anchor`: its work, its subagents and its assistant messages, in
+ * order. Cards the feed always shows stay out.
  */
 export function threadFeedRunWork(
   feed: ReadonlyArray<ThreadFeedEntry>,
@@ -1160,7 +1165,13 @@ export function threadFeedRunWork(
   if (!group) return [];
   return group.entries.flatMap((entry): ThreadFeedRunWorkItem[] => {
     if (entry.type === "message") return [{ type: "message", entry }];
-    if (entry.type !== "activity-group" || isThreadFeedCardGroup(entry)) return [];
+    if (entry.type !== "activity-group") return [];
+    if (entry.activities[0]?.projectedItem.item.type === "subagent") {
+      return entry.activities.flatMap(({ id, projectedItem: { item } }): ThreadFeedRunWorkItem[] =>
+        item.type === "subagent" ? [{ type: "subagent", id, item }] : [],
+      );
+    }
+    if (isThreadFeedCardGroup(entry)) return [];
     const settled = settleSupersededReasoning(entry, entry === feed.at(-1));
     if (settled.type !== "activity-group") return [];
     return settled.activities.flatMap((activity): ThreadFeedRunWorkItem[] =>

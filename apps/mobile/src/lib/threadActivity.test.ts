@@ -291,7 +291,11 @@ it("binds a persisted resume answer only to the next compaction in its run", () 
 
 function runWorkIds(feed: ReadonlyArray<ThreadFeedEntry>, anchor: string) {
   return threadFeedRunWork(feed, anchor).map((item) =>
-    item.type === "message" ? item.entry.id : String(item.activity.projectedItem.item.id),
+    item.type === "message"
+      ? item.entry.id
+      : item.type === "subagent"
+        ? String(item.item.id)
+        : String(item.activity.projectedItem.item.id),
   );
 }
 
@@ -955,8 +959,8 @@ describe("buildThreadFeed", () => {
           : [],
       ),
     ).toEqual(projectedResources.slice(1));
-    // Subagent cards are not run work; the sheet lists the command beside them.
-    expect(runWorkIds(feed, runId)).toEqual(["item-command", "message-assistant"]);
+    // The sheet lists subagents in order with the run's work; fork and created-thread cards stay out.
+    expect(runWorkIds(feed, runId)).toEqual(["item-subagent", "item-command", "message-assistant"]);
   });
 
   it("keeps a settled run's still-running subagents visible while its other work folds", () => {
