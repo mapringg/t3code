@@ -253,6 +253,17 @@ function compactWorkEntryText(value: string): string {
   return truncate(value.replace(/\s+/gu, " "), WORK_LOG_LABEL_MAX_LENGTH);
 }
 
+/** Whether workEntryRowLabel shows the raw command, a machine value set in monospace. */
+export function workEntryRowLabelIsCommand(
+  entry: WorkLogPresentationEntry,
+  expanded = false,
+): boolean {
+  if (entry.itemType === "fork") return false;
+  if (expanded && entry.itemType === "reasoning") return false;
+  if (resolveWorkEntryToolPresentation(entry)) return false;
+  return Boolean(entry.command?.trim());
+}
+
 export function workEntryRowLabel(entry: WorkLogPresentationEntry, expanded = false): string {
   if (entry.itemType === "fork") return entry.label;
   if (expanded && entry.itemType === "reasoning")

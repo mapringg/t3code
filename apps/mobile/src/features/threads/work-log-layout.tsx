@@ -61,9 +61,11 @@ export function WorkLogPressable({
 export function WorkLogLabel({
   children,
   tone = "default",
+  mono = false,
 }: {
   children: ReactNode;
   tone?: "default" | "danger" | "warning";
+  mono?: boolean;
 }) {
   return (
     <Text
@@ -76,6 +78,7 @@ export function WorkLogLabel({
         Platform.OS === "android" ? "text-foreground" : "text-foreground-muted",
         tone === "danger" && "font-t3-medium text-adaptive-rose-600-400",
         tone === "warning" && "font-t3-medium text-warning-foreground",
+        mono && "font-mono text-xs",
       )}
     >
       {children}

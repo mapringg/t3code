@@ -62,6 +62,7 @@ import {
   formatItemFullDetail,
   type ThreadFeedActivity,
   workEntryRowLabel,
+  workEntryRowLabelIsCommand,
 } from "../../lib/threadActivity";
 import {
   toolCallLines,
@@ -787,6 +788,11 @@ function ThreadWorkLogRow(
             </WorkLogIconSlot>
             <WorkLogLabel
               tone={isUsageLimit ? "warning" : iconIsDestructive ? "danger" : "default"}
+              mono={
+                Platform.OS === "android" &&
+                row.groupStandIn === undefined &&
+                workEntryRowLabelIsCommand(row.workEntry, expanded)
+              }
             >
               {displayText}
               {answerPreview ? (
