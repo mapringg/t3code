@@ -22,14 +22,18 @@ import { SelectableMarkdownText } from "../../native/SelectableMarkdownText";
 import { useMarkdownPreviewStyles } from "../files/FileMarkdownPreview";
 import { markdownImageSources } from "../../lib/markdownImageSources";
 import { FilePreviewGallery, useFilePreviewGallery } from "../../components/FilePreviewGallery";
-import { pullRequestImageSource } from "./pullRequestMediaSource";
+import { pullRequestImageSource, pullRequestMediaSource } from "./pullRequestMediaSource";
+import { refreshAssetUrl } from "../../state/assets";
 import {
   FilePreviewModal,
   type FilePreviewSource,
   type FilePreviewItem,
 } from "../../components/FilePreviewModal";
 import { ThreadMarkdownImageView } from "../threads/ThreadMarkdownImage";
-import type { MarkdownImageRenderer } from "../../native/SelectableMarkdownText";
+import type {
+  MarkdownImageRenderer,
+  MarkdownImageSourceResolver,
+} from "../../native/SelectableMarkdownText";
 
 const AutolinksContext = createContext<((text: string) => ReadonlyArray<ReferenceAutolink>) | null>(
   null,
@@ -143,6 +147,15 @@ function PullRequestMarkdownContent(props: {
   const renderImage: MarkdownImageRenderer = (image) => (
     <MarkdownImage href={image.href} alt={image.alt} onPreview={setPreview} />
   );
+  // Images Enriched draws itself (inside lists, quotes) fetch through the server,
+  // which can read private hosts.
+  const resolveImageSource: MarkdownImageSourceResolver = async (image) => {
+    const source = pullRequestMediaSource(image.href, mediaContext);
+    if (!source.resource || !source.environmentId) return null;
+    const uri = await refreshAssetUrl(source.environmentId, source.resource);
+    if (uri === null) throw new Error("Pull request image is unavailable");
+    return { uri };
+  };
   const styles = useMarkdownPreviewStyles();
   return (
     <FilePreviewGallery value={gallery}>
@@ -152,6 +165,7 @@ function PullRequestMarkdownContent(props: {
         textStyle={styles.nativeTextStyle}
         onLinkPress={openLink}
         renderImage={renderImage}
+        resolveImageSource={resolveImageSource}
         onImagePress={(href) => setPreview(pullRequestImageSource(href, mediaContext))}
       />
       <FilePreviewModal source={preview} onRequestClose={() => setPreview(null)} />
