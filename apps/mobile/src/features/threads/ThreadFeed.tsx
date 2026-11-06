@@ -3976,7 +3976,8 @@ export const ThreadFeed = memo(function ThreadFeed({
               }
               // Native layout transitions retain stale row positions during sync, even at duration zero.
               onItemSizeChanged={handleItemSizeChanged}
-              drawDistance={500}
+              // Measured on a 120Hz phone: 100dp cuts the worst open frame by a third; flings stay clean.
+              drawDistance={Platform.OS === "android" ? 100 : 500}
               keyboardShouldPersistTaps="always"
               keyboardDismissMode="none"
               keyboardLiftBehavior="whenAtEnd"
