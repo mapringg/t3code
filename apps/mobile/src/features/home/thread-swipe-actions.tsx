@@ -78,6 +78,10 @@ interface ThreadSwipeSecondaryAction extends ThreadSwipeAction {
   readonly tone: "primary" | "secondary" | "danger";
 }
 
+// Android's list slides the rows below into the gap, so the row collapses in one step instead of
+// animating a height those rows would chase frame by frame.
+const DISMISS_COLLAPSE_MS = Platform.OS === "android" ? 0 : 180;
+
 function swipeActionsWidth(hasSecondaryAction: boolean) {
   return hasSecondaryAction ? THREAD_SWIPE_ACTIONS_WIDTH : ACTION_ITEM_WIDTH;
 }
@@ -337,7 +341,7 @@ export function ThreadSwipeable(props: ThreadSwipeableProps) {
         withTiming(Math.min(translation.value, -rowWidth.value), timing, (finished) => {
           if (!finished) return;
           collapse.set(
-            withTiming(1, { ...timing, duration: 180 }, (collapsed) => {
+            withTiming(1, { ...timing, duration: DISMISS_COLLAPSE_MS }, (collapsed) => {
               if (collapsed) runOnJS(finishDismiss)(id);
             }),
           );
