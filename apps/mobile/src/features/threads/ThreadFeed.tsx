@@ -1476,7 +1476,12 @@ function FeedContentSheet(props: {
 
 function useMarkdownStyles(): MarkdownStyleSets {
   const { appearance } = useAppearancePreferences();
-  const nativeMarkdownTypography = resolveNativeMarkdownTypography(appearance.baseFontSize);
+  const baseTypography = resolveNativeMarkdownTypography(appearance.baseFontSize);
+  // Android reads messages at Gemini's looser rhythm, about 1.6 lines per font size.
+  const nativeMarkdownTypography =
+    Platform.OS === "android"
+      ? { ...baseTypography, lineHeight: Math.round(baseTypography.fontSize * 1.6) }
+      : baseTypography;
   const theme = useUniwindTheme();
   const markdownBodyColor = theme["--color-md-body"];
   const markdownStrongColor = theme["--color-md-strong"];
@@ -2210,7 +2215,7 @@ function renderFeedEntry(
           ) : null}
           {hasBubble ? (
             <View
-              className="min-w-0 rounded-[20px]"
+              className="min-w-0 rounded-[20px] android:rounded-[24px]"
               style={{
                 backgroundColor: userBubbleColor,
                 maxWidth: props.duoColumns ? "85%" : props.userBubbleMaxWidth,
@@ -2994,7 +2999,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     props.threadId,
     fileShareSourceIdentifier,
   );
-  const horizontalPadding = props.layoutVariant === "split" ? 20 : 16;
+  const horizontalPadding = props.layoutVariant === "split" || Platform.OS === "android" ? 20 : 16;
   const contentLeftInset = props.contentSideInsets?.left ?? 0;
   const contentRightInset = props.contentSideInsets?.right ?? 0;
   const usableViewportWidth = Math.max(0, viewportWidth - contentLeftInset - contentRightInset);
