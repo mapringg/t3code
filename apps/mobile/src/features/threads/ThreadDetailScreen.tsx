@@ -1325,10 +1325,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               pendingHandoff={props.pendingHandoff}
               worktreeSetup={props.worktreeSetup}
               setupWorkingStartedAt={props.setupWorkingStartedAt}
-              openRequests={{
-                approval: props.activePendingApproval?.requestId ?? null,
-                userInput: props.activePendingUserInput?.requestId ?? null,
-              }}
+              openApprovalId={props.activePendingApproval?.requestId ?? null}
+              openUserInputId={props.activePendingUserInput?.requestId ?? null}
               queuedMessages={props.queuedMessages}
               dispatchingMessageId={props.dispatchingMessageId}
               // A native subagent has no composer to edit a pending message in;

@@ -360,7 +360,9 @@ export interface ThreadFeedHandle {
 export interface ThreadFeedProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   /** The requests the cards above the composer show; their feed rows step aside. */
-  readonly openRequests?: OpenRequests;
+  /** The approval and question the cards above the composer show, by request id. */
+  readonly openApprovalId?: string | null;
+  readonly openUserInputId?: string | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   readonly dispatchingMessageId: MessageId | null;
@@ -2872,15 +2874,19 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
   if (Platform.OS !== "android") {
     return appendPendingThreadMessages(presented, props.feed, props.queuedMessages);
   }
+  const openRequests: OpenRequests = {
+    approval: props.openApprovalId ?? null,
+    userInput: props.openUserInputId ?? null,
+  };
   return appendRunStatusLine(
     appendPendingThreadMessages(
-      minimalChatFeed(conversation, props.openRequests),
+      minimalChatFeed(conversation, openRequests),
       props.feed,
       props.queuedMessages,
     ),
     {
       activity: runStatusActivity(presented),
-      waiting: runWaitingLabel(props.openRequests ?? { approval: null, userInput: null }),
+      waiting: runWaitingLabel(openRequests),
       liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,
