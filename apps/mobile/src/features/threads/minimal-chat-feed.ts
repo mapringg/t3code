@@ -62,7 +62,6 @@ function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
 
 /**
  * A run shows only its latest reply, live or settled, so ending a run never folds text away.
- * A settled run keeps one line above it that opens the run sheet with its earlier replies and work.
  */
 export function minimalChatFeed(
   feed: ReadonlyArray<ThreadFeedEntry>,
@@ -88,7 +87,6 @@ export function minimalChatFeed(
         return [entry];
       case "html-render":
       case "mcp-app":
-      case "run-fold":
         return [entry];
       case "activity-group": {
         const activities = entry.activities.filter((activity) => keepActivity(activity, open));
@@ -99,31 +97,6 @@ export function minimalChatFeed(
         return [];
     }
   });
-}
-
-type RunFoldRow = Extract<ThreadFeedEntry, { readonly type: "run-fold" }>;
-
-/**
- * The newest settled reply's footer carries its run line, taking the status line's slot, so
- * settling a run adds nothing above the reply. Older replies keep the line above them.
- */
-export function takeFooterRunFold<Row extends ThreadFeedEntry>(
-  rows: ReadonlyArray<Row>,
-  footerAssistantMessageId: MessageId | null,
-): { readonly rows: ReadonlyArray<Row>; readonly fold: RunFoldRow | null } {
-  if (footerAssistantMessageId === null) return { rows, fold: null };
-  let runId: RunId | null = null;
-  for (const row of rows) {
-    if (row.type === "message" && row.message.id === footerAssistantMessageId) {
-      runId = row.message.runId;
-    }
-  }
-  const fold = rows.find(
-    (row): row is Row & RunFoldRow => row.type === "run-fold" && row.runId === runId,
-  );
-  return fold === undefined
-    ? { rows, fold: null }
-    : { rows: rows.filter((row) => row !== fold), fold };
 }
 
 /** The step the presented feed's live work row names, if the provider reported one. */
@@ -197,7 +170,7 @@ export function appendRunStatusLine(
 ): ReadonlyArray<PendingThreadFeedEntry> {
   if (input.setupStep !== null) {
     const { label, startedAt } = input.setupStep;
-    return [...rows, runStatusRow(startedAt, null, `Working · ${label}`, undefined)];
+    return [...rows, runStatusRow(startedAt, null, label, undefined)];
   }
   const last = rows.at(-1);
   const sending =
@@ -213,12 +186,13 @@ export function appendRunStatusLine(
       input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";
     const step =
       input.liveSubagents > 0
-        ? `${input.liveSubagents} ${input.liveSubagents === 1 ? "agent" : "agents"}`
+        ? `${input.liveSubagents} ${input.liveSubagents === 1 ? "agent" : "agents"} working`
         : input.activity;
     if (input.waiting) {
       return [...rows, runStatusRow(startedAt, run?.runId ?? null, input.waiting, undefined, true)];
     }
-    const label = step ? `Working · ${step}` : "Working";
+    // The step alone, as Gemini names what it is doing; no step reads as plain work.
+    const label = step ?? "Working…";
     return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
   }
 

@@ -42,7 +42,7 @@ export function ThreadHeader(
         onPress: props.onReturnToThread,
       });
     }
-    if (props.hasThreadCwd) {
+    if (Platform.OS !== "android" && props.hasThreadCwd) {
       const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;
       actions.push({
         accessibilityLabel: filesVisible ? "Close files" : "Open files",
@@ -60,7 +60,7 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (Platform.OS !== "android" || props.hasThreadCwd) {
+    if (Platform.OS !== "android") {
       actions.push({
         accessibilityLabel: "Open git controls",
         icon: "point.topleft.down.curvedto.point.bottomright.up",
@@ -68,7 +68,7 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (onMergeBack) {
+    if (Platform.OS !== "android" && onMergeBack) {
       actions.push({
         accessibilityLabel: "Merge back to source",
         icon: PullRequestGlyph.merged,
@@ -76,15 +76,8 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (Platform.OS === "android" && props.onReconnect) {
-      actions.push({
-        accessibilityLabel: "Reconnect environment",
-        icon: "arrow.clockwise",
-        onPress: props.onReconnect,
-        overflowOnly: true,
-      });
-    }
-    if (lifecycleAction) {
+    // Android's thread header is title and place only while the chat core settles.
+    if (Platform.OS !== "android" && lifecycleAction) {
       actions.push({
         accessibilityLabel: lifecycleAction.label,
         icon: "clock",
@@ -107,14 +100,16 @@ export function ThreadHeader(
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
     lifecycleAction,
-    props.onReconnect,
   ]);
 
   return (
     <>
       <AppBar
         title={props.title}
-        subtitle={[connectionStatusLabel, props.subtitle, lifecycle?.label]
+        subtitle={(Platform.OS === "android"
+          ? [props.subtitle]
+          : [connectionStatusLabel, props.subtitle, lifecycle?.label]
+        )
           .filter(Boolean)
           .join(" · ")}
         sidebar={native.sidebar}

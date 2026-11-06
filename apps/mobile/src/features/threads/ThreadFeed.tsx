@@ -20,7 +20,6 @@ import {
   minimalChatFeed,
   runWaitingLabel,
   type OpenRequests,
-  takeFooterRunFold,
   runStatusActivity,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
@@ -35,7 +34,6 @@ import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import {
   WorktreeWorkingHeader,
   WorktreeSetupCard,
-  WorktreeSetupDetailsSheet,
   type WorktreeSetupCardProps,
 } from "./worktree-setup-card";
 import { worktreeSetupCardVisible } from "./worktree-setup-state";
@@ -187,7 +185,6 @@ import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
 import type { MenuAction } from "@react-native-menu/menu";
 import { MessageActionsMenu } from "./MessageActionsMenu";
-import { useScreenReaderEnabled } from "../../lib/useScreenReaderEnabled";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
@@ -1810,8 +1807,6 @@ function renderFeedEntry(
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
     readonly onOpenRun: (anchor: string, title: string) => void;
-    /** Opens worktree setup progress, which the status line reports before the first turn. */
-    readonly onOpenSetup: (() => void) | null;
     readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
     readonly onPressPreview: (source: FilePreviewSource) => void;
     readonly onPlaybackStart: () => void;
@@ -1828,9 +1823,9 @@ function renderFeedEntry(
     };
     readonly footerUserMessageId: string | null;
     readonly footerAssistantMessageId: string | null;
-    /** Android: the newest reply's run line, which its footer carries instead of a row above it. */
-    readonly footerRunFold: Extract<ThreadFeedEntry, { type: "run-fold" }> | null;
     readonly messageActionsInMenu: boolean;
+    /** Android: no copy, time or fork rows under messages; pending and edit states still show. */
+    readonly messageMetaHidden: boolean;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
     readonly markdownStyles: MarkdownStyleSets;
@@ -1892,18 +1887,7 @@ function renderFeedEntry(
   }
 
   if (entry.type === "thinking" && entry.label !== undefined) {
-    const { runId, label } = entry;
-    return (
-      <RunStatusLine
-        label={label}
-        runId={runId}
-        startedAt={entry.createdAt}
-        endedAt={entry.endedAt}
-        untimed={entry.untimed === true}
-        height={props.replyActionSize.button}
-        onOpen={runId === null ? props.onOpenSetup : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
-      />
-    );
+    return <RunStatusLine label={entry.label} height={props.replyActionSize.button} />;
   }
 
   if (entry.type === "thinking") {
@@ -2145,10 +2129,11 @@ function renderFeedEntry(
         !entry.acknowledged &&
         !entry.pendingMessage.creation &&
         entry.pendingMessage.messageId !== props.dispatchingMessageId;
-      const showTimestamp = !metaInMenu || pendingUnacknowledged;
+      const metaShown = !metaInMenu && !props.messageMetaHidden;
+      const showTimestamp = metaShown || pendingUnacknowledged;
       const showFooter =
         bubbleBodyVisible &&
-        (!metaInMenu || intentBadge !== null || pendingUnacknowledged || canEditPending);
+        (metaShown || intentBadge !== null || pendingUnacknowledged || canEditPending);
       const userMessageContent = (
         <UserMessageContent
           text={renderedText}
@@ -2460,7 +2445,10 @@ function renderFeedEntry(
       iconSubtleColor={iconSubtleColor}
       themeAppearance={props.themeAppearance}
       onCopyRow={props.onCopyWorkRow}
-      onPressRow={(row) => props.onOpenRun(row.id, RUN_SHEET_TITLE)}
+      // Android's feed rows are static; there is no run sheet to open.
+      onPressRow={
+        Platform.OS === "android" ? undefined : (row) => props.onOpenRun(row.id, RUN_SHEET_TITLE)
+      }
       renderImage={props.renderViewedImage}
       renderReasoning={props.renderReasoning}
       onPressPreview={props.onPressPreview}
@@ -2563,7 +2551,7 @@ function AssistantMessageRow({
           onOpenTurnDiff={props.onOpenTurnDiff}
         />
       ) : null}
-      {showAssistantMeta && !replyActionsInMenu ? (
+      {showAssistantMeta && !replyActionsInMenu && !props.messageMetaHidden ? (
         <View
           className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
           style={
@@ -2597,64 +2585,9 @@ function AssistantMessageRow({
           >
             {timestampLabel}
           </Text>
-          {props.footerRunFold !== null && message.runId === props.footerRunFold.runId ? (
-            <FooterRunLink
-              fold={props.footerRunFold}
-              height={props.replyActionSize.button}
-              iconColor={iconSubtleColor}
-              onOpenRun={props.onOpenRun}
-              onOpenTurnDiff={props.onOpenTurnDiff}
-            />
-          ) : Platform.OS === "android" && message.checkpointSummary ? (
-            <View className="ml-auto">
-              <TurnDiffStat
-                checkpoint={message.checkpointSummary}
-                onOpenTurnDiff={props.onOpenTurnDiff}
-              />
-            </View>
-          ) : null}
         </View>
       ) : null}
     </Animated.View>
-  );
-}
-
-/** The newest reply's way into its run: the run line and diff stat, at the footer's end. */
-function FooterRunLink(props: {
-  readonly fold: Extract<ThreadFeedEntry, { type: "run-fold" }>;
-  readonly height: number;
-  readonly iconColor: ColorValue;
-  readonly onOpenRun: (anchor: string, title: string) => void;
-  readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
-}) {
-  const { fold } = props;
-  return (
-    <View className="ml-auto min-w-0 shrink flex-row items-center">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityHint="Opens this run's work"
-        onPress={() => {
-          void Haptics.selectionAsync();
-          props.onOpenRun(fold.runId, fold.label);
-        }}
-        android_ripple={{ borderless: false, foreground: true }}
-        // 28dp tall; the slop reaches the reply's gap above and padding below for a 44dp target.
-        hitSlop={{ top: 12, bottom: 4, left: 4, right: 4 }}
-        className="min-w-0 shrink flex-row items-center gap-1 px-2"
-        style={{ height: props.height }}
-      >
-        <Text
-          numberOfLines={1}
-          className="shrink font-t3-medium text-xs tabular-nums text-foreground-secondary"
-        >
-          {fold.label}
-        </Text>
-        <SymbolView name="chevron.right" size={12} tintColor={props.iconColor} type="monochrome" />
-      </Pressable>
-      {fold.checkpointSummary ? (
-        <TurnDiffStat checkpoint={fold.checkpointSummary} onOpenTurnDiff={props.onOpenTurnDiff} />
-      ) : null}
-    </View>
   );
 }
 
@@ -3011,7 +2944,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     readonly anchor: string;
     readonly title: string;
   } | null>(null);
-  const [setupSheetThreadId, setSetupSheetThreadId] = useState<ThreadId | null>(null);
   const markdownLinkRequest = useRef<AbortController | null>(null);
   const onInlinePlaybackStart = () => {
     markdownLinkRequest.current?.abort();
@@ -3475,9 +3407,9 @@ export const ThreadFeed = memo(function ThreadFeed({
     () => threadFeedCompactionLabels(props.feed),
     [props.feed],
   );
-  // The selection-toolbar menu is out of reach for screen readers, so they keep the footers.
-  const screenReaderEnabled = useScreenReaderEnabled();
-  const messageActionsInMenu = Platform.OS === "android" && !screenReaderEnabled;
+  // Android keeps the feed to message text: no per-message footers or action menus.
+  const messageActionsInMenu = false;
+  const messageMetaHidden = Platform.OS === "android";
   const reportHeaderMaterialVisibility = (visible: boolean) => {
     if (headerMaterialVisibleRef.current === visible) {
       return;
@@ -3567,14 +3499,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   const threadRows = useThreadFeedPresentation(props);
   // Guest drafts are never replies, so they cannot move either footer.
   const footerMessageIds = resolveFooterMessageIds(threadRows, unsettledTurnId);
-  const { rows: footedRows, fold: footerRunFold } =
-    // Only a reply that shows its footer can carry the run line; otherwise it keeps its row.
-    Platform.OS === "android" &&
-    footerMessageIds.assistant !== null &&
-    terminalAssistantMessageIds.has(footerMessageIds.assistant)
-      ? takeFooterRunFold(threadRows, footerMessageIds.assistant)
-      : { rows: threadRows, fold: null };
-  const presentedFeed = appendGuestPendingMessages(footedRows, guestShare);
+  const presentedFeed = appendGuestPendingMessages(threadRows, guestShare);
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
@@ -3585,8 +3510,8 @@ export const ThreadFeed = memo(function ThreadFeed({
     unsettledTurnId,
     footerUserMessageId: footerMessageIds.user,
     footerAssistantMessageId: footerMessageIds.assistant,
-    footerRunFold,
     messageActionsInMenu,
+    messageMetaHidden,
     copiedRowId,
     workRowSizing,
     iconSubtleColor,
@@ -3650,12 +3575,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     );
     if (index !== -1) return index;
     const foldRunId = messageFoldRunId(props.feed, jumpToMessageId);
-    // The newest settled run's line lives in its reply's footer, so that reply is the target.
-    if (footerRunFold !== null && footerRunFold.runId === foldRunId) {
-      return presentedFeed.findIndex(
-        (entry) => entry.type === "message" && entry.message.id === footerMessageIds.assistant,
-      );
-    }
     return presentedFeed.findIndex(
       (entry) => entry.type === "run-fold" && entry.runId === foldRunId,
     );
@@ -3774,10 +3693,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const onOpenRun = (anchor: string, title: string) => setRunSheet({ anchor, title });
-  const onOpenSetup =
-    worktreeSetupRunStep(props.worktreeSetup ?? null) === null
-      ? null
-      : () => setSetupSheetThreadId(props.threadId);
   // Android reports running setup on the status line; the card stays for outcomes to act on.
   const setupCard =
     props.worktreeSetup &&
@@ -3841,14 +3756,13 @@ export const ThreadFeed = memo(function ThreadFeed({
     terminalAssistantMessageIds,
     footerUserMessageId: footerMessageIds.user,
     footerAssistantMessageId: footerMessageIds.assistant,
-    footerRunFold,
     messageActionsInMenu,
+    messageMetaHidden,
     unsettledTurnId,
     compactionLabelsByEntryId,
     failedRunIds,
     onCopyWorkRow,
     onOpenRun,
-    onOpenSetup,
     onOpenTurnDiff,
     onPressPreview,
     onPlaybackStart: onInlinePlaybackStart,
@@ -4038,7 +3952,7 @@ export const ThreadFeed = memo(function ThreadFeed({
                 </>
               }
               ListFooterComponent={
-                props.pendingHandoff ? (
+                props.pendingHandoff && Platform.OS !== "android" ? (
                   <ThreadHandoffDivider
                     environmentId={props.environmentId}
                     endpoints={props.pendingHandoff}
@@ -4103,12 +4017,6 @@ export const ThreadFeed = memo(function ThreadFeed({
               onClose={() => setRunSheet(null)}
             />
           </InlineFoldsContext>
-        ) : null}
-        {setupSheetThreadId === props.threadId && props.worktreeSetup ? (
-          <WorktreeSetupDetailsSheet
-            {...props.worktreeSetup}
-            onClose={() => setSetupSheetThreadId(null)}
-          />
         ) : null}
         <VideoPreviewModal source={expandedVideo} onRequestClose={closeVideoPreview} />
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />

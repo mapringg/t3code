@@ -339,8 +339,9 @@ function SendActionButton(props: {
         (action): action is ActiveTurnComposerAction => action !== null,
       )
     : [];
+  // Android sends with the default follow-up; Queue and Steer are cut with the long press.
   const send =
-    actions.length === 0 || props.disabled ? (
+    actions.length === 0 || props.disabled || Platform.OS === "android" ? (
       button
     ) : (
       <Menu

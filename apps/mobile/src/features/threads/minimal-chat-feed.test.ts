@@ -18,7 +18,6 @@ import {
   minimalChatFeed,
   runStatusActivity,
   runWaitingLabel,
-  takeFooterRunFold,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
 import { resolveFooterMessageIds } from "./pending-thread-feed";
@@ -67,7 +66,7 @@ const command = {
   exitCode: 0,
 };
 
-it("shows each run's latest reply, and one line into a settled run's work, without thinking", () => {
+it("shows only each run's latest reply, live and settled, without run details or thinking", () => {
   const items: OrchestrationV2TurnItem[] = [
     {
       ...base("user"),
@@ -96,7 +95,7 @@ it("shows each run's latest reply, and one line into a settled run's work, witho
     },
   ];
   const settled = minimalChatFeed(deriveThreadFeedPresentation(feed(items), null));
-  expect(settled.map((entry) => entry.id)).toEqual(["user", "run-fold:run", "final"]);
+  expect(settled.map((entry) => entry.id)).toEqual(["user", "final"]);
   const live = minimalChatFeed(
     deriveThreadFeedPresentation(
       feed(items),
@@ -331,18 +330,15 @@ it("hands the last slot between the status line and the reply footer as the run 
       latestRun,
       activeWorkStartedAt: workStartedAt,
     });
-    const footer = resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant;
-    const shown = takeFooterRunFold(rows, footer);
     return {
-      above: shown.rows
+      above: rows
         .slice(
           0,
-          shown.rows.findIndex((row) => row.id === "reply"),
+          rows.findIndex((row) => row.id === "reply"),
         )
         .map((row) => row.id),
-      last: shown.rows.at(-1),
-      footer,
-      footerRunLine: shown.fold?.id ?? null,
+      last: rows.at(-1),
+      footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
     };
   };
   // Nothing above the final reply changes when the run ends: earlier text and the previous
@@ -350,15 +346,10 @@ it("hands the last slot between the status line and the reply footer as the run 
   const above = ["prev-user", "prev-reply", "user"];
   expect(slot(running)).toMatchObject({
     above,
-    last: { type: "thinking", label: "Working", createdAt: at, runId },
+    last: { type: "thinking", label: "Working…", createdAt: at, runId },
     footer: null,
   });
-  expect(slot(completed)).toMatchObject({
-    above,
-    last: { id: "reply" },
-    footer: "reply",
-    footerRunLine: "run-fold:run",
-  });
+  expect(slot(completed)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
   expect(slot(interrupted)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
   expect(slot(running).last).toBe(slot(running).last);
 });
@@ -434,19 +425,19 @@ it("shows the status line from send, below pending messages, until the run settl
   expect(last({})).toBe(pending);
   expect(last({ dispatchingMessageId: pendingMessage.messageId })).toMatchObject({
     type: "thinking",
-    label: "Working · Running pwd",
+    label: "Running pwd",
     createdAt: sentAt,
   });
   // A provider-finished run still captures its checkpoint before the reply's footer appears.
   expect(last({ latestRun: { ...running, status: "waiting" } })).toMatchObject({
-    label: "Working · Running pwd",
+    label: "Running pwd",
     createdAt: at,
   });
   expect(last({ latestRun: running, liveSubagents: 1 })).toMatchObject({
-    label: "Working · 1 agent",
+    label: "1 agent working",
   });
   expect(last({ latestRun: running, liveSubagents: 2 })).toMatchObject({
-    label: "Working · 2 agents",
+    label: "2 agents working",
   });
   expect(last({ latestRun: completed, liveSubagents: 2 })).toBe(pending);
 });
@@ -504,7 +495,7 @@ it("names the worktree setup step on the status line until the first turn starts
   expect(line).toMatchObject({
     type: "thinking",
     id: "run-status-line",
-    label: "Working · Setting up worktree",
+    label: "Setting up worktree",
     createdAt: setupAt,
     runId: null,
   });
