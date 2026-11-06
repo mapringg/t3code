@@ -162,6 +162,7 @@ export function runEndLabel(status: string): string | undefined {
 function rowRunId(row: PendingThreadFeedEntry): RunId | null {
   if (row.type === "message") return row.message.runId ?? null;
   if (row.type === "activity-group") return row.activities.at(-1)?.projectedItem.item.runId ?? null;
+  if (row.type === "html-render" || row.type === "mcp-app") return row.runId ?? null;
   return null;
 }
 
@@ -241,16 +242,7 @@ export function appendRunStatusLine(
     readonly endedRuns?: ReadonlyMap<RunId, string>;
   },
 ): ReadonlyArray<PendingThreadFeedEntry> {
-  const rows = withOlderRunEnds(
-    feedRows,
-    input.endedRuns ?? NO_ENDED_RUNS,
-    input.latestRun?.runId ?? null,
-  );
-  if (input.setupStep !== null) {
-    const { label, startedAt } = input.setupStep;
-    return [...rows, runStatusRow(startedAt, null, label, undefined)];
-  }
-  const last = rows.at(-1);
+  const last = feedRows.at(-1);
   const sending =
     last?.type === "message" &&
     last.pendingMessage !== undefined &&
@@ -259,6 +251,17 @@ export function appendRunStatusLine(
       : null;
   const run = threadFeedRunIsUnsettled(input.latestRun) ? input.latestRun : null;
   const runless = input.runlessWorkActive && input.activeWorkStartedAt !== null;
+  // Once a new turn is on its way, the latest run is an older turn: it keeps its end line.
+  const newTurn = input.setupStep !== null || sending !== null || runless;
+  const rows = withOlderRunEnds(
+    feedRows,
+    input.endedRuns ?? NO_ENDED_RUNS,
+    newTurn && run === null ? null : (input.latestRun?.runId ?? null),
+  );
+  if (input.setupStep !== null) {
+    const { label, startedAt } = input.setupStep;
+    return [...rows, runStatusRow(startedAt, null, label, undefined)];
+  }
   if (run !== null || runless || sending !== null) {
     const startedAt =
       input.activeWorkStartedAt ?? run?.startedAt ?? sending?.createdAt ?? last?.createdAt ?? "";

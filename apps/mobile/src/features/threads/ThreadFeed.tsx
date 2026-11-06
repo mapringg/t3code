@@ -2938,6 +2938,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   const endFollowEnabledRef = useRef(true);
   const anchorGlidingRef = useRef(false);
+  const anchoredRef = useRef(false);
   // Only user scrolls from drag through momentum break follow; ignore MVCP and programmatic adjustments.
   const userScrollSessionRef = useRef(false);
   const setEndFollow = (enabled: boolean) => {
@@ -3497,6 +3498,21 @@ export const ThreadFeed = memo(function ThreadFeed({
     finishUserScroll();
   };
 
+  // An anchored turn does not follow its reply, so once the reply grows past the screen the
+  // reader is no longer at the end and gets the way back. The send's own glide is exempt.
+  const leaveEndIfAnchoredReplyOverflows = () => {
+    if (
+      Platform.OS === "android" &&
+      anchoredRef.current &&
+      endFollowEnabledRef.current &&
+      !userScrollSessionRef.current &&
+      !anchorGlidingRef.current &&
+      listRef.current?.getState().isAtEnd === false
+    ) {
+      setEndFollow(false);
+    }
+  };
+
   const feedThreadKey = scopedThreadKey(props.environmentId, props.threadId);
   // ThreadDetailScreen remounts the feed per thread, so only a send resets following.
   useImperativeHandle(ref, () => ({
@@ -3504,6 +3520,8 @@ export const ThreadFeed = memo(function ThreadFeed({
       anchorGlidingRef.current = true;
       setTimeout(() => {
         anchorGlidingRef.current = false;
+        // A reply that outgrew the screen during the glide reported no size change since.
+        leaveEndIfAnchoredReplyOverflows();
       }, ANCHOR_GLIDE_MS);
       clearUserScrollSettle();
       userScrollSessionRef.current = false;
@@ -3713,19 +3731,13 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   const handleItemSizeChanged = (info: { readonly itemKey: string; readonly size: number }) => {
     rememberedRowSizes.set(info.itemKey, info.size);
-    // An anchored turn does not follow its reply, so once the reply grows past the screen the
-    // reader is no longer at the end and gets the way back. The send's own glide is exempt.
-    if (
-      Platform.OS === "android" &&
-      anchoredEndSpace !== undefined &&
-      endFollowEnabledRef.current &&
-      !userScrollSessionRef.current &&
-      !anchorGlidingRef.current &&
-      listRef.current?.getState().isAtEnd === false
-    ) {
-      setEndFollow(false);
-    }
+    leaveEndIfAnchoredReplyOverflows();
   };
+  const anchored = anchoredEndSpace !== undefined;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mirrors the committed anchor for the glide timer, which outlives the render that started it
+  useEffect(() => {
+    anchoredRef.current = anchored;
+  }, [anchored]);
 
   const onCopyWorkRow = (rowId: string, value: string) => {
     copyTextWithHaptic(value, {
@@ -3757,13 +3769,16 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   // The status line's minimum height plus its bottom margin; it fits whenever work rows do.
   const runStatusLineSize = replyActionSize.button + 4;
+  // An older turn's end line keeps the 20dp turn gap below it.
+  const statusRowSize = (entry: ThreadFeedRow) =>
+    entry.id === "run-status-line" ? runStatusLineSize : runStatusLineSize + 16;
   // Without this, every row above the viewport is assumed to be
   // estimatedItemSize tall, and scrolling up through unmeasured content
   // corrects each row's height as it mounts — the feed visibly jumps.
   const getFixedItemSize = (entry: ThreadFeedRow) => {
     if (entry.type === "guest-pending") return undefined;
     if (entry.type === "thinking" && entry.label !== undefined) {
-      return workRowSizing.fixedRowHeight === undefined ? undefined : runStatusLineSize;
+      return workRowSizing.fixedRowHeight === undefined ? undefined : statusRowSize(entry);
     }
     if (isAndroidChatNotice(entry)) return undefined;
     if (entry.type === "html-render") {
@@ -3950,7 +3965,7 @@ export const ThreadFeed = memo(function ThreadFeed({
               getEstimatedItemSize={(entry) =>
                 rememberedRowSizes.get(entry.id) ??
                 (entry.type === "thinking" && entry.label !== undefined
-                  ? runStatusLineSize
+                  ? statusRowSize(entry)
                   : undefined)
               }
               // Native layout transitions retain stale row positions during sync, even at duration zero.

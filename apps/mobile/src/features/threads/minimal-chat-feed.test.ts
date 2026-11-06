@@ -486,6 +486,15 @@ it("shows the status line from send, below pending messages, until the run settl
     label: "2 agents working",
   });
   expect(last({ latestRun: completed, liveSubagents: 2 })).toMatchObject({ label: "" });
+  // Sending after a stopped turn keeps that turn's end line while the new one starts.
+  expect(
+    appendRunStatusLine([...rows, { ...pending, acknowledged: true }], {
+      ...idle,
+      activity: null,
+      latestRun: { ...completed, status: "interrupted" },
+      endedRuns: new Map([[runId, "Stopped"]]),
+    }).map((row) => row.id),
+  ).toEqual(["user", "run-end:run", "sent", "run-status-line"]);
 });
 
 it("names the worktree setup step on the status line until the first turn starts", () => {

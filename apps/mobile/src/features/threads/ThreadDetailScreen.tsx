@@ -1549,7 +1549,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     ) : null}
                     {props.activePendingApproval || props.activePendingUserInput ? (
                       <Animated.View
-                        className="shrink-0 gap-3 px-4 pb-3"
+                        // The flat cards sit over the feed; the canvas keeps replies from showing through.
+                        className="shrink-0 gap-3 px-4 pb-3 android:bg-thread-canvas"
                         style={
                           activeUserInputRequestId !== null
                             ? { paddingBottom: composerBottomInset }

@@ -444,7 +444,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const composerPanel = materialTheme["--color-composer-panel"];
-  const screenColor = materialTheme["--color-screen"];
+  // Android's chat canvas, which Material You sets apart from the screen colour.
+  const screenColor = materialTheme["--color-thread-canvas"];
   const navigation = useNavigation();
   const foregroundColor = useUniwindTheme()["--color-foreground"];
   const bodyText = useScaledTextRole("body");
