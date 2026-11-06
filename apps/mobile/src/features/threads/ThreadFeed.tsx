@@ -2640,8 +2640,8 @@ function FooterRunLink(props: {
           props.onOpenRun(fold.runId, fold.label);
         }}
         android_ripple={{ borderless: false, foreground: true }}
-        // 28dp tall; the slop reaches the reply's gap above and padding below for a ~44dp target.
-        hitSlop={{ top: 10, bottom: 4, left: 4, right: 4 }}
+        // 28dp tall; the slop reaches the reply's gap above and padding below for a 44dp target.
+        hitSlop={{ top: 12, bottom: 4, left: 4, right: 4 }}
         className="min-w-0 shrink flex-row items-center gap-1 px-2"
         style={{ height: props.height }}
       >
