@@ -132,7 +132,9 @@ export function ThreadHeader(
         onBack={layout.usesSplitView ? undefined : goBack}
         actions={androidHeaderActions}
         hideBottomBorder
-        compact={composerKeyboardActive}
+        // Android's header holds its height, as Gemini's does: collapsing it would re-lay out the
+        // header and the feed mid-way through the keyboard's animation.
+        compact={Platform.OS !== "android" && composerKeyboardActive}
       />
       {native.fallback}
     </>
