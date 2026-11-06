@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import * as ThreadUndo from "@t3tools/client-runtime/state/thread-undo";
@@ -8,7 +9,7 @@ import * as Cause from "effect/Cause";
 import * as Haptics from "expo-haptics";
 import { useRef } from "react";
 
-import { withThreadDismissal } from "./thread-dismissal";
+import { withoutThreadDismissal, withThreadDismissal } from "./thread-dismissal";
 import * as Dialog from "../../components/ui/Dialog";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { refreshArchivedThreadsForEnvironment } from "../archive/useArchivedThreadSnapshots";
@@ -33,6 +34,8 @@ import {
 import { getThreadListV2OrderedSection } from "../threads/threadListV2";
 import { threadCanArchive } from "./threadArchive";
 import { resolveThreadTitleRename } from "../threads/thread-title-rename";
+// Android moves a thread in place when it stays on screen; leaving actions still swipe it away.
+const withThreadMove = Platform.OS === "android" ? withoutThreadDismissal : withThreadDismissal;
 
 function environmentConfigLoaded(environmentId: EnvironmentThreadShell["environmentId"]) {
   return appAtomRegistry.get(environmentServerConfigsAtom).has(environmentId);
@@ -129,7 +132,7 @@ function useThreadActionExecutor(
         for (const kind of ["settle", "snooze", "pin"]) ThreadUndo.invalidate(kind, key);
       }
       onStarted?.();
-      const result = await withThreadDismissal(
+      const result = await (action === "unsettle" ? withThreadMove : withThreadDismissal)(
         key,
         async () =>
           action === "unsettle"
@@ -366,7 +369,7 @@ export function useThreadListActions(): {
 
       selectionHaptic();
       ThreadUndo.invalidate("snooze", key);
-      const result = await withThreadDismissal(
+      const result = await withThreadMove(
         key,
         () =>
           unsnoozeMutation({
@@ -413,7 +416,7 @@ export function useThreadListActions(): {
     // Pinning clears snooze, so older Settled or Snoozed undos would fight this pin.
     ThreadUndo.invalidate("settle", scopedThreadKey(thread.environmentId, thread.id));
     ThreadUndo.invalidate("snooze", scopedThreadKey(thread.environmentId, thread.id));
-    const result = await withThreadDismissal(
+    const result = await withThreadMove(
       scopedThreadKey(thread.environmentId, thread.id),
       () =>
         pinMutation({
@@ -446,7 +449,7 @@ export function useThreadListActions(): {
     selectionHaptic();
     const plan = ThreadUndo.planThreadUndo("unpin", thread);
     const claim = ThreadUndo.begin("pin", scopedThreadKey(thread.environmentId, thread.id));
-    const result = await withThreadDismissal(
+    const result = await withThreadMove(
       scopedThreadKey(thread.environmentId, thread.id),
       () =>
         unpinMutation({
