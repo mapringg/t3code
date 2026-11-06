@@ -2927,6 +2927,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   // LegendList's geometric follow threshold can reclaim users reading history when streamed rows grow.
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   const endFollowEnabledRef = useRef(true);
+  const anchorGlidingRef = useRef(false);
   // Only user scrolls from drag through momentum break follow; ignore MVCP and programmatic adjustments.
   const userScrollSessionRef = useRef(false);
   const setEndFollow = (enabled: boolean) => {
@@ -3490,6 +3491,10 @@ export const ThreadFeed = memo(function ThreadFeed({
   // ThreadDetailScreen remounts the feed per thread, so only a send resets following.
   useImperativeHandle(ref, () => ({
     resetEndFollow: () => {
+      anchorGlidingRef.current = true;
+      setTimeout(() => {
+        anchorGlidingRef.current = false;
+      }, ANCHOR_GLIDE_MS);
       clearUserScrollSettle();
       userScrollSessionRef.current = false;
       cancelReflow();
@@ -3698,6 +3703,18 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   const handleItemSizeChanged = (info: { readonly itemKey: string; readonly size: number }) => {
     rememberedRowSizes.set(info.itemKey, info.size);
+    // An anchored turn does not follow its reply, so once the reply grows past the screen the
+    // reader is no longer at the end and gets the way back. The send's own glide is exempt.
+    if (
+      Platform.OS === "android" &&
+      anchoredEndSpace !== undefined &&
+      endFollowEnabledRef.current &&
+      !userScrollSessionRef.current &&
+      !anchorGlidingRef.current &&
+      listRef.current?.getState().isAtEnd === false
+    ) {
+      setEndFollow(false);
+    }
   };
 
   const onCopyWorkRow = (rowId: string, value: string) => {
@@ -4086,6 +4103,9 @@ type FeedRowContext = Omit<
 >;
 
 // Android anchors any sent message, not only a thread's first: the newest user message's row.
+/** Longer than a send's glide to its anchor, during which the list is briefly short of its end. */
+const ANCHOR_GLIDE_MS = 800;
+
 function androidAnchoredEndSpace(
   rows: ReadonlyArray<ThreadFeedRow>,
   anchorMessageId: string | null | undefined,
