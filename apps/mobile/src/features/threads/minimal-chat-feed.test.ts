@@ -406,6 +406,29 @@ it("says once how a stopped or failed run ended", () => {
     "user",
     "run-status-line",
   ]);
+  // An older turn keeps how it ended once a newer one starts, unless its error row says so.
+  const previous = RunId.make("previous");
+  const earlier = (id: string, item: OrchestrationV2TurnItem): OrchestrationV2TurnItem =>
+    ({ ...item, id: TurnItemId.make(id), runId: previous }) as OrchestrationV2TurnItem;
+  const later = (olderItems: OrchestrationV2TurnItem[]) =>
+    appendRunStatusLine(minimalChatFeed(feed([...olderItems, userMessage, reply])), {
+      ...idle,
+      activity: null,
+      latestRun: completed,
+      endedRuns: new Map([[previous, "Stopped"]]),
+    }).map((row) => row.id);
+  expect(
+    later([
+      earlier("prev-user", { ...userMessage, messageId: MessageId.make("prev-user") }),
+      earlier("prev-reply", { ...reply, messageId: MessageId.make("prev-reply") }),
+    ]),
+  ).toEqual(["prev-user", "prev-reply", "run-end:previous", "user", "reply", "run-status-line"]);
+  expect(
+    later([
+      earlier("prev-user", { ...userMessage, messageId: MessageId.make("prev-user") }),
+      earlier("prev-failure", failure),
+    ]),
+  ).not.toContain("run-end:previous");
 });
 
 it("shows the status line from send, below pending messages, until the run settles", () => {

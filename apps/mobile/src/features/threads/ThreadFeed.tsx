@@ -242,6 +242,7 @@ import {
 import { ThreadRunSheet } from "./thread-run-sheet";
 import { sameRowValue } from "./feed-row-equality";
 import { useLiveSubagentCount } from "./use-live-subagents";
+import { useEndedRuns } from "./use-ended-runs";
 import {
   appendGuestPendingMessages,
   appendPendingThreadMessages,
@@ -1894,7 +1895,14 @@ function renderFeedEntry(
   }
 
   if (entry.type === "thinking" && entry.label !== undefined) {
-    return <RunStatusLine label={entry.label} height={props.replyActionSize.button} />;
+    return (
+      <RunStatusLine
+        label={entry.label}
+        height={props.replyActionSize.button}
+        // An older turn's end line closes the turn, so the next message keeps the turn gap.
+        endsTurn={entry.id !== "run-status-line"}
+      />
+    );
   }
 
   if (entry.type === "thinking") {
@@ -2848,6 +2856,7 @@ function ThreadFeedPlaceholder(props: {
 function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
   const liveSubagents = useLiveSubagentCount(props.detailRef);
+  const endedRuns = useEndedRuns(props.detailRef);
   const conversation = props.feed.filter(
     (entry) =>
       entry.type !== "activity-group" ||
@@ -2878,6 +2887,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
       runlessWorkActive: props.runlessWorkActive ?? false,
       dispatchingMessageId: props.dispatchingMessageId,
       setupStep: worktreeSetupRunStep(props.worktreeSetup ?? null),
+      endedRuns,
     },
   );
 }

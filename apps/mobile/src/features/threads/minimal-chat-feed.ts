@@ -148,11 +148,76 @@ export function worktreeSetupRunStep(
 type RunStatusRow = Extract<ThreadFeedEntry, { readonly type: "thinking" }>;
 let cachedRunStatusRow: RunStatusRow | null = null;
 
-const END_LABELS: Partial<Record<ThreadFeedLatestRun["status"], string>> = {
+const END_LABELS: Partial<Record<string, string>> = {
   interrupted: "Stopped",
   cancelled: "Stopped",
   failed: "Failed",
 };
+
+/** What a run's status says about how it ended, if it stopped or failed. */
+export function runEndLabel(status: string): string | undefined {
+  return END_LABELS[status];
+}
+
+function rowRunId(row: PendingThreadFeedEntry): RunId | null {
+  if (row.type === "message") return row.message.runId ?? null;
+  if (row.type === "activity-group") return row.activities.at(-1)?.projectedItem.item.runId ?? null;
+  return null;
+}
+
+function rowShowsError(row: PendingThreadFeedEntry, runId: RunId) {
+  return (
+    row.type === "activity-group" &&
+    row.activities.some(
+      ({ projectedItem: { item } }) => item.type === "error" && item.runId === runId,
+    )
+  );
+}
+
+const runEndRows = new Map<string, RunStatusRow>();
+const NO_ENDED_RUNS: ReadonlyMap<RunId, string> = new Map();
+
+/**
+ * Older stopped or failed turns keep a still line saying so after their last row, as the
+ * newest turn's status line said while it was last. An error row already says it.
+ */
+function withOlderRunEnds(
+  rows: ReadonlyArray<PendingThreadFeedEntry>,
+  endedRuns: ReadonlyMap<RunId, string>,
+  latestRunId: RunId | null,
+): ReadonlyArray<PendingThreadFeedEntry> {
+  if (endedRuns.size === 0) return rows;
+  const lastIndexByRun = new Map<RunId, number>();
+  const errorShown = new Set<RunId>();
+  rows.forEach((row, index) => {
+    const runId = rowRunId(row);
+    if (runId === null || runId === latestRunId || !endedRuns.has(runId)) return;
+    lastIndexByRun.set(runId, index);
+    if (rowShowsError(row, runId)) errorShown.add(runId);
+  });
+  if (lastIndexByRun.size === 0) return rows;
+  return rows.flatMap((row, index) => {
+    const runId = rowRunId(row);
+    if (runId === null || lastIndexByRun.get(runId) !== index || errorShown.has(runId)) {
+      return [row];
+    }
+    const label = endedRuns.get(runId)!;
+    const key = `${runId}\t${label}\t${row.createdAt}`;
+    let end = runEndRows.get(key);
+    if (end === undefined) {
+      end = {
+        type: "thinking",
+        id: `run-end:${runId}`,
+        createdAt: row.createdAt,
+        runId,
+        label,
+        untimed: true,
+      };
+      runEndRows.set(key, end);
+    }
+    return [row, end];
+  });
+}
 
 /**
  * Android's one-line run status, always the last row once a run has started. It names the step
@@ -160,7 +225,7 @@ const END_LABELS: Partial<Record<ThreadFeedLatestRun["status"], string>> = {
  * feed never loses a row under the reader.
  */
 export function appendRunStatusLine(
-  rows: ReadonlyArray<PendingThreadFeedEntry>,
+  feedRows: ReadonlyArray<PendingThreadFeedEntry>,
   input: {
     readonly activity: string | null;
     /** A question or approval the run waits on; it replaces the step and elapsed-time wording. */
@@ -172,8 +237,15 @@ export function appendRunStatusLine(
     readonly runlessWorkActive: boolean;
     readonly dispatchingMessageId: MessageId | null;
     readonly setupStep: { readonly label: string; readonly startedAt: string } | null;
+    /** How each stopped or failed run ended, for the turns before the latest. */
+    readonly endedRuns?: ReadonlyMap<RunId, string>;
   },
 ): ReadonlyArray<PendingThreadFeedEntry> {
+  const rows = withOlderRunEnds(
+    feedRows,
+    input.endedRuns ?? NO_ENDED_RUNS,
+    input.latestRun?.runId ?? null,
+  );
   if (input.setupStep !== null) {
     const { label, startedAt } = input.setupStep;
     return [...rows, runStatusRow(startedAt, null, label, undefined)];
