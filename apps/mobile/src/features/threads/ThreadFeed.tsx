@@ -121,6 +121,7 @@ import {
   useRef,
   useState,
   useId,
+  type ComponentProps,
   type ComponentPropsWithRef,
   type ReactNode,
   type Ref,
@@ -241,6 +242,7 @@ import {
   ThreadWorkLog,
 } from "./thread-work-log";
 import { ThreadRunSheet } from "./thread-run-sheet";
+import { sameRowValue } from "./feed-row-equality";
 import { useLiveSubagentCount } from "./use-live-subagents";
 import {
   appendGuestPendingMessages,
@@ -3796,69 +3798,64 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
   }, [textSizeKey, contentWidth, hasHtmlRenders, beginReflow, listRef]);
 
+  // Rows compare this by content (see feedRowPropsEqual), so a list container re-rendering for
+  // layout, or a feed update elsewhere, leaves unchanged rows alone.
+  const rowContext: FeedRowContext = {
+    environmentId: props.environmentId,
+    dispatchingMessageId: props.dispatchingMessageId,
+    onEditPendingMessage: props.onEditPendingMessage,
+    onUseArtifactTemplate: props.onUseArtifactTemplate,
+    threadId: props.threadId,
+    copiedRowId,
+    workRowSizing,
+    terminalAssistantMessageIds,
+    footerUserMessageId: footerMessageIds.user,
+    footerAssistantMessageId: footerMessageIds.assistant,
+    footerRunFold,
+    messageActionsInMenu,
+    unsettledTurnId,
+    compactionLabelsByEntryId,
+    failedRunIds,
+    onCopyWorkRow,
+    onOpenRun,
+    onOpenSetup,
+    onOpenTurnDiff,
+    onPressPreview,
+    onPlaybackStart: onInlinePlaybackStart,
+    markdownLinkHandlers,
+    renderMarkdownImage,
+    renderViewedImage,
+    renderReasoning,
+    iconSubtleColor,
+    replyActionSize,
+    screenColor,
+    userBubbleColor,
+    markdownStyles,
+    reviewCommentColors,
+    reviewCommentBubbleWidth,
+    themeAppearance,
+    duoColumns,
+    userBubbleMaxWidth,
+    markdownContentWidth,
+    contentWidth,
+    threadTitle: props.threadTitle,
+    skills: props.skills,
+    workspaceRoot: props.workspaceRoot,
+    workflowOpening,
+  };
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
-    <MessageImageGalleryScope
-      entry={info.item}
-      environmentId={props.environmentId}
-      threadId={props.threadId}
-      workspaceRoot={props.workspaceRoot}
-    >
-      <ThreadMediaVisibility>
-        {renderFeedEntry(info, {
-          userMessageGrouping: info.item.userMessageGrouping,
-          precedesUserMessage: info.item.precedesUserMessage,
-          isLastFeedRow: info.index === groupedFeed.length - 1,
-          environmentId: props.environmentId,
-          dispatchingMessageId: props.dispatchingMessageId,
-          onEditPendingMessage: props.onEditPendingMessage,
-          onUseArtifactTemplate: props.onUseArtifactTemplate,
-          threadId: props.threadId,
-          copiedRowId,
-          workRowSizing,
-          terminalAssistantMessageIds,
-          footerUserMessageId: footerMessageIds.user,
-          footerAssistantMessageId: footerMessageIds.assistant,
-          footerRunFold,
-          messageActionsInMenu,
-          unsettledTurnId,
-          compactionLabelsByEntryId,
-          failedRunIds,
-          onCopyWorkRow,
-          onOpenRun,
-          onOpenSetup,
-          onOpenTurnDiff,
-          onPressPreview,
-          onPlaybackStart: onInlinePlaybackStart,
-          markdownLinkHandlers,
-          renderMarkdownImage,
-          renderViewedImage,
-          renderReasoning,
-          iconSubtleColor,
-          replyActionSize,
-          screenColor,
-          userBubbleColor,
-          markdownStyles,
-          reviewCommentColors,
-          reviewCommentBubbleWidth,
-          themeAppearance,
-          duoColumns,
-          userBubbleMaxWidth,
-          markdownContentWidth,
-          contentWidth,
-          threadTitle: props.threadTitle,
-          skills: props.skills,
-          workspaceRoot: props.workspaceRoot,
-          workflowOpening,
-        })}
-        {setupCard && info.index === setupAnchorIndex ? (
-          <WorktreeSetupCard key={props.threadId} {...setupCard} />
-        ) : props.setupWorkingStartedAt &&
-          Platform.OS !== "android" &&
-          info.index === setupAnchorIndex ? (
-          <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
-        ) : null}
-      </ThreadMediaVisibility>
-    </MessageImageGalleryScope>
+    <FeedRow
+      item={info.item}
+      index={info.index}
+      isLastFeedRow={info.index === groupedFeed.length - 1}
+      context={rowContext}
+      setupCard={setupCard && info.index === setupAnchorIndex ? setupCard : null}
+      setupWorkingStartedAt={
+        Platform.OS !== "android" && info.index === setupAnchorIndex
+          ? (props.setupWorkingStartedAt ?? null)
+          : null
+      }
+    />
   );
 
   if (props.contentPresentation.kind === "unavailable" && props.queuedMessages.length === 0) {
@@ -4103,6 +4100,60 @@ function ThreadFeedLoadEarlierControl(props: ThreadFeedHistoryControls) {
     </View>
   );
 }
+
+type FeedRowContext = Omit<
+  Parameters<typeof renderFeedEntry>[1],
+  "userMessageGrouping" | "precedesUserMessage" | "isLastFeedRow"
+>;
+
+type FeedRowProps = {
+  readonly item: GroupedThreadFeedRow;
+  readonly index: number;
+  readonly isLastFeedRow: boolean;
+  readonly context: FeedRowContext;
+  readonly setupCard: ComponentProps<typeof WorktreeSetupCard> | null;
+  readonly setupWorkingStartedAt: string | null;
+};
+
+function feedRowPropsEqual(previous: FeedRowProps, next: FeedRowProps): boolean {
+  return (
+    previous.item === next.item &&
+    previous.index === next.index &&
+    previous.isLastFeedRow === next.isLastFeedRow &&
+    previous.setupCard === next.setupCard &&
+    previous.setupWorkingStartedAt === next.setupWorkingStartedAt &&
+    sameRowValue(previous.context, next.context, 2)
+  );
+}
+
+const FeedRow = memo(function FeedRow(props: FeedRowProps) {
+  const { item, context } = props;
+  return (
+    <MessageImageGalleryScope
+      entry={item}
+      environmentId={context.environmentId}
+      threadId={context.threadId}
+      workspaceRoot={context.workspaceRoot}
+    >
+      <ThreadMediaVisibility>
+        {renderFeedEntry(
+          { item, index: props.index },
+          {
+            ...context,
+            userMessageGrouping: item.userMessageGrouping,
+            precedesUserMessage: item.precedesUserMessage,
+            isLastFeedRow: props.isLastFeedRow,
+          },
+        )}
+        {props.setupCard ? (
+          <WorktreeSetupCard key={context.threadId} {...props.setupCard} />
+        ) : props.setupWorkingStartedAt ? (
+          <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
+        ) : null}
+      </ThreadMediaVisibility>
+    </MessageImageGalleryScope>
+  );
+}, feedRowPropsEqual);
 
 function MessageImageGalleryScope(props: {
   entry: ThreadFeedRow;
