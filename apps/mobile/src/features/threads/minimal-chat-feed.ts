@@ -225,13 +225,14 @@ export function appendRunStatusLine(
 }
 
 /**
- * File steps name only their file, so the line stays short. Commands and URLs stay as written:
- * shortening `rm -rf /x/build` would misstate what it touches.
+ * File steps name only their file, so the line stays short. Commands, searches and URLs stay
+ * as written: shortening `rm -rf /x/build` would misstate what it touches.
  */
 export function briefStep(step: string): string {
-  if (/^Running\b/.test(step)) return step;
+  // A search or listing is scoped by its path, so the path is what the step says.
+  if (/^(?:Running|Search|Find|Grep|Glob|List)/.test(step)) return step;
   return step.replace(
-    /(^|\s)(?:~|\.{1,2})?\/(?:[^\s/]+\/)+([^\s/]+)/g,
+    /(^|\s)(?:~|\.{1,2})?\/?(?:[^\s/]+\/)+([^\s/]+)/g,
     (_match, lead: string, file: string) => `${lead}${file}`,
   );
 }

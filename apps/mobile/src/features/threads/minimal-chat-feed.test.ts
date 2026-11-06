@@ -282,6 +282,8 @@ it("keeps a step to one short line by naming files, not paths", () => {
   expect(briefStep("Read /home/me/code/t3/package.json")).toBe("Read package.json");
   expect(briefStep("/home/me/code/t3/src/math.ts")).toBe("math.ts");
   expect(briefStep("Edit ./src/a.ts and ../b/c.ts")).toBe("Edit a.ts and c.ts");
+  expect(briefStep("Edit src/features/a.ts")).toBe("Edit a.ts");
+  expect(briefStep("Searching /usr/lib/node")).toBe("Searching /usr/lib/node");
   expect(briefStep("Running vp test")).toBe("Running vp test");
   // Commands and URLs keep what they act on.
   expect(briefStep("Running rm -rf /x/build")).toBe("Running rm -rf /x/build");
