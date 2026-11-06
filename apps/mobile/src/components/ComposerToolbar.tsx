@@ -260,7 +260,8 @@ export function ComposerActionButton(props: {
   readonly disabled?: boolean;
   readonly icon: ComponentProps<typeof SymbolView>["name"];
   readonly onPress: () => void;
-  readonly variant?: "primary" | "danger";
+  /** Neutral is the inverse of the surface: Android's Stop, a control rather than an alarm. */
+  readonly variant?: "primary" | "danger" | "neutral";
   // Menu injects onLongPress on Android and onTouchStart/onPress on iOS.
   readonly onLongPress?: PressableProps["onLongPress"];
   readonly onTouchStart?: PressableProps["onTouchStart"];
@@ -285,9 +286,11 @@ export function ComposerActionButton(props: {
           "items-center justify-center rounded-full",
           props.variant === "danger"
             ? "bg-danger"
-            : props.disabled
-              ? "bg-foreground/12"
-              : "bg-primary",
+            : props.variant === "neutral"
+              ? "bg-foreground"
+              : props.disabled
+                ? "bg-foreground/12"
+                : "bg-primary",
         )}
       >
         <SymbolView
@@ -297,9 +300,11 @@ export function ComposerActionButton(props: {
           tintColorClassName={
             props.variant === "danger"
               ? "accent-danger-foreground"
-              : props.disabled
-                ? "accent-foreground/38"
-                : "accent-primary-foreground"
+              : props.variant === "neutral"
+                ? "accent-screen"
+                : props.disabled
+                  ? "accent-foreground/38"
+                  : "accent-primary-foreground"
           }
           type="monochrome"
         />

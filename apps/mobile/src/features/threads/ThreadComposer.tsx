@@ -52,7 +52,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
-import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { armAgentAwarenessLiveActivityForLocalWork } from "../agent-awareness/remoteRegistration";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import {
@@ -369,7 +368,7 @@ function SendActionButton(props: {
         size={props.size}
         accessibilityLabel="Stop agent"
         icon="stop.fill"
-        variant="danger"
+        variant={Platform.OS === "android" ? "neutral" : "danger"}
         onPress={props.onStop}
       />
     </View>
@@ -615,7 +614,12 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const floatingSidebarComposer = useAndroidFloatingTabs() && layout.usesSplitView;
   const usesLargeControls =
     useSidebarWorkspaceTabs() === "picker" || (Platform.OS === "ios" && Platform.isPad);
-  const surfacePaddingVertical = usesLargeControls ? 9 : floatingSidebarComposer ? 6 : 2;
+  // Android's pill stands as tall as Gemini's, about 56dp, instead of hugging its controls.
+  const surfacePaddingVertical = usesLargeControls
+    ? 9
+    : floatingSidebarComposer || Platform.OS === "android"
+      ? 6
+      : 2;
   const [compactRowWidth, setCompactRowWidth] = useState(0);
   const compactAttachmentLimit = compactRowWidth >= 500 ? 3 : 1;
   const compactEditor = useCompactComposerEditor(bodyText, draftMessage);
@@ -859,17 +863,12 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
       style={{
         paddingTop: 6,
         paddingBottom: (props.bottomInset ?? 0) + THREAD_COMPOSER_BOTTOM_GUTTER,
-        backgroundColor:
-          Platform.OS === "android" ? themeColorWithAlpha(composerPanel, 1) : undefined,
       }}
     >
       {/* Use a plain View: Reanimated Animated.View drops experimental_backgroundImage on Android. */}
+      {/* The conversation fades out under the pill, as in Gemini, instead of meeting a hard edge. */}
       <View
-        className={
-          Platform.OS === "android"
-            ? "hidden"
-            : "absolute inset-0 bg-linear-to-b from-screen/0 via-screen/60 to-screen/90"
-        }
+        className="absolute inset-0 bg-linear-to-b from-screen/0 via-screen/60 to-screen/90"
         pointerEvents="none"
       />
       <Animated.View
@@ -1137,7 +1136,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     size={usesLargeControls ? "large" : "regular"}
                     accessibilityLabel="Stop agent"
                     icon="stop.fill"
-                    variant="danger"
+                    variant={Platform.OS === "android" ? "neutral" : "danger"}
                     disabled={!props.canOperateThread}
                     onPress={props.onStopThread}
                   />
@@ -1211,7 +1210,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       size={usesLargeControls ? "large" : "regular"}
                       accessibilityLabel="Stop agent"
                       icon="stop.fill"
-                      variant="danger"
+                      variant={Platform.OS === "android" ? "neutral" : "danger"}
                       disabled={!props.canOperateThread}
                       onPress={props.onStopThread}
                     />
