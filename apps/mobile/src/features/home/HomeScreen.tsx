@@ -799,7 +799,10 @@ export function HomeScreen(props: HomeScreenProps) {
         <SwipeableScrollGateProvider enabled={swipeEnabled} activation={swipeRowActivation}>
           <GestureDetector gesture={homeScrollGesture}>
             <AnimatedLegendList
-              itemLayoutAnimation={primaryColumn ? THREAD_SIDEBAR_ROW_LAYOUT : undefined}
+              // Android phones too: a thread changing section slides to its place instead of jumping.
+              itemLayoutAnimation={
+                primaryColumn || Platform.OS === "android" ? THREAD_SIDEBAR_ROW_LAYOUT : undefined
+              }
               ref={listRef}
               onLoad={() => activateVisibleRows(threadListV2Items)}
               onTouchStart={(event) => trackListTouches(event, true)}
