@@ -42,6 +42,12 @@ export function ThreadRunSheet(props: {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const followEndRef = useRef(props.live);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- lands a following sheet on the rows that arrived with its run settling, then stops following
+  useEffect(() => {
+    if (props.live || !followEndRef.current) return;
+    followEndRef.current = false;
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }, [props.live]);
   const subagents = useThreadSubagents(scopeThreadRef(props.environmentId, props.threadId));
   const [expandedRows, setExpandedRows] = useState<Readonly<Record<string, boolean>>>({});
   const loadWork = useAtomCommand(threadEnvironment.loadEarlierHistory, { reportFailure: false });

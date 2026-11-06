@@ -360,8 +360,10 @@ function SendActionButton(props: {
       </Menu>
     );
   if (Platform.OS !== "android" || props.onStop === null) return send;
+  // Stop keeps the slot it holds with an empty draft, so typing never moves it under a finger.
   return (
     <View className="flex-row items-center gap-1">
+      {send}
       <ComposerActionButton
         size={props.size}
         accessibilityLabel="Stop agent"
@@ -369,7 +371,6 @@ function SendActionButton(props: {
         variant="danger"
         onPress={props.onStop}
       />
-      {send}
     </View>
   );
 }

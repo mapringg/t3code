@@ -142,21 +142,10 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
   return null;
 }
 
-/** What a live run waits on from the reader, which the status line names over its step. */
-export function runWaitingLabel(
-  presented: ReadonlyArray<ThreadFeedEntry>,
-  open: OpenRequests = NO_OPEN_REQUESTS,
-): string | null {
-  // A card above the composer is the request; some approvals have no feed item of their own.
+/** What a live run waits on from the reader: the request its card above the composer shows. */
+export function runWaitingLabel(open: OpenRequests = NO_OPEN_REQUESTS): string | null {
   if (open.userInput !== null) return "Waiting for your answer";
   if (open.approval !== null) return "Waiting for approval";
-  for (const row of presented) {
-    if (row.type !== "activity-group") continue;
-    for (const activity of row.activities) {
-      if (isOpenRequest(activity, "user_input_request", open)) return "Waiting for your answer";
-      if (isOpenRequest(activity, "approval_request", open)) return "Waiting for approval";
-    }
-  }
   return null;
 }
 
