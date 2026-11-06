@@ -378,8 +378,6 @@ export interface ThreadFeedProps {
   readonly contentPresentation: ThreadContentPresentation;
   // Until the first catch-up lands the list stays unmounted, then mounts once at the final end.
   readonly awaitsCatchUp?: boolean;
-  // The list also waits for the opening transition to end.
-  readonly awaitsEntry?: boolean;
   readonly latestRun: ThreadFeedLatestRun | null;
   readonly activeWorkStartedAt: string | null;
   readonly runlessWorkActive?: boolean;
@@ -3471,6 +3469,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     />
   );
   const reviewCommentColors = useReviewCommentColors();
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const unsettledTurnId = threadFeedRunIsUnsettled(props.latestRun) ? props.latestRun.runId : null;
   const compactionLabelsByEntryId = useMemo(
     () => threadFeedCompactionLabels(props.feed),
@@ -3505,6 +3504,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
   };
   const handleScrollBeginDrag = () => {
+    if (!userHasScrolled) setUserHasScrolled(true);
     clearUserScrollSettle();
     userScrollSessionRef.current = true;
     cancelReflow();
@@ -3631,7 +3631,12 @@ export const ThreadFeed = memo(function ThreadFeed({
     setCaughtUpThreadKey(feedThreadKey);
   }
   const holdsForCatchUp = props.awaitsCatchUp === true && caughtUpThreadKey !== feedThreadKey;
-  const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
+  // Android shows the feed as it mounts, during the open slide, as Gemini does; its end
+  // landing does not visibly move there, and hiding it left a blank page after the slide.
+  const listAwaitsLanding =
+    Platform.OS !== "android" &&
+    listMountKey.endsWith(":filled") &&
+    revealedListKey !== listMountKey;
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
@@ -3905,7 +3910,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           pointerEvents={listAwaitsLanding ? "none" : "auto"}
           style={listAwaitsLanding ? { opacity: 0 } : undefined}
         >
-          {holdsForCatchUp || props.awaitsEntry ? null : (
+          {holdsForCatchUp ? null : (
             /* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */
             <KeyboardAwareLegendList
               ref={Platform.OS === "android" ? listRef : attachList}
@@ -4012,6 +4017,9 @@ export const ThreadFeed = memo(function ThreadFeed({
                   void listRef.current?.scrollToEnd({ animated: false });
                 }
               }}
+              // Android shows the scrollbar from the first drag: the landing scroll otherwise
+              // flashes it, and its fade redraws the whole feed at ~40 Hz after the open.
+              showsVerticalScrollIndicator={Platform.OS !== "android" || userHasScrolled}
               onScroll={handleScroll}
               onScrollBeginDrag={handleScrollBeginDrag}
               onScrollEndDrag={handleScrollEndDrag}
