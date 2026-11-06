@@ -286,7 +286,7 @@ export function ComposerActionButton(props: {
           "items-center justify-center rounded-full",
           props.variant === "danger"
             ? "bg-danger"
-            : props.variant === "neutral"
+            : props.variant === "neutral" && !props.disabled
               ? "bg-foreground"
               : props.disabled
                 ? "bg-foreground/12"
@@ -300,7 +300,7 @@ export function ComposerActionButton(props: {
           tintColorClassName={
             props.variant === "danger"
               ? "accent-danger-foreground"
-              : props.variant === "neutral"
+              : props.variant === "neutral" && !props.disabled
                 ? "accent-screen"
                 : props.disabled
                   ? "accent-foreground/38"
