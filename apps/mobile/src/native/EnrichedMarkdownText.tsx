@@ -149,7 +149,9 @@ function enrichedStyle(
       ...block,
       headerFontFamily: style.boldFontFamily,
       headerTextColor: style.strongColor,
-      headerBackgroundColor: style.codeBlockBackgroundColor,
+      // Android tables read like ChatGPT's: lines only, no filled header band.
+      headerBackgroundColor:
+        Platform.OS === "android" ? "transparent" : style.codeBlockBackgroundColor,
       rowEvenBackgroundColor: "transparent",
       rowOddBackgroundColor: "transparent",
       cellPaddingHorizontal: 10,
