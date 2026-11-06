@@ -2286,7 +2286,7 @@ function renderFeedEntry(
                 />
               ) : null}
               {bubbleBodyVisible ? (
-                <View className="gap-2 px-3.5 pb-2.5 pt-2.5">
+                <View className="gap-2 px-3.5 pb-2.5 pt-2.5 android:px-4 android:pb-3 android:pt-3">
                   {pendingBubbleAttachments.map((attachment) =>
                     attachment.type === "image" && attachment.uploadedAttachmentId ? (
                       <MessageAttachmentImage

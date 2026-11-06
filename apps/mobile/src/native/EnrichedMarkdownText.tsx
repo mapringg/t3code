@@ -140,6 +140,8 @@ function enrichedStyle(
       markerColor: style.mutedColor,
       // The bullet is centred on the gap's edge and scales with the system text size; the gap must too.
       gapWidth: 12 * fontScale,
+      // Gemini separates bullets so a list reads as items, not one wrapped paragraph.
+      itemSpacing: Platform.OS === "android" ? 6 : 0,
     },
     thematicBreak: { color: style.dividerColor, height: 1, marginTop: 8, marginBottom: 8 },
     table: {
