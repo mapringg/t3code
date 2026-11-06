@@ -215,7 +215,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
           ? undefined
           : FadeOutDown.duration(USER_INPUT_TOGGLE_DURATION_MS).easing(Easing.out(Easing.cubic))
       }
-      className="overflow-hidden gap-2.5 rounded-[20px] android:rounded-xl border border-border bg-card-alt p-4"
+      className="overflow-hidden gap-2.5 rounded-[20px] border border-border bg-card-alt p-4 android:border-0 android:bg-transparent android:px-1 android:pt-0"
       style={EXPANDED_CARD_IS_OVERLAY ? cardAnimatedStyle : cardMaxHeightStyle}
     >
       {Platform.OS === "android" ? (
