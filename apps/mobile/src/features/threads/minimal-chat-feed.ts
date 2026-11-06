@@ -155,9 +155,9 @@ const END_LABELS: Partial<Record<ThreadFeedLatestRun["status"], string>> = {
 };
 
 /**
- * Android's one-line run status. It is the last row from send until the run settles, the same
- * moment the newest reply gains its footer, so the slot changes owner instead of the feed moving.
- * A run that stops or fails without its reply last keeps the slot as a still end line.
+ * Android's one-line run status, always the last row once a run has started. It names the step
+ * while the run works and goes blank when it settles, so the feed never loses a row under the
+ * reader. A run that stops or fails with no reply keeps it as a still end line.
  */
 export function appendRunStatusLine(
   rows: ReadonlyArray<PendingThreadFeedEntry>,
@@ -211,7 +211,12 @@ export function appendRunStatusLine(
       row.message.role === "assistant" &&
       row.message.runId === ended?.runId,
   );
-  if (!ended || endLabel === undefined || runHasReply || ended.startedAt === null) return rows;
+  if (!ended || ended.startedAt === null) return rows;
+  if (endLabel === undefined || runHasReply) {
+    // The line stays, blank, once the run settles: removing the row would shrink the list and
+    // clamp its offset, dropping the turn the send anchored.
+    return [...rows, runStatusRow(ended.startedAt, ended.runId, "", undefined, true)];
+  }
   return [
     // The end line opens the same run sheet, so the run's fold line would only repeat it.
     ...rows.filter((row) => row.type !== "run-fold" || row.runId !== ended.runId),

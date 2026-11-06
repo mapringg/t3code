@@ -311,7 +311,7 @@ it("names the live step, and none when the provider reports no step", () => {
   ).toMatchObject({ label: "Waiting for your answer", untimed: true });
 });
 
-it("hands the last slot between the status line and the reply footer as the run settles", () => {
+it("keeps the last row in place as the run settles: the line goes blank, the reply gains its footer", () => {
   const previousRunId = RunId.make("previous");
   const previousTurn: OrchestrationV2TurnItem[] = [
     {
@@ -363,8 +363,10 @@ it("hands the last slot between the status line and the reply footer as the run 
     last: { type: "thinking", label: "Working…", createdAt: at, runId },
     footer: null,
   });
-  expect(slot(completed)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
-  expect(slot(interrupted)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
+  // Removing the line would shrink the list and clamp the anchored turn's offset.
+  const blank = { id: "run-status-line", label: "" };
+  expect(slot(completed)).toMatchObject({ above, last: blank, footer: "reply" });
+  expect(slot(interrupted)).toMatchObject({ above, last: blank, footer: "reply" });
   expect(slot(running).last).toBe(slot(running).last);
 });
 
@@ -390,10 +392,18 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
   const ended = { type: "thinking", id: "run-status-line", createdAt: at, endedAt, runId };
   expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
   expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
-  // A stopped run's partial reply takes the slot with its footer, as a finished reply does.
-  expect(last([userMessage, reply], "interrupted")).toMatchObject({ id: "reply" });
+  // A stopped run's partial reply says so in its own slot; the line stays, blank.
+  expect(last([userMessage, reply], "interrupted")).toMatchObject({
+    id: "run-status-line",
+    runId,
+    label: "",
+  });
   // The reply's slot already says the run failed; a notice after it adds no second end line.
-  expect(last([userMessage, reply, failure], "failed")).toMatchObject({ type: "activity-group" });
+  expect(last([userMessage, reply, failure], "failed")).toMatchObject({
+    id: "run-status-line",
+    runId,
+    label: "",
+  });
   // The end line opens the run sheet itself, so the run keeps no second line into it.
   expect(rows([userMessage, command], "interrupted").map((row) => row.id)).toEqual([
     "user",
@@ -455,7 +465,7 @@ it("shows the status line from send, below pending messages, until the run settl
   expect(last({ latestRun: running, liveSubagents: 2 })).toMatchObject({
     label: "2 agents working",
   });
-  expect(last({ latestRun: completed, liveSubagents: 2 })).toBe(pending);
+  expect(last({ latestRun: completed, liveSubagents: 2 })).toMatchObject({ label: "" });
 });
 
 it("names the worktree setup step on the status line until the first turn starts", () => {
