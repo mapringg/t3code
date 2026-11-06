@@ -2551,6 +2551,12 @@ function AssistantMessageRow({
           onOpenTurnDiff={props.onOpenTurnDiff}
         />
       ) : null}
+      {props.messageMetaHidden &&
+      showAssistantMeta &&
+      message.id === props.footerAssistantMessageId ? (
+        // The working line's slot: the newest reply keeps its height so settling moves nothing.
+        <View className="mt-1" style={{ height: props.replyActionSize.button }} />
+      ) : null}
       {showAssistantMeta && !replyActionsInMenu && !props.messageMetaHidden ? (
         <View
           className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
@@ -3655,12 +3661,15 @@ export const ThreadFeed = memo(function ThreadFeed({
     setViewportHeight((current) => (Math.abs(current - nextHeight) > 1 ? nextHeight : current));
   };
 
-  const anchoredEndSpace = resolveChatListAnchoredEndSpace(
-    presentedFeed,
-    props.anchorMessageId,
-    (entry) => (entry.type === "message" ? entry.id : null),
-    { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
-  );
+  const anchoredEndSpace =
+    Platform.OS === "android"
+      ? androidAnchoredEndSpace(presentedFeed, props.anchorMessageId)
+      : resolveChatListAnchoredEndSpace(
+          presentedFeed,
+          props.anchorMessageId,
+          (entry) => (entry.type === "message" ? entry.id : null),
+          { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
+        );
   const failedRunIds = failedFeedRunIds(props.feed, props.latestRun);
   // Timers the feed schedules die with it.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
@@ -4059,6 +4068,18 @@ type FeedRowContext = Omit<
   Parameters<typeof renderFeedEntry>[1],
   "userMessageGrouping" | "precedesUserMessage" | "isLastFeedRow"
 >;
+
+// Android anchors any sent message, not only a thread's first: the newest user message's row.
+function androidAnchoredEndSpace(
+  rows: ReadonlyArray<ThreadFeedRow>,
+  anchorMessageId: string | null | undefined,
+) {
+  if (!anchorMessageId) return undefined;
+  const anchorIndex = rows.findIndex(
+    (row) => row.type === "message" && row.message.id === anchorMessageId,
+  );
+  return anchorIndex === -1 ? undefined : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET };
+}
 
 type FeedRowProps = {
   readonly item: GroupedThreadFeedRow;

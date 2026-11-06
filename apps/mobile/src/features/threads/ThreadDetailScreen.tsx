@@ -1128,15 +1128,21 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
 
     clearUsageLimitsFor(targetThreadKey);
 
-    const nextAnchorMessageId = resolveThreadFeedSubmissionAnchor({
-      currentAnchorMessageId: anchorMessageId,
-      submittedMessageId: messageId,
-      hasStartedTurn: props.selectedThread.latestRun !== null,
-      hasUserMessage,
-      queuedMessageCount: props.selectedThreadQueueCount,
-      deliveryDeferred: props.connectionStateLabel !== "connected",
-      anchorFirstMessage: Platform.OS !== "android",
-    });
+    // Android anchors every sent message at the top, as Gemini does: the reply grows into the
+    // space below it instead of pushing the conversation up under the reader.
+    const nextAnchorMessageId =
+      Platform.OS === "android"
+        ? props.connectionStateLabel === "connected" && props.selectedThreadQueueCount === 0
+          ? messageId
+          : null
+        : resolveThreadFeedSubmissionAnchor({
+            currentAnchorMessageId: anchorMessageId,
+            submittedMessageId: messageId,
+            hasStartedTurn: props.selectedThread.latestRun !== null,
+            hasUserMessage,
+            queuedMessageCount: props.selectedThreadQueueCount,
+            deliveryDeferred: props.connectionStateLabel !== "connected",
+          });
     feedRef.current?.resetEndFollow();
     setAnchorMessageId(nextAnchorMessageId);
     if (Platform.OS !== "android") composerEditorRef.current?.blur();

@@ -16,6 +16,7 @@ import { buildThreadFeed, deriveThreadFeedPresentation } from "../../lib/threadA
 import {
   appendRunStatusLine,
   minimalChatFeed,
+  briefStep,
   runStatusActivity,
   runWaitingLabel,
   worktreeSetupRunStep,
@@ -272,6 +273,13 @@ const idle = {
   dispatchingMessageId: null,
   setupStep: null,
 } as const;
+
+it("keeps a step to one short line by naming files, not paths", () => {
+  expect(briefStep("Read /home/me/code/t3/package.json")).toBe("Read package.json");
+  expect(briefStep("/home/me/code/t3/src/math.ts")).toBe("math.ts");
+  expect(briefStep("Edit ./src/a.ts and ../b/c.ts")).toBe("Edit a.ts and c.ts");
+  expect(briefStep("Running vp test")).toBe("Running vp test");
+});
 
 it("names the live step, and none when the provider reports no step", () => {
   const { output: _output, exitCode: _exitCode, ...pending } = command;

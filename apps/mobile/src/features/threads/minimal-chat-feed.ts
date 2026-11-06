@@ -192,7 +192,7 @@ export function appendRunStatusLine(
       return [...rows, runStatusRow(startedAt, run?.runId ?? null, input.waiting, undefined, true)];
     }
     // The step alone, as Gemini names what it is doing; no step reads as plain work.
-    const label = step ?? "Working…";
+    const label = step ? briefStep(step) : "Working…";
     return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
   }
 
@@ -208,6 +208,11 @@ export function appendRunStatusLine(
     ...rows.filter((row) => row.type !== "run-fold" || row.runId !== ended.runId),
     runStatusRow(ended.startedAt, ended.runId, endLabel, ended.completedAt ?? ended.startedAt),
   ];
+}
+
+/** Paths name only their file, so a step stays one short line. */
+export function briefStep(step: string): string {
+  return step.replace(/(?:~|\.{0,2})?\/(?:[^\s/]+\/)+([^\s/]+)/g, "$1");
 }
 
 function runStatusRow(
