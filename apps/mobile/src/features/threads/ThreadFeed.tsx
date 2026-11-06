@@ -2497,16 +2497,14 @@ function AssistantMessageRow({
     !assistantTurnStillInProgress &&
     !message.streaming;
   if (renderedText.trim().length === 0 && attachments.length === 0) {
-    // Android shows only a run's latest reply, so a reply that starts empty holds the line
-    // of the one it replaced instead of letting the feed drop and regrow.
+    // A reply that starts empty holds a line on Android, so its first text does not push the feed.
     return Platform.OS === "android" && message.streaming ? (
       <View className="mb-1 px-1" style={{ height: styles.nativeTextStyle.lineHeight }} />
     ) : null;
   }
 
   const enterAnimated = Platform.OS !== "android" && isFreshTimestamp(message.createdAt);
-  // Android keeps the footer on the newest settled reply; older replies move it into their
-  // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
+  // Every reply keeps the menu wrapper so the footer moving does not remount it.
   const replyActionsMenu =
     props.messageActionsInMenu && showAssistantMeta && renderedText.trim().length > 0;
   const replyActionsInMenu = replyActionsMenu && message.id !== props.footerAssistantMessageId;
