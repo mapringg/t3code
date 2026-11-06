@@ -1278,6 +1278,12 @@ function deriveThreadFeedRunFolds(
     const duration = elapsedMs === null ? null : formatDuration(elapsedMs);
     const interrupted =
       latestRunMatches && (latestRun.status === "interrupted" || latestRun.status === "cancelled");
+    const onlyThought = group.entries.every(
+      (entry) =>
+        !hiddenEntryIds.has(entry.id) ||
+        (entry.type === "activity-group" &&
+          entry.activities.every((activity) => activity.workEntry.itemType === "reasoning")),
+    );
     foldsByAnchorId.set(firstHiddenEntry.id, {
       runId,
       createdAt: firstHiddenEntry.createdAt,
@@ -1287,8 +1293,10 @@ function deriveThreadFeedRunFolds(
           ? `You stopped after ${duration}`
           : "You stopped this response"
         : duration
-          ? `Worked for ${duration}`
-          : "Worked",
+          ? `${onlyThought ? "Thought" : "Worked"} for ${duration}`
+          : onlyThought
+            ? "Thought"
+            : "Worked",
     });
   }
   const covered = new Set(
