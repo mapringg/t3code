@@ -122,6 +122,15 @@ it("keeps provider failures while removing adjacent tool activity", () => {
   expect(minimal).toMatchObject([
     { type: "activity-group", activities: [{ projectedItem: { item: failure } }] },
   ]);
+  // A provider that also wrote the failure as its reply shows it once, as the reply.
+  const echoed: OrchestrationV2TurnItem = {
+    ...base("echo"),
+    type: "assistant_message",
+    messageId: MessageId.make("echo"),
+    text: "API Error: Please retry",
+    streaming: false,
+  };
+  expect(minimalChatFeed(feed([echoed, failure])).map((entry) => entry.id)).toEqual(["echo"]);
 });
 
 const openQuestion: OrchestrationV2TurnItem = {
@@ -383,6 +392,8 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
   expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
   // A stopped run's partial reply takes the slot with its footer, as a finished reply does.
   expect(last([userMessage, reply], "interrupted")).toMatchObject({ id: "reply" });
+  // The reply's slot already says the run failed; a notice after it adds no second end line.
+  expect(last([userMessage, reply, failure], "failed")).toMatchObject({ type: "activity-group" });
   // The end line opens the run sheet itself, so the run keeps no second line into it.
   expect(rows([userMessage, command], "interrupted").map((row) => row.id)).toEqual([
     "user",

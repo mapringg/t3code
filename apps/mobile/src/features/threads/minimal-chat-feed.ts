@@ -35,7 +35,11 @@ function isOpenRequest(
   return openId !== null && item.requestId === openId;
 }
 
-function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
+function keepActivity(
+  activity: ThreadFeedActivity,
+  open: OpenRequests,
+  replyTexts: ReadonlyMap<RunId, ReadonlyArray<string>>,
+) {
   const item = activity.projectedItem.item;
   switch (item.type) {
     case "approval_request":
@@ -51,8 +55,13 @@ function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
     case "user_input_request":
       // The open question is the card above the composer; the feed keeps it once answered.
       return !isOpenRequest(activity, "user_input_request", open);
+    case "error": {
+      // Providers often write the failure as the run's reply too; it reads once, not twice.
+      const message = item.failure.message.trim();
+      const replies = item.runId === null ? undefined : replyTexts.get(item.runId);
+      return message === "" || !replies?.some((text) => text.includes(message));
+    }
     case "proposed_plan":
-    case "error":
     case "system_notice":
       return true;
     default:
@@ -68,6 +77,13 @@ export function minimalChatFeed(
   feed: ReadonlyArray<ThreadFeedEntry>,
   open: OpenRequests = NO_OPEN_REQUESTS,
 ): ThreadFeedEntry[] {
+  const replyTexts = new Map<RunId, string[]>();
+  for (const entry of feed) {
+    if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+    const runId = entry.message.runId;
+    if (runId === null || runId === undefined) continue;
+    replyTexts.set(runId, [...(replyTexts.get(runId) ?? []), entry.message.text]);
+  }
   return feed.flatMap((entry): ThreadFeedEntry[] => {
     switch (entry.type) {
       case "message":
@@ -77,7 +93,9 @@ export function minimalChatFeed(
       case "mcp-app":
         return [entry];
       case "activity-group": {
-        const activities = entry.activities.filter((activity) => keepActivity(activity, open));
+        const activities = entry.activities.filter((activity) =>
+          keepActivity(activity, open, replyTexts),
+        );
         if (activities.length === 0) return [];
         return [activities.length === entry.activities.length ? entry : { ...entry, activities }];
       }
@@ -186,11 +204,14 @@ export function appendRunStatusLine(
 
   const ended = input.latestRun;
   const endLabel = ended ? END_LABELS[ended.status] : undefined;
-  const replyIsLast =
-    last?.type === "message" &&
-    last.message.role === "assistant" &&
-    last.message.runId === ended?.runId;
-  if (!ended || endLabel === undefined || replyIsLast || ended.startedAt === null) return rows;
+  // A run with a reply already says how it ended in that reply's slot.
+  const runHasReply = rows.some(
+    (row) =>
+      row.type === "message" &&
+      row.message.role === "assistant" &&
+      row.message.runId === ended?.runId,
+  );
+  if (!ended || endLabel === undefined || runHasReply || ended.startedAt === null) return rows;
   return [
     // The end line opens the same run sheet, so the run's fold line would only repeat it.
     ...rows.filter((row) => row.type !== "run-fold" || row.runId !== ended.runId),

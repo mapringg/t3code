@@ -615,17 +615,19 @@ function ThreadWorkLogRow(
                 Copied
               </Text>
             ) : null}
-            <Text
-              accessibilityLabel={timestamp.toLocaleString()}
-              className="shrink-0 text-xs text-foreground-tertiary"
-            >
-              {timestamp.toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </Text>
+            {Platform.OS === "android" ? null : (
+              <Text
+                accessibilityLabel={timestamp.toLocaleString()}
+                className="shrink-0 text-xs text-foreground-tertiary"
+              >
+                {timestamp.toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Text>
+            )}
           </View>
           {!warning ? (
             <Text selectable className="ml-7 text-sm text-foreground">
