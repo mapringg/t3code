@@ -42,7 +42,7 @@ export function ThreadHeader(
         onPress: props.onReturnToThread,
       });
     }
-    if (Platform.OS !== "android" && props.hasThreadCwd) {
+    if (props.hasThreadCwd) {
       const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;
       actions.push({
         accessibilityLabel: filesVisible ? "Close files" : "Open files",
@@ -60,15 +60,13 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (Platform.OS !== "android") {
-      actions.push({
-        accessibilityLabel: "Open git controls",
-        icon: "point.topleft.down.curvedto.point.bottomright.up",
-        onPress: props.onOpenGitInspector,
-        overflowOnly: true,
-      });
-    }
-    if (Platform.OS !== "android" && onMergeBack) {
+    actions.push({
+      accessibilityLabel: "Open git controls",
+      icon: "point.topleft.down.curvedto.point.bottomright.up",
+      onPress: props.onOpenGitInspector,
+      overflowOnly: true,
+    });
+    if (onMergeBack) {
       actions.push({
         accessibilityLabel: "Merge back to source",
         icon: PullRequestGlyph.merged,
