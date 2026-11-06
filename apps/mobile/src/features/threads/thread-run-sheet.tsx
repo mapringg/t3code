@@ -122,7 +122,10 @@ export function ThreadRunSheet(props: {
             contentSize.height - contentOffset.y - layoutMeasurement.height <= FOLLOW_END_SLACK;
         }}
         onContentSizeChange={() => {
-          if (followEndRef.current) scrollRef.current?.scrollToEnd({ animated: false });
+          // A sheet opened live stops following once the run settles.
+          if (props.live && followEndRef.current) {
+            scrollRef.current?.scrollToEnd({ animated: false });
+          }
         }}
         contentInsetAdjustmentBehavior={Platform.OS === "ios" ? "automatic" : "never"}
         contentContainerStyle={{
