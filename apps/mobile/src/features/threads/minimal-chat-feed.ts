@@ -147,6 +147,9 @@ export function runWaitingLabel(
   presented: ReadonlyArray<ThreadFeedEntry>,
   open: OpenRequests = NO_OPEN_REQUESTS,
 ): string | null {
+  // A card above the composer is the request; some approvals have no feed item of their own.
+  if (open.userInput !== null) return "Waiting for your answer";
+  if (open.approval !== null) return "Waiting for approval";
   for (const row of presented) {
     if (row.type !== "activity-group") continue;
     for (const activity of row.activities) {

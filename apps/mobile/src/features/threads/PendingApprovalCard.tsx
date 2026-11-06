@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { cn } from "../../lib/cn";
 import type { PendingApproval } from "../../lib/threadActivity";
 
 export interface PendingApprovalCardProps {
@@ -30,6 +31,14 @@ const DEFAULT_APPROVAL_OPTIONS: ReadonlyArray<ProviderApprovalOption> = [
   { decision: "decline", label: "Decline" },
 ];
 
+const ANDROID_REQUEST_TITLE: Record<PendingApproval["requestKind"], string> = {
+  command: "Run this command?",
+  "file-read": "Read these files?",
+  "file-change": "Change these files?",
+  "mcp-elicitation": "Tool request",
+  permission: "Grant this permission?",
+};
+
 export function PendingApprovalCard(props: PendingApprovalCardProps) {
   const options: ReadonlyArray<ProviderApprovalOption> =
     props.approval.options ?? DEFAULT_APPROVAL_OPTIONS;
@@ -46,10 +55,21 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
         </Text>
       )}
       <Text className="font-t3-bold text-lg text-foreground android:font-t3-medium android:text-base">
-        {props.approval.appName ?? props.approval.requestKind}
+        {props.approval.appName ??
+          (Platform.OS === "android"
+            ? ANDROID_REQUEST_TITLE[props.approval.requestKind]
+            : props.approval.requestKind)}
       </Text>
       {props.approval.detail ? (
-        <Text className="font-sans text-sm leading-normal text-foreground-secondary android:text-foreground">
+        <Text
+          className={cn(
+            "font-sans text-sm leading-normal text-foreground-secondary android:text-foreground",
+            Platform.OS === "android" &&
+              props.approval.requestKind !== "mcp-elicitation" &&
+              props.approval.requestKind !== "permission" &&
+              "font-mono text-xs",
+          )}
+        >
           {props.approval.detail}
         </Text>
       ) : null}
@@ -83,8 +103,9 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
       {warning ? (
         <Text className="font-sans text-xs leading-normal text-warning-foreground">{warning}</Text>
       ) : null}
-      <View className="flex-row flex-wrap gap-2.5">
-        {options.map((option) => (
+      {/* Android puts the choices on one row, the confirming one last, as its dialogs do. */}
+      <View className="flex-row flex-wrap gap-2.5 android:flex-nowrap android:gap-2">
+        {(Platform.OS === "android" ? [...options].reverse() : options).map((option) => (
           <Button
             key={option.decision}
             label={option.label}

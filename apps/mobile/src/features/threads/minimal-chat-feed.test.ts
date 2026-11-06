@@ -229,7 +229,9 @@ it("preserves requests and generated content when tool details are hidden", () =
   // says what the run awaits.
   const open = { approval: "waiting", userInput: "question" };
   expect(runWaitingLabel(presented)).toBeNull();
-  expect(runWaitingLabel(presented, open)).toBe("Waiting for approval");
+  expect(runWaitingLabel(presented, { approval: "waiting", userInput: null })).toBe(
+    "Waiting for approval",
+  );
   expect(
     minimalChatFeed(presented, open).some(
       (entry) =>
