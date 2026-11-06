@@ -4110,10 +4110,11 @@ function androidAnchoredEndSpace(
   anchorMessageId: string | null | undefined,
   anchorsSendingMessage: boolean,
 ) {
-  const anchorIndex = anchorsSendingMessage
-    ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
-    : anchorMessageId
-      ? rows.findIndex((row) => row.type === "message" && row.message.id === anchorMessageId)
+  // Once a send has anchored, every newer turn re-anchors, as in Gemini: queued follow-ups and
+  // messages from other devices get the same space below them as the one sent here.
+  const anchorIndex =
+    anchorsSendingMessage || anchorMessageId
+      ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
       : -1;
   return anchorIndex === -1 ? undefined : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET };
 }

@@ -291,6 +291,7 @@ export interface ThreadDetailScreenProps {
       text: string,
       hasAttachmentsOrContext: boolean,
     ) => Promise<boolean | "responded">,
+    onDispatch?: () => void,
   ) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   readonly canSwitchThreadProvider: boolean;
@@ -1129,7 +1130,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       props.connectionStateLabel === "connected" &&
       props.selectedThreadQueueCount === 0 &&
       !props.activeThreadBusy;
-    if (anchorsSend) {
+    // Starts only once the send passes its checks, so a refused send moves nothing.
+    const glideToAnchor = () => {
       setAnchorsSendingMessage(true);
       feedRef.current?.resetEndFollow();
       // One gesture, as Gemini's: the message glides to its anchor while the keyboard closes.
@@ -1139,9 +1141,12 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
           if (!scope.aborted) freeze.set(false);
         });
       });
-    }
-    const messageId = await props.onSendMessage(followUp, declineBeforeDispatch);
-    if (anchorsSend) setAnchorsSendingMessage(false);
+    };
+    const messageId = await props
+      .onSendMessage(followUp, declineBeforeDispatch, anchorsSend ? glideToAnchor : undefined)
+      .finally(() => {
+        if (anchorsSend) setAnchorsSendingMessage(false);
+      });
     if (messageId === null || scope.aborted) {
       return messageId;
     }
