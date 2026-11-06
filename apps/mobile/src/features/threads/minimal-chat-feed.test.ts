@@ -209,7 +209,7 @@ it("preserves requests and generated content when tool details are hidden", () =
     },
   ]);
   const presented = source;
-  const minimal = minimalChatFeed(presented);
+  const minimal = minimalChatFeed(presented, { approval: null, userInput: "question" });
   expect(minimal).toMatchObject([
     {
       type: "activity-group",
@@ -225,14 +225,24 @@ it("preserves requests and generated content when tool details are hidden", () =
   ]);
   expect(minimal[3]).toBe(presented.find((entry) => entry.type === "html-render"));
   expect(minimal[4]).toBe(presented.find((entry) => entry.type === "mcp-app"));
-  // The open question is the card above the composer, and the status line says what the run awaits.
-  expect(runWaitingLabel(presented)).toBe("Waiting for approval");
-  expect(runWaitingLabel(feed([openQuestion]))).toBe("Waiting for your answer");
+  // Open requests are the ones their cards show; those step out of the feed, and the status line
+  // says what the run awaits.
+  const open = { approval: "waiting", userInput: "question" };
+  expect(runWaitingLabel(presented)).toBeNull();
+  expect(runWaitingLabel(presented, open)).toBe("Waiting for approval");
+  expect(
+    minimalChatFeed(presented, open).some(
+      (entry) =>
+        entry.type === "activity-group" &&
+        entry.activities.some(
+          ({ projectedItem }) => projectedItem.item.type === "approval_request",
+        ),
+    ),
+  ).toBe(false);
   // An async question's item completes before its request is answered.
   const asyncQuestion = feed([
     { ...openQuestion, status: "completed", completedAt: base("x").startedAt },
   ]);
-  const open = { approval: null, userInput: "question" };
   expect(minimalChatFeed(asyncQuestion, open)).toEqual([]);
   expect(runWaitingLabel(asyncQuestion, open)).toBe("Waiting for your answer");
 });
@@ -275,6 +285,16 @@ it("names the live step, and none when the provider reports no step", () => {
   expect(runStatusActivity(step)).toBe("Running pwd");
   const thinking = deriveThreadFeedPresentation(feed([userMessage]), running, at);
   expect(runStatusActivity(thinking)).toBeNull();
+  // Waiting on the reader is no work in progress, so the line drops its running time.
+  expect(
+    appendRunStatusLine(minimalChatFeed(thinking), {
+      ...idle,
+      activity: null,
+      waiting: "Waiting for your answer",
+      latestRun: running,
+      activeWorkStartedAt: at,
+    }).at(-1),
+  ).toMatchObject({ label: "Waiting for your answer", untimed: true });
 });
 
 it("hands the last slot between the status line and the reply footer as the run settles", () => {

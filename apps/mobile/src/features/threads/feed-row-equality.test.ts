@@ -25,6 +25,18 @@ it("keeps a row whose context was rebuilt with the same data, and re-renders it 
   expect(
     sameRowValue(context, { ...rebuilt, sizing: { ...rebuilt.sizing, textSizeKey: "l" } }, 2),
   ).toBe(false);
+  // Rebuilt nested styles and arrays compare by content at the depth rows use.
+  const styled = { styles: { assistant: { text: { fontSize: 16 } } }, skills: [{ name: "a" }] };
+  expect(
+    sameRowValue(
+      styled,
+      { styles: { assistant: { text: { fontSize: 16 } } }, skills: [{ name: "a" }] },
+      4,
+    ),
+  ).toBe(true);
+  expect(
+    sameRowValue(styled, { ...styled, styles: { assistant: { text: { fontSize: 18 } } } }, 4),
+  ).toBe(false);
   // A handler appearing or going away changes what the row offers.
   expect(sameRowValue(context, { ...rebuilt, onOpenRun: null }, 2)).toBe(false);
 });

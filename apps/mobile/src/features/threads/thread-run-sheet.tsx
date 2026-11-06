@@ -87,8 +87,11 @@ export function ThreadRunSheet(props: {
     if (deferredKey) loadDeferred(deferredKey);
   }, [deferredKey]);
 
-  const toggleRow = (row: ThreadFeedActivity) =>
+  const toggleRow = (row: ThreadFeedActivity) => {
+    // Opening a row's details is reading, not following the run's end.
+    followEndRef.current = false;
     setExpandedRows((current) => ({ ...current, [row.id]: !(current[row.id] ?? false) }));
+  };
   type SubagentItem = Extract<ThreadFeedRunWorkItem, { readonly type: "subagent" }>;
   const blocks: Array<
     | { readonly type: "work"; readonly activities: ThreadFeedActivity[] }
@@ -113,6 +116,7 @@ export function ThreadRunSheet(props: {
         className="flex-1"
         scrollEventThrottle={100}
         onScroll={(event) => {
+          if (!props.live) return;
           const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
           followEndRef.current =
             contentSize.height - contentOffset.y - layoutMeasurement.height <= FOLLOW_END_SLACK;

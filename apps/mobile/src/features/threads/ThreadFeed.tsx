@@ -1898,8 +1898,10 @@ function renderFeedEntry(
     return (
       <RunStatusLine
         label={label}
+        runId={runId}
         startedAt={entry.createdAt}
         endedAt={entry.endedAt}
+        untimed={entry.untimed === true}
         height={props.replyActionSize.button}
         onOpen={runId === null ? props.onOpenSetup : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
       />
@@ -2631,7 +2633,10 @@ function FooterRunLink(props: {
       <Pressable
         accessibilityRole="button"
         accessibilityHint="Opens this run's work"
-        onPress={() => props.onOpenRun(fold.runId, fold.label)}
+        onPress={() => {
+          void Haptics.selectionAsync();
+          props.onOpenRun(fold.runId, fold.label);
+        }}
         android_ripple={{ borderless: false, foreground: true }}
         className="min-w-0 shrink flex-row items-center gap-1 px-2"
         style={{ height: props.height }}
@@ -3546,11 +3551,23 @@ export const ThreadFeed = memo(function ThreadFeed({
   const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
   const { jumpToMessageId } = props;
   const jumpReady = !!jumpToMessageId && loadedListKey === `${feedThreadKey}:filled`;
+  const terminalAssistantMessageIds = (() => {
+    const terminalIdsByTurn = new Map<RunId, string>();
+    for (const entry of props.feed) {
+      if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
+        terminalIdsByTurn.set(entry.message.runId, entry.message.id);
+      }
+    }
+    return new Set(terminalIdsByTurn.values());
+  })();
   const threadRows = useThreadFeedPresentation(props);
   // Guest drafts are never replies, so they cannot move either footer.
   const footerMessageIds = resolveFooterMessageIds(threadRows, unsettledTurnId);
   const { rows: footedRows, fold: footerRunFold } =
-    Platform.OS === "android"
+    // Only a reply that shows its footer can carry the run line; otherwise it keeps its row.
+    Platform.OS === "android" &&
+    footerMessageIds.assistant !== null &&
+    terminalAssistantMessageIds.has(footerMessageIds.assistant)
       ? takeFooterRunFold(threadRows, footerMessageIds.assistant)
       : { rows: threadRows, fold: null };
   const presentedFeed = appendGuestPendingMessages(footedRows, guestShare);
@@ -3717,15 +3734,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
   );
   const failedRunIds = failedFeedRunIds(props.feed, props.latestRun);
-  const terminalAssistantMessageIds = (() => {
-    const terminalIdsByTurn = new Map<RunId, string>();
-    for (const entry of props.feed) {
-      if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
-        terminalIdsByTurn.set(entry.message.runId, entry.message.id);
-      }
-    }
-    return new Set(terminalIdsByTurn.values());
-  })();
   // Timers the feed schedules die with it.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
   useEffect(
@@ -3856,7 +3864,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     workspaceRoot: props.workspaceRoot,
     workflowOpening,
   };
-  const rowCapturedDeps = [resolveImageSource, shareFileChip];
+  const rowCapturedDeps = [resolveImageSource, shareFileChip, markdownLinkScope];
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
     <FeedRow
       item={info.item}
@@ -4061,7 +4069,18 @@ export const ThreadFeed = memo(function ThreadFeed({
               threadId={props.threadId}
               workspaceRoot={props.workspaceRoot}
               items={runSheetItems}
-              live={runSheet.anchor === unsettledTurnId}
+              // A sheet opened from one of the run's rows is anchored on that row, not the run.
+              live={
+                unsettledTurnId !== null &&
+                (runSheet.anchor === unsettledTurnId ||
+                  runSheetItems.some((item) =>
+                    item.type === "activity"
+                      ? item.activity.runId === unsettledTurnId
+                      : item.type === "message"
+                        ? item.entry.message.runId === unsettledTurnId
+                        : item.item.runId === unsettledTurnId,
+                  ))
+              }
               copiedRowId={copiedRowId}
               iconSubtleColor={iconSubtleColor}
               themeAppearance={themeAppearance}
@@ -4137,14 +4156,15 @@ type FeedRowProps = {
 
 function feedRowPropsEqual(previous: FeedRowProps, next: FeedRowProps): boolean {
   return (
+    // Index is not compared: rows never read it, and an insert above would re-render every row.
     previous.item === next.item &&
-    previous.index === next.index &&
     previous.isLastFeedRow === next.isLastFeedRow &&
     previous.setupCard === next.setupCard &&
     previous.setupWorkingStartedAt === next.setupWorkingStartedAt &&
     previous.capturedDeps.length === next.capturedDeps.length &&
     previous.capturedDeps.every((value, index) => Object.is(value, next.capturedDeps[index])) &&
-    sameRowValue(previous.context, next.context, 2)
+    // Deep enough for markdown styles (context → markdownStyles → assistant → nativeTextStyle).
+    sameRowValue(previous.context, next.context, 4)
   );
 }
 

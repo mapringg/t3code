@@ -236,6 +236,8 @@ type ThreadFeedEntryContent =
       readonly label?: string;
       /** When the run the status line reports ended; its elapsed time stops here. */
       readonly endedAt?: string;
+      /** The run waits on the reader, so the line shows no running time. */
+      readonly untimed?: boolean;
     };
 
 export interface ThreadFeedLatestRun {

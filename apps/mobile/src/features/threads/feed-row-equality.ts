@@ -12,6 +12,12 @@ export function sameRowValue(left: unknown, right: unknown, depth: number): bool
       [...left].every(([key, value]) => right.has(key) && sameRowValue(value, right.get(key), 1))
     );
   }
+  if (depth > 0 && Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => sameRowValue(value, right[index], depth - 1))
+    );
+  }
   if (
     depth > 0 &&
     typeof left === "object" &&

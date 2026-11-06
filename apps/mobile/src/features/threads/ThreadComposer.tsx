@@ -320,7 +320,7 @@ function SendActionButton(props: {
   readonly presentation: ComposerSendPresentation;
   readonly disabled: boolean;
   readonly onSend: (followUp?: ActiveTurnComposerAction) => void;
-  /** Android: a draft replaces the Stop button, so its long-press menu keeps Stop in reach. */
+  /** Android: a live run keeps Stop beside Send while a draft holds the send slot. */
   readonly onStop: (() => void) | null;
 }) {
   const { presentation } = props;
@@ -334,45 +334,43 @@ function SendActionButton(props: {
       onPress={() => props.onSend()}
     />
   );
-  const stop = Platform.OS === "android" ? props.onStop : null;
   const actions = presentation.offersFollowUpChoice
     ? [presentation.action, presentation.alternate].filter(
         (action): action is ActiveTurnComposerAction => action !== null,
       )
     : [];
-  if ((actions.length === 0 && stop === null) || props.disabled) {
-    return button;
-  }
-  return (
-    <Menu
-      accessibilityLabel="Choose how to send this message"
-      shouldOpenOnLongPress
-      actions={[
-        ...actions.map((action) => ({
+  const send =
+    actions.length === 0 || props.disabled ? (
+      button
+    ) : (
+      <Menu
+        accessibilityLabel="Choose how to send this message"
+        shouldOpenOnLongPress
+        actions={actions.map((action) => ({
           id: action,
           title: FOLLOW_UP_ACTION_LABEL[action],
           subtitle: FOLLOW_UP_ACTION_SUBTITLE[action],
           state: action === presentation.action ? ("on" as const) : ("off" as const),
-        })),
-        ...(stop === null
-          ? []
-          : [
-              {
-                id: "stop",
-                title: "Stop agent",
-                subtitle: "Keeps this draft",
-                attributes: { destructive: true },
-              },
-            ]),
-      ]}
-      onPressAction={({ nativeEvent }) =>
-        nativeEvent.event === "stop"
-          ? stop?.()
-          : props.onSend(nativeEvent.event as ActiveTurnComposerAction)
-      }
-    >
-      {button}
-    </Menu>
+        }))}
+        onPressAction={({ nativeEvent }) =>
+          props.onSend(nativeEvent.event as ActiveTurnComposerAction)
+        }
+      >
+        {button}
+      </Menu>
+    );
+  if (Platform.OS !== "android" || props.onStop === null) return send;
+  return (
+    <View className="flex-row items-center gap-1">
+      <ComposerActionButton
+        size={props.size}
+        accessibilityLabel="Stop agent"
+        icon="stop.fill"
+        variant="danger"
+        onPress={props.onStop}
+      />
+      {send}
+    </View>
   );
 }
 

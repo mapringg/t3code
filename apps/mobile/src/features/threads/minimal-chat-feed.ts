@@ -13,9 +13,10 @@ import {
 } from "../../lib/threadActivity";
 import type { PendingThreadFeedEntry } from "./pending-thread-feed";
 
-const OPEN_REQUEST_STATUSES = new Set(["idle", "pending", "running", "waiting"]);
-
-/** Requests still awaiting the reader; an async question's item can complete before its request. */
+/**
+ * The requests the cards above the composer show. Item status is not used: an async question's
+ * item completes before its request, and an orphaned pending item has no card to answer it.
+ */
 export type OpenRequests = {
   readonly approval: string | null;
   readonly userInput: string | null;
@@ -31,13 +32,15 @@ function isOpenRequest(
   const item = activity.projectedItem.item;
   if (item.type !== type) return false;
   const openId = type === "approval_request" ? open.approval : open.userInput;
-  return OPEN_REQUEST_STATUSES.has(item.status) || item.requestId === openId;
+  return openId !== null && item.requestId === openId;
 }
 
 function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
   const item = activity.projectedItem.item;
   switch (item.type) {
     case "approval_request":
+      // The open approval is its card above the composer.
+      if (isOpenRequest(activity, "approval_request", open)) return false;
       return (
         item.status !== "completed" && item.status !== "cancelled" && item.status !== "interrupted"
       );
@@ -220,7 +223,10 @@ export function appendRunStatusLine(
       input.liveSubagents > 0
         ? `${input.liveSubagents} ${input.liveSubagents === 1 ? "agent" : "agents"}`
         : input.activity;
-    const label = input.waiting ?? (step ? `Working · ${step}` : "Working");
+    if (input.waiting) {
+      return [...rows, runStatusRow(startedAt, run?.runId ?? null, input.waiting, undefined, true)];
+    }
+    const label = step ? `Working · ${step}` : "Working";
     return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
   }
 
@@ -243,12 +249,14 @@ function runStatusRow(
   runId: RunId | null,
   label: string,
   endedAt: string | undefined,
+  untimed = false,
 ): RunStatusRow {
   if (
     cachedRunStatusRow?.createdAt !== startedAt ||
     cachedRunStatusRow.runId !== runId ||
     cachedRunStatusRow.label !== label ||
-    cachedRunStatusRow.endedAt !== endedAt
+    cachedRunStatusRow.endedAt !== endedAt ||
+    (cachedRunStatusRow.untimed ?? false) !== untimed
   ) {
     cachedRunStatusRow = {
       type: "thinking",
@@ -257,6 +265,7 @@ function runStatusRow(
       runId,
       label,
       ...(endedAt === undefined ? {} : { endedAt }),
+      ...(untimed ? { untimed } : {}),
     };
   }
   return cachedRunStatusRow;
