@@ -2920,7 +2920,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     ),
     {
       activity: runStatusActivity(presented),
-      waiting: runWaitingLabel(props.openRequests),
+      waiting: runWaitingLabel(props.openRequests ?? { approval: null, userInput: null }),
       liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,

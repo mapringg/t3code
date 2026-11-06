@@ -143,7 +143,7 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
 }
 
 /** What a live run waits on from the reader: the request its card above the composer shows. */
-export function runWaitingLabel(open: OpenRequests = NO_OPEN_REQUESTS): string | null {
+export function runWaitingLabel(open: OpenRequests): string | null {
   if (open.userInput !== null) return "Waiting for your answer";
   if (open.approval !== null) return "Waiting for approval";
   return null;

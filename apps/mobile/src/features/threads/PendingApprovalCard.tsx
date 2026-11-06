@@ -31,7 +31,7 @@ const DEFAULT_APPROVAL_OPTIONS: ReadonlyArray<ProviderApprovalOption> = [
   { decision: "decline", label: "Decline" },
 ];
 
-// Providers order their choices differently; Android always reads least to most permissive.
+// Providers order choices differently; Android puts dismissals first and the one-time Allow last.
 const ANDROID_DECISION_RANK: Record<ProviderApprovalOption["decision"], number> = {
   cancel: 0,
   decline: 1,

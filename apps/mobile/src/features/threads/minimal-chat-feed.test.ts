@@ -228,7 +228,7 @@ it("preserves requests and generated content when tool details are hidden", () =
   // Open requests are the ones their cards show; those step out of the feed, and the status line
   // says what the run awaits.
   const open = { approval: "waiting", userInput: "question" };
-  expect(runWaitingLabel()).toBeNull();
+  expect(runWaitingLabel({ approval: null, userInput: null })).toBeNull();
   expect(runWaitingLabel({ approval: "waiting", userInput: null })).toBe("Waiting for approval");
   expect(
     minimalChatFeed(presented, open).some(
