@@ -218,18 +218,20 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       className="overflow-hidden gap-2.5 rounded-[20px] android:rounded-xl border border-border bg-card-alt p-4"
       style={EXPANDED_CARD_IS_OVERLAY ? cardAnimatedStyle : cardMaxHeightStyle}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Collapse user input"
-        onPress={props.onToggleCollapsed}
-        className="flex-row items-start gap-2"
-      >
-        {Platform.OS === "android" ? (
-          // The status line already says the run waits; the card names only what it asks.
-          <Text className="flex-1 self-center font-t3-medium text-sm text-foreground-muted">
+      {Platform.OS === "android" ? (
+        // The status line already says the run waits; a lone question needs no title above it.
+        questionCount > 1 ? (
+          <Text className="pr-10 font-t3-medium text-sm text-foreground-muted">
             {questionsLabel}
           </Text>
-        ) : (
+        ) : null
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Collapse user input"
+          onPress={props.onToggleCollapsed}
+          className="flex-row items-start gap-2"
+        >
           <View className="flex-1 gap-2.5">
             <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
               User input needed
@@ -238,16 +240,16 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
               Fill in the pending answers
             </Text>
           </View>
-        )}
-        <View className="h-8 w-8 items-center justify-center rounded-full bg-subtle-strong">
-          <SymbolView
-            name="chevron.down"
-            size={13}
-            tintColorClassName={"accent-icon-subtle"}
-            type="monochrome"
-          />
-        </View>
-      </Pressable>
+          <View className="h-8 w-8 items-center justify-center rounded-full bg-subtle-strong">
+            <SymbolView
+              name="chevron.down"
+              size={13}
+              tintColorClassName={"accent-icon-subtle"}
+              type="monochrome"
+            />
+          </View>
+        </Pressable>
+      )}
       <ScrollView
         bounces={false}
         className="min-h-0"
@@ -263,7 +265,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
             run to continue.
           </Text>
         ) : null}
-        {props.pendingUserInput.questions.map((question) => {
+        {props.pendingUserInput.questions.map((question, index) => {
           const draft = props.drafts[question.id];
           return (
             <View key={question.id} className="gap-2 pt-1">
@@ -275,11 +277,17 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
                   {question.header}
                 </Text>
               )}
-              <QuestionText
-                markdown={question.question}
-                environmentId={props.environmentId}
-                setDirection={setDirection}
-              />
+              <View
+                className={cn(
+                  Platform.OS === "android" && questionCount === 1 && index === 0 && "pr-8",
+                )}
+              >
+                <QuestionText
+                  markdown={question.question}
+                  environmentId={props.environmentId}
+                  setDirection={setDirection}
+                />
+              </View>
               <View className="gap-2">
                 {question.options.map((option) => {
                   const optionValue = option.value ?? option.label.trim();
@@ -297,7 +305,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
                         "min-h-12 w-full rounded-2xl border px-3.5 py-3 android:rounded-xl",
                         selected
                           ? "border-primary bg-primary/10 android:border-foreground android:bg-foreground/5"
-                          : "border-border bg-input",
+                          : "border-border bg-input android:bg-transparent",
                       )}
                       onPress={() =>
                         props.onSelectOption(
@@ -310,7 +318,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
                       <View className="min-w-0 flex-1 gap-0.5">
                         <Text
                           className={cn(
-                            "font-t3-bold text-sm android:font-t3-medium android:text-base",
+                            "font-t3-bold text-sm android:font-sans android:text-base",
                             selected
                               ? "text-foreground"
                               : "text-foreground-secondary android:text-foreground",
@@ -369,6 +377,23 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         <Text className="font-sans text-xs text-foreground-tertiary">
           This connection cannot submit answers.
         </Text>
+      ) : null}
+      {Platform.OS === "android" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Collapse user input"
+          onPress={props.onToggleCollapsed}
+          hitSlop={4}
+          className="absolute right-2 top-2 h-10 w-10 items-center justify-center rounded-full"
+          android_ripple={{ borderless: true, radius: 20 }}
+        >
+          <SymbolView
+            name="chevron.down"
+            size={13}
+            tintColorClassName={"accent-icon-subtle"}
+            type="monochrome"
+          />
+        </Pressable>
       ) : null}
     </Animated.View>
   ) : null;

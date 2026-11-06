@@ -127,7 +127,7 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
             tone={
               option.decision === "accept"
                 ? "primary"
-                : option.decision === "decline"
+                : option.decision === "decline" && Platform.OS !== "android"
                   ? "danger"
                   : "secondary"
             }
