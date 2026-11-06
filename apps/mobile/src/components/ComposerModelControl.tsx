@@ -65,12 +65,15 @@ export function ComposerModelControl(props: {
                   showBadge
                   surfaceColor={props.surfaceColor}
                   size={size}
+                  monochrome={Platform.OS === "android"}
                 />
               ) : (
                 <ProviderIcon
                   iconUrl={props.modelOption?.providerIconUrl}
                   provider={props.modelOption?.providerDriver}
                   size={size}
+                  // Android keeps colour for Send and links; the model mark is a control.
+                  monochrome={Platform.OS === "android"}
                 />
               )
       }
