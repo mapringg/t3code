@@ -1098,9 +1098,12 @@ function ThreadRouteContent(
           respondingUserInputId={requests.respondingUserInputId}
           connectionStateLabel={routeConnectionState}
           threadSyncStatus={selectedThreadDetailState.status}
+          // A cached conversation shows at once, as Gemini's do; only a thread with nothing
+          // loaded yet waits for its catch-up.
           feedAwaitsCatchUp={
             Platform.OS === "android" &&
             creationState === null &&
+            selectedThreadDetailState.status === "empty" &&
             feedAwaitsThreadCatchUp({
               syncStatus: selectedThreadDetailState.status,
               detailError: Option.getOrNull(selectedThreadDetailState.error),

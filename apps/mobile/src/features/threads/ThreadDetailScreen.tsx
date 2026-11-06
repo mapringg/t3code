@@ -502,6 +502,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     }, COMPOSER_HEIGHT_SETTLE_MS);
   };
   const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
+  // Android: a send anchors its message from the first frame it draws, before its id returns.
+  const [anchorsSendingMessage, setAnchorsSendingMessage] = useState(false);
   const feedRef = useRef<ThreadFeedHandle>(null);
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   // Keep the bottom padding fixed while the keyboard animates. Changing it at
@@ -1121,7 +1123,18 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
             );
           }
         : undefined;
+    // A send that starts a turn moves to the top; one queued behind a running turn stays put.
+    const anchorsSend =
+      Platform.OS === "android" &&
+      props.connectionStateLabel === "connected" &&
+      props.selectedThreadQueueCount === 0 &&
+      !props.activeThreadBusy;
+    if (anchorsSend) {
+      setAnchorsSendingMessage(true);
+      void KeyboardController.dismiss();
+    }
     const messageId = await props.onSendMessage(followUp, declineBeforeDispatch);
+    if (anchorsSend) setAnchorsSendingMessage(false);
     if (messageId === null || scope.aborted) {
       return messageId;
     }
@@ -1130,11 +1143,12 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
 
     // Android anchors every sent message at the top, as Gemini does: the reply grows into the
     // space below it instead of pushing the conversation up under the reader.
+    // Otherwise the previous anchor stays, so its end space does not collapse under the reader.
     const nextAnchorMessageId =
       Platform.OS === "android"
-        ? props.connectionStateLabel === "connected" && props.selectedThreadQueueCount === 0
+        ? anchorsSend
           ? messageId
-          : null
+          : anchorMessageId
         : resolveThreadFeedSubmissionAnchor({
             currentAnchorMessageId: anchorMessageId,
             submittedMessageId: messageId,
@@ -1315,6 +1329,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               listRef={listRef}
               freeze={freeze}
               anchorMessageId={anchorMessageId}
+              anchorsSendingMessage={anchorsSendingMessage}
               jumpToMessageId={jumpMessageLoaded ? jumpMessageId : null}
               onJumpedToMessage={() => finishThreadMessageJump(selectedThreadKey)}
               ref={feedRef}

@@ -7,7 +7,8 @@ export function RunStatusLine(props: { readonly label: string; readonly height: 
       numberOfLines={1}
       accessibilityLiveRegion="polite"
       className="mb-1 px-1 font-t3-medium text-xs text-foreground-secondary"
-      style={{ minHeight: props.height, textAlignVertical: "center" }}
+      // Exactly the slot finished replies keep, so the line handing over moves nothing.
+      style={{ height: props.height, textAlignVertical: "center" }}
     >
       {props.label}
     </Text>

@@ -67,7 +67,7 @@ const command = {
   exitCode: 0,
 };
 
-it("shows only each run's latest reply, live and settled, without run details or thinking", () => {
+it("keeps every reply of a run in order, live and settled, without run details or thinking", () => {
   const items: OrchestrationV2TurnItem[] = [
     {
       ...base("user"),
@@ -95,16 +95,11 @@ it("shows only each run's latest reply, live and settled, without run details or
       streaming: false,
     },
   ];
-  const settled = minimalChatFeed(deriveThreadFeedPresentation(feed(items), null));
-  expect(settled.map((entry) => entry.id)).toEqual(["user", "final"]);
-  const live = minimalChatFeed(
-    deriveThreadFeedPresentation(
-      feed(items),
-      { runId, status: "running", startedAt: at, completedAt: null },
-      at,
-    ),
-  );
-  expect(live.map((entry) => entry.id)).toEqual(["user", "final"]);
+  // The feed is the unfolded conversation; run state does not change which replies show.
+  const settled = minimalChatFeed(feed(items));
+  expect(settled.map((entry) => entry.id)).toEqual(["user", "intermediate", "final"]);
+  const live = minimalChatFeed(feed(items));
+  expect(live.map((entry) => entry.id)).toEqual(["user", "intermediate", "final"]);
 });
 
 it("keeps provider failures while removing adjacent tool activity", () => {
@@ -279,6 +274,9 @@ it("keeps a step to one short line by naming files, not paths", () => {
   expect(briefStep("/home/me/code/t3/src/math.ts")).toBe("math.ts");
   expect(briefStep("Edit ./src/a.ts and ../b/c.ts")).toBe("Edit a.ts and c.ts");
   expect(briefStep("Running vp test")).toBe("Running vp test");
+  // Commands and URLs keep what they act on.
+  expect(briefStep("Running rm -rf /x/build")).toBe("Running rm -rf /x/build");
+  expect(briefStep("Fetch https://example.com/a/b")).toBe("Fetch https://example.com/a/b");
 });
 
 it("names the live step, and none when the provider reports no step", () => {
@@ -332,7 +330,7 @@ it("hands the last slot between the status line and the reply footer as the run 
   const slot = (latestRun: typeof running | typeof completed | typeof interrupted) => {
     const workStartedAt = latestRun === running ? at : null;
     const presented = deriveThreadFeedPresentation(feed(turn), latestRun, workStartedAt);
-    const rows = appendRunStatusLine(minimalChatFeed(presented), {
+    const rows = appendRunStatusLine(minimalChatFeed(feed(turn)), {
       ...idle,
       activity: runStatusActivity(presented),
       latestRun,
@@ -349,9 +347,8 @@ it("hands the last slot between the status line and the reply footer as the run 
       footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
     };
   };
-  // Nothing above the final reply changes when the run ends: earlier text and the previous
-  // reply's footer are already gone while it runs.
-  const above = ["prev-user", "prev-reply", "user"];
+  // Nothing above the final reply changes when the run ends: earlier replies stay put.
+  const above = ["prev-user", "prev-reply", "user", "intermediate"];
   expect(slot(running)).toMatchObject({
     above,
     last: { type: "thinking", label: "Working…", createdAt: at, runId },
@@ -373,7 +370,7 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
   const rows = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
     const latestRun = { runId, status, startedAt: at, completedAt: endedAt };
     const presented = deriveThreadFeedPresentation(feed(items), latestRun);
-    return appendRunStatusLine(minimalChatFeed(presented), {
+    return appendRunStatusLine(minimalChatFeed(feed(items)), {
       ...idle,
       activity: runStatusActivity(presented),
       latestRun,

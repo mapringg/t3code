@@ -87,7 +87,8 @@ function enrichedStyle(
     code: {
       fontFamily: monospace,
       color: Platform.OS === "android" ? style.codeColor : style.inlineCodeColor,
-      backgroundColor: Platform.OS === "android" ? style.codeBackgroundColor : "transparent",
+      // Android's span paints the whole line box, which at the chat's line height reads as slabs.
+      backgroundColor: "transparent",
       borderColor: "transparent",
       fontSize: style.fontSize * 0.9,
     },

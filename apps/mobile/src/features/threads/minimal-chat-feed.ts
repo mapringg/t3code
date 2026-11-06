@@ -61,29 +61,17 @@ function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
 }
 
 /**
- * A run shows only its latest reply, live or settled, so ending a run never folds text away.
+ * Android's chat is messages in order: every reply a run writes stays where it appeared, and
+ * its tool work stays out of the feed. Built from the unfolded feed, so nothing read is taken back.
  */
 export function minimalChatFeed(
   feed: ReadonlyArray<ThreadFeedEntry>,
   open: OpenRequests = NO_OPEN_REQUESTS,
 ): ThreadFeedEntry[] {
-  const latestReplyByRun = new Map<RunId, string>();
-  for (const entry of feed) {
-    if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
-      latestReplyByRun.set(entry.message.runId, entry.id);
-    }
-  }
   return feed.flatMap((entry): ThreadFeedEntry[] => {
     switch (entry.type) {
       case "message":
         if (isCompactionCommandMessage(entry.message)) return [];
-        if (
-          entry.message.role === "assistant" &&
-          entry.message.runId &&
-          latestReplyByRun.get(entry.message.runId) !== entry.id
-        ) {
-          return [];
-        }
         return [entry];
       case "html-render":
       case "mcp-app":
@@ -210,9 +198,16 @@ export function appendRunStatusLine(
   ];
 }
 
-/** Paths name only their file, so a step stays one short line. */
+/**
+ * File steps name only their file, so the line stays short. Commands and URLs stay as written:
+ * shortening `rm -rf /x/build` would misstate what it touches.
+ */
 export function briefStep(step: string): string {
-  return step.replace(/(?:~|\.{0,2})?\/(?:[^\s/]+\/)+([^\s/]+)/g, "$1");
+  if (/^Running\b/.test(step)) return step;
+  return step.replace(
+    /(^|\s)(?:~|\.{1,2})?\/(?:[^\s/]+\/)+([^\s/]+)/g,
+    (_match, lead: string, file: string) => `${lead}${file}`,
+  );
 }
 
 function runStatusRow(

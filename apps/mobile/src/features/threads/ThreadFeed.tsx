@@ -381,6 +381,8 @@ export interface ThreadFeedProps {
   readonly listRef: RefObject<LegendListRef | null>;
   readonly freeze: SharedValue<boolean>;
   readonly anchorMessageId: MessageId | null;
+  /** Android: anchor the newest user message, a send whose id has not returned yet. */
+  readonly anchorsSendingMessage?: boolean;
   /** A message to scroll to once it is in the feed; see `onJumpedToMessage`. */
   readonly jumpToMessageId?: MessageId | null;
   readonly onJumpedToMessage?: () => void;
@@ -1809,6 +1811,8 @@ function renderFeedEntry(
     readonly unsettledTurnId: RunId | null;
     readonly compactionLabelsByEntryId: ReadonlyMap<string, { title: string; compacting: string }>;
     readonly failedRunIds: ReadonlySet<RunId>;
+    /** The latest run, when it was stopped; its last reply says so in place of a footer. */
+    readonly stoppedRunId: RunId | null;
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
     readonly onOpenRun: (anchor: string, title: string) => void;
@@ -2139,6 +2143,9 @@ function renderFeedEntry(
       const showFooter =
         bubbleBodyVisible &&
         (metaShown || intentBadge !== null || pendingUnacknowledged || canEditPending);
+      // Android: a send acknowledges within a moment; "Pending" only shows if it does not.
+      const footerWaits =
+        props.messageMetaHidden && pendingUnacknowledged && !canEditPending && intentBadge === null;
       const userMessageContent = (
         <UserMessageContent
           text={renderedText}
@@ -2373,63 +2380,65 @@ function renderFeedEntry(
             </View>
           ) : null}
           {showFooter ? (
-            <View
-              className={cn(
-                "mt-1 flex-row items-center justify-end gap-1 pr-0.5",
-                // Pending and acknowledged rows hold different controls; keep one height.
-                props.messageActionsInMenu && "min-h-7",
-              )}
-            >
-              {intentBadge ? (
-                <View
-                  accessible
-                  accessibilityLabel={intentBadge.accessibilityLabel}
-                  className="flex-row items-center gap-1"
-                >
-                  <SymbolView name="arrow.uturn.forward" size={12} tintColor={iconSubtleColor} />
-                  <Text className="font-t3-medium text-xs text-foreground-secondary">
-                    {intentBadge.label}
+            <DelayedReveal delayMs={footerWaits ? 1000 : 0}>
+              <View
+                className={cn(
+                  "mt-1 flex-row items-center justify-end gap-1 pr-0.5",
+                  // Pending and acknowledged rows hold different controls; keep one height.
+                  props.messageActionsInMenu && "min-h-7",
+                )}
+              >
+                {intentBadge ? (
+                  <View
+                    accessible
+                    accessibilityLabel={intentBadge.accessibilityLabel}
+                    className="flex-row items-center gap-1"
+                  >
+                    <SymbolView name="arrow.uturn.forward" size={12} tintColor={iconSubtleColor} />
+                    <Text className="font-t3-medium text-xs text-foreground-secondary">
+                      {intentBadge.label}
+                    </Text>
+                  </View>
+                ) : null}
+                {intentBadge && showTimestamp ? (
+                  <Text
+                    accessible={false}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                    className="font-t3-medium text-xs text-foreground-secondary"
+                  >
+                    ·
                   </Text>
-                </View>
-              ) : null}
-              {intentBadge && showTimestamp ? (
-                <Text
-                  accessible={false}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                  className="font-t3-medium text-xs text-foreground-secondary"
-                >
-                  ·
-                </Text>
-              ) : null}
-              {showTimestamp ? (
-                <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
-                  {pendingUnacknowledged ? "Pending" : timestampLabel}
-                </Text>
-              ) : null}
-              {canEditPending ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit pending message"
-                  hitSlop={8}
-                  className="size-7 items-center justify-center"
-                  onPress={() => {
-                    if (entry.pendingMessage && props.onEditPendingMessage) {
-                      props.onEditPendingMessage(entry.pendingMessage);
-                    }
-                  }}
-                >
-                  <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
-                </Pressable>
-              ) : null}
-              {presentation.text.trim().length > 0 && !metaInMenu ? (
-                <UserMessageCopyButton
-                  text={presentation.text}
-                  onCopy={onCopyUserMessage}
-                  tintColor={iconSubtleColor}
-                />
-              ) : null}
-            </View>
+                ) : null}
+                {showTimestamp ? (
+                  <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+                    {pendingUnacknowledged ? "Pending" : timestampLabel}
+                  </Text>
+                ) : null}
+                {canEditPending ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit pending message"
+                    hitSlop={8}
+                    className="size-7 items-center justify-center"
+                    onPress={() => {
+                      if (entry.pendingMessage && props.onEditPendingMessage) {
+                        props.onEditPendingMessage(entry.pendingMessage);
+                      }
+                    }}
+                  >
+                    <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
+                  </Pressable>
+                ) : null}
+                {presentation.text.trim().length > 0 && !metaInMenu ? (
+                  <UserMessageCopyButton
+                    text={presentation.text}
+                    onCopy={onCopyUserMessage}
+                    tintColor={iconSubtleColor}
+                  />
+                ) : null}
+              </View>
+            </DelayedReveal>
           ) : null}
         </Animated.View>
       );
@@ -2556,11 +2565,20 @@ function AssistantMessageRow({
           onOpenTurnDiff={props.onOpenTurnDiff}
         />
       ) : null}
-      {props.messageMetaHidden &&
-      showAssistantMeta &&
-      message.id === props.footerAssistantMessageId ? (
-        // The working line's slot: the newest reply keeps its height so settling moves nothing.
-        <View className="mt-1" style={{ height: props.replyActionSize.button }} />
+      {props.messageMetaHidden && showAssistantMeta ? (
+        // The working line's slot: every finished reply keeps it, so neither a run settling nor
+        // the next send moves the conversation. A stopped or failed run says so in it.
+        <Text
+          numberOfLines={1}
+          className="mt-1 font-t3-medium text-xs text-foreground-secondary"
+          style={{ height: props.replyActionSize.button, textAlignVertical: "center" }}
+        >
+          {message.runId !== null && message.runId === props.stoppedRunId
+            ? "Stopped"
+            : message.runId !== null && props.failedRunIds.has(message.runId)
+              ? "Failed"
+              : ""}
+        </Text>
       ) : null}
       {showAssistantMeta && !replyActionsInMenu && !props.messageMetaHidden ? (
         <View
@@ -2844,12 +2862,13 @@ function ThreadFeedPlaceholder(props: {
 function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
   const liveSubagents = useLiveSubagentCount(props.detailRef);
+  const conversation = props.feed.filter(
+    (entry) =>
+      entry.type !== "activity-group" ||
+      entry.activities[0]?.projectedItem.item.type !== "subagent",
+  );
   const presented = deriveThreadFeedPresentation(
-    props.feed.filter(
-      (entry) =>
-        entry.type !== "activity-group" ||
-        entry.activities[0]?.projectedItem.item.type !== "subagent",
-    ),
+    conversation,
     props.latestRun,
     props.activeWorkStartedAt,
     props.runlessWorkActive ?? false,
@@ -2860,7 +2879,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
   }
   return appendRunStatusLine(
     appendPendingThreadMessages(
-      minimalChatFeed(presented, props.openRequests),
+      minimalChatFeed(conversation, props.openRequests),
       props.feed,
       props.queuedMessages,
     ),
@@ -3668,7 +3687,11 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   const anchoredEndSpace =
     Platform.OS === "android"
-      ? androidAnchoredEndSpace(presentedFeed, props.anchorMessageId)
+      ? androidAnchoredEndSpace(
+          presentedFeed,
+          props.anchorMessageId,
+          props.anchorsSendingMessage === true,
+        )
       : resolveChatListAnchoredEndSpace(
           presentedFeed,
           props.anchorMessageId,
@@ -3676,6 +3699,10 @@ export const ThreadFeed = memo(function ThreadFeed({
           { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
         );
   const failedRunIds = failedFeedRunIds(props.feed, props.latestRun);
+  const stoppedRunId =
+    props.latestRun?.status === "interrupted" || props.latestRun?.status === "cancelled"
+      ? props.latestRun.runId
+      : null;
   // Timers the feed schedules die with it.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
   useEffect(
@@ -3775,6 +3802,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     unsettledTurnId,
     compactionLabelsByEntryId,
     failedRunIds,
+    stoppedRunId,
     onCopyWorkRow,
     onOpenRun,
     onOpenTurnDiff,
@@ -3877,7 +3905,9 @@ export const ThreadFeed = memo(function ThreadFeed({
               freeze={props.freeze}
               // Follow the measured end immediately; animating estimates races row measurement on acknowledgement.
               maintainScrollAtEnd={
-                !followsEnd
+                // Android holds an anchored send at the top while its reply grows below, as
+                // Gemini does; following the end would push the sent message off screen.
+                !followsEnd || (Platform.OS === "android" && anchoredEndSpace !== undefined)
                   ? false
                   : {
                       animated: false,
@@ -4078,12 +4108,26 @@ type FeedRowContext = Omit<
 function androidAnchoredEndSpace(
   rows: ReadonlyArray<ThreadFeedRow>,
   anchorMessageId: string | null | undefined,
+  anchorsSendingMessage: boolean,
 ) {
-  if (!anchorMessageId) return undefined;
-  const anchorIndex = rows.findIndex(
-    (row) => row.type === "message" && row.message.id === anchorMessageId,
-  );
+  const anchorIndex = anchorsSendingMessage
+    ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
+    : anchorMessageId
+      ? rows.findIndex((row) => row.type === "message" && row.message.id === anchorMessageId)
+      : -1;
   return anchorIndex === -1 ? undefined : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET };
+}
+
+/** Holds children back for a moment, for states that only matter if they last. */
+function DelayedReveal(props: { readonly delayMs: number; readonly children: ReactNode }) {
+  const [shown, setShown] = useState(props.delayMs === 0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reveals after a timer, outside React
+  useEffect(() => {
+    if (props.delayMs === 0) return;
+    const timer = setTimeout(() => setShown(true), props.delayMs);
+    return () => clearTimeout(timer);
+  }, [props.delayMs]);
+  return shown || props.delayMs === 0 ? props.children : null;
 }
 
 type FeedRowProps = {
