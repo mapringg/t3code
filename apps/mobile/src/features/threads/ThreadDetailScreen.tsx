@@ -1131,7 +1131,14 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       !props.activeThreadBusy;
     if (anchorsSend) {
       setAnchorsSendingMessage(true);
-      void KeyboardController.dismiss();
+      feedRef.current?.resetEndFollow();
+      // One gesture, as Gemini's: the message glides to its anchor while the keyboard closes.
+      requestAnimationFrame(() => {
+        if (scope.aborted) return;
+        void scrollMessageToEnd({ animated: !reduceMotion, closeKeyboard: true }).catch(() => {
+          if (!scope.aborted) freeze.set(false);
+        });
+      });
     }
     const messageId = await props.onSendMessage(followUp, declineBeforeDispatch);
     if (anchorsSend) setAnchorsSendingMessage(false);
@@ -1162,7 +1169,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     if (Platform.OS !== "android") composerEditorRef.current?.blur();
     // The send enqueued the message optimistically, so it is in the feed or
     // the queue by the next frame, once the new anchor has rendered.
-    if (nextAnchorMessageId === messageId && contentPresentationKind === "ready") {
+    if (
+      Platform.OS !== "android" &&
+      nextAnchorMessageId === messageId &&
+      contentPresentationKind === "ready"
+    ) {
       requestAnimationFrame(() => {
         if (scope.aborted) return;
         // Wait for the keyboard to finish dismissing: scrollMessageToEnd freezes
