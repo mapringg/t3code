@@ -156,8 +156,8 @@ const END_LABELS: Partial<Record<ThreadFeedLatestRun["status"], string>> = {
 
 /**
  * Android's one-line run status, always the last row once a run has started. It names the step
- * while the run works and goes blank when it settles, so the feed never loses a row under the
- * reader. A run that stops or fails with no reply keeps it as a still end line.
+ * while the run works, then says how the run ended if it stopped or failed, or goes blank, so the
+ * feed never loses a row under the reader.
  */
 export function appendRunStatusLine(
   rows: ReadonlyArray<PendingThreadFeedEntry>,
@@ -203,25 +203,19 @@ export function appendRunStatusLine(
   }
 
   const ended = input.latestRun;
-  const endLabel = ended ? END_LABELS[ended.status] : undefined;
-  // A run with a reply already says how it ended in that reply's slot.
-  const runHasReply = rows.some(
-    (row) =>
-      row.type === "message" &&
-      row.message.role === "assistant" &&
-      row.message.runId === ended?.runId,
-  );
   if (!ended || ended.startedAt === null) return rows;
-  if (endLabel === undefined || runHasReply) {
-    // The line stays, blank, once the run settles: removing the row would shrink the list and
-    // clamp its offset, dropping the turn the send anchored.
-    return [...rows, runStatusRow(ended.startedAt, ended.runId, "", undefined, true)];
-  }
-  return [
-    // The end line opens the same run sheet, so the run's fold line would only repeat it.
-    ...rows.filter((row) => row.type !== "run-fold" || row.runId !== ended.runId),
-    runStatusRow(ended.startedAt, ended.runId, endLabel, ended.completedAt ?? ended.startedAt),
-  ];
+  // A kept error row already says the run failed.
+  const errorShown = rows.some(
+    (row) =>
+      row.type === "activity-group" &&
+      row.activities.some(
+        ({ projectedItem: { item } }) => item.type === "error" && item.runId === ended.runId,
+      ),
+  );
+  const label = errorShown ? "" : (END_LABELS[ended.status] ?? "");
+  // The line stays once the run settles: removing the row would shrink the list and clamp its
+  // offset, dropping the turn the send anchored.
+  return [...rows, runStatusRow(ended.startedAt, ended.runId, label, undefined, true)];
 }
 
 /**

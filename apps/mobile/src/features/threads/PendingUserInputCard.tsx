@@ -191,7 +191,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         <ControlPill
           accessibilityLabel="Stop"
           icon="stop.fill"
-          variant="danger"
+          variant={Platform.OS === "android" ? "circle" : "danger"}
           className="h-9 w-9"
           disabled={!props.canOperateThread}
           onPress={props.onStopThread}

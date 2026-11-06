@@ -1811,8 +1811,6 @@ function renderFeedEntry(
     readonly unsettledTurnId: RunId | null;
     readonly compactionLabelsByEntryId: ReadonlyMap<string, { title: string; compacting: string }>;
     readonly failedRunIds: ReadonlySet<RunId>;
-    /** The latest run, when it was stopped; its last reply says so in place of a footer. */
-    readonly stoppedRunId: RunId | null;
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
     readonly onOpenRun: (anchor: string, title: string) => void;
@@ -2524,8 +2522,13 @@ function AssistantMessageRow({
       className={cn(
         // Padding, not margin: the footer's touch targets reach into it, and Android hit-tests
         // only inside a view's bounds.
-        Platform.OS === "android" && props.isLastFeedRow
-          ? "pb-1 px-1"
+        Platform.OS === "android"
+          ? // Fixed until a new message follows, so a run settling moves nothing below it.
+            props.isLastFeedRow
+            ? "pb-1 px-1"
+            : props.precedesUserMessage
+              ? "mb-5 px-1"
+              : "mb-1 px-1"
           : (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
               props.precedesUserMessage
             ? "mb-5 px-1"
@@ -2562,21 +2565,6 @@ function AssistantMessageRow({
           checkpoint={message.checkpointSummary}
           onOpenTurnDiff={props.onOpenTurnDiff}
         />
-      ) : null}
-      {props.messageMetaHidden && showAssistantMeta ? (
-        // The working line's slot: every finished reply keeps it, so neither a run settling nor
-        // the next send moves the conversation. A stopped or failed run says so in it.
-        <Text
-          numberOfLines={1}
-          className="mt-1 font-t3-medium text-xs text-foreground-secondary"
-          style={{ height: props.replyActionSize.button, textAlignVertical: "center" }}
-        >
-          {message.runId !== null && message.runId === props.stoppedRunId
-            ? "Stopped"
-            : message.runId !== null && props.failedRunIds.has(message.runId)
-              ? "Failed"
-              : ""}
-        </Text>
       ) : null}
       {showAssistantMeta && !replyActionsInMenu && !props.messageMetaHidden ? (
         <View
@@ -3697,10 +3685,6 @@ export const ThreadFeed = memo(function ThreadFeed({
           { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
         );
   const failedRunIds = failedFeedRunIds(props.feed, props.latestRun);
-  const stoppedRunId =
-    props.latestRun?.status === "interrupted" || props.latestRun?.status === "cancelled"
-      ? props.latestRun.runId
-      : null;
   // Timers the feed schedules die with it.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
   useEffect(
@@ -3800,7 +3784,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     unsettledTurnId,
     compactionLabelsByEntryId,
     failedRunIds,
-    stoppedRunId,
     onCopyWorkRow,
     onOpenRun,
     onOpenTurnDiff,

@@ -313,7 +313,7 @@ it("names the live step, and none when the provider reports no step", () => {
   ).toMatchObject({ label: "Waiting for your answer", untimed: true });
 });
 
-it("keeps the last row in place as the run settles: the line goes blank, the reply gains its footer", () => {
+it("keeps the last row in place as the run settles, blank or naming how it ended", () => {
   const previousRunId = RunId.make("previous");
   const previousTurn: OrchestrationV2TurnItem[] = [
     {
@@ -366,13 +366,17 @@ it("keeps the last row in place as the run settles: the line goes blank, the rep
     footer: null,
   });
   // Removing the line would shrink the list and clamp the anchored turn's offset.
-  const blank = { id: "run-status-line", label: "" };
-  expect(slot(completed)).toMatchObject({ above, last: blank, footer: "reply" });
-  expect(slot(interrupted)).toMatchObject({ above, last: blank, footer: "reply" });
+  const line = { id: "run-status-line", runId };
+  expect(slot(completed)).toMatchObject({ above, last: { ...line, label: "" }, footer: "reply" });
+  expect(slot(interrupted)).toMatchObject({
+    above,
+    last: { ...line, label: "Stopped" },
+    footer: "reply",
+  });
   expect(slot(running).last).toBe(slot(running).last);
 });
 
-it("keeps the slot as a still end line when a run stops or fails without its reply last", () => {
+it("says once how a stopped or failed run ended", () => {
   const endedAt = "2026-11-03T10:00:42.000Z";
   const failure: OrchestrationV2TurnItem = {
     ...base("failure"),
@@ -391,22 +395,13 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
   };
   const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") =>
     rows(items, status).at(-1);
-  const ended = { type: "thinking", id: "run-status-line", createdAt: at, endedAt, runId };
+  const ended = { type: "thinking", id: "run-status-line", createdAt: at, runId };
   expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
-  expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
-  // A stopped run's partial reply says so in its own slot; the line stays, blank.
-  expect(last([userMessage, reply], "interrupted")).toMatchObject({
-    id: "run-status-line",
-    runId,
-    label: "",
-  });
-  // The reply's slot already says the run failed; a notice after it adds no second end line.
-  expect(last([userMessage, reply, failure], "failed")).toMatchObject({
-    id: "run-status-line",
-    runId,
-    label: "",
-  });
-  // The end line opens the run sheet itself, so the run keeps no second line into it.
+  expect(last([userMessage, reply], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
+  expect(last([userMessage, reply], "failed")).toMatchObject({ ...ended, label: "Failed" });
+  // The error row already says the run failed; the line stays, blank.
+  expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "" });
+  expect(last([userMessage, reply, failure], "failed")).toMatchObject({ ...ended, label: "" });
   expect(rows([userMessage, command], "interrupted").map((row) => row.id)).toEqual([
     "user",
     "run-status-line",
