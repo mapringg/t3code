@@ -56,7 +56,7 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
   const disabled = !canRespond || props.respondingApprovalId === props.approval.requestId;
   const [explanationOpen, setExplanationOpen] = useState(false);
   return (
-    <View className="gap-2.5 rounded-[20px] android:rounded-xl border border-border bg-card-alt p-4">
+    <View className="gap-2.5 rounded-[20px] border border-border bg-card-alt p-4 android:border-0 android:bg-transparent android:px-1 android:pt-0">
       {/* Android's status line already says the run waits for approval. */}
       {Platform.OS === "android" ? null : (
         <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
