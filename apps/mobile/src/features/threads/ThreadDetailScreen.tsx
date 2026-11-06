@@ -1226,6 +1226,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     composerEditorRef.current?.blur();
   };
 
+  const handleJumpedToMessage = () => finishThreadMessageJump(selectedThreadKey);
   const handleUseArtifactTemplate = (template: CodexArtifactTemplate) => {
     const draftMessage =
       props.composerDraftKey === null ? "" : getComposerDraftSnapshot(props.composerDraftKey).text;
@@ -1348,7 +1349,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               anchorMessageId={anchorMessageId}
               anchorsSendingMessage={anchorsSendingMessage}
               jumpToMessageId={jumpMessageLoaded ? jumpMessageId : null}
-              onJumpedToMessage={() => finishThreadMessageJump(selectedThreadKey)}
+              onJumpedToMessage={handleJumpedToMessage}
               ref={feedRef}
               contentInsetEndAdjustment={combinedContentInsetEndAdjustment}
               keyboardOffset={composerKeyboardOffset}
