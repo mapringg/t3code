@@ -1,18 +1,10 @@
 import * as Haptics from "expo-haptics";
+import { useState } from "react";
 import { Pressable } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { formatElapsed } from "./run-elapsed";
 import { useVisibleSecondClock } from "./use-visible-second-clock";
-
-function formatElapsed(startedAt: string, nowMs: number): string | null {
-  const startedAtMs = Date.parse(startedAt);
-  if (!Number.isFinite(startedAtMs)) return null;
-  const seconds = Math.max(0, Math.floor((nowMs - startedAtMs) / 1_000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
-}
 
 // The only part that ticks, so the feed and its rows stay put each second.
 function RunStatusText(props: {
@@ -21,10 +13,16 @@ function RunStatusText(props: {
   readonly endedAt: string | undefined;
 }) {
   const nowMs = useVisibleSecondClock(props.endedAt === undefined);
-  const elapsed = formatElapsed(
-    props.startedAt,
-    props.endedAt === undefined ? nowMs : Date.parse(props.endedAt),
-  );
+  // Keyed by run start: a line that stays mounted into the next run starts counting again.
+  const [shown, setShown] = useState(() => ({ startedAt: props.startedAt, sinceMs: nowMs }));
+  if (shown.startedAt !== props.startedAt) {
+    setShown({ startedAt: props.startedAt, sinceMs: nowMs });
+  }
+  const shownSinceMs = shown.startedAt === props.startedAt ? shown.sinceMs : nowMs;
+  const elapsed =
+    props.endedAt === undefined
+      ? formatElapsed(props.startedAt, nowMs, shownSinceMs)
+      : formatElapsed(props.startedAt, Date.parse(props.endedAt));
   return (
     <Text
       numberOfLines={1}
