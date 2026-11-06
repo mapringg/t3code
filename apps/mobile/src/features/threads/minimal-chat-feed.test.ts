@@ -17,6 +17,7 @@ import {
   appendRunStatusLine,
   minimalChatFeed,
   runStatusActivity,
+  takeFooterRunFold,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
 import { resolveFooterMessageIds } from "./pending-thread-feed";
@@ -65,7 +66,7 @@ const command = {
   exitCode: 0,
 };
 
-it("shows only each run's latest reply, live and settled, without run details or thinking", () => {
+it("shows each run's latest reply, and one line into a settled run's work, without thinking", () => {
   const items: OrchestrationV2TurnItem[] = [
     {
       ...base("user"),
@@ -94,7 +95,7 @@ it("shows only each run's latest reply, live and settled, without run details or
     },
   ];
   const settled = minimalChatFeed(deriveThreadFeedPresentation(feed(items), null));
-  expect(settled.map((entry) => entry.id)).toEqual(["user", "final"]);
+  expect(settled.map((entry) => entry.id)).toEqual(["user", "run-fold:run", "final"]);
   const live = minimalChatFeed(
     deriveThreadFeedPresentation(
       feed(items),
@@ -289,15 +290,18 @@ it("hands the last slot between the status line and the reply footer as the run 
       latestRun,
       activeWorkStartedAt: workStartedAt,
     });
+    const footer = resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant;
+    const shown = takeFooterRunFold(rows, footer);
     return {
-      above: rows
+      above: shown.rows
         .slice(
           0,
-          rows.findIndex((row) => row.id === "reply"),
+          shown.rows.findIndex((row) => row.id === "reply"),
         )
         .map((row) => row.id),
-      last: rows.at(-1),
-      footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
+      last: shown.rows.at(-1),
+      footer,
+      footerRunLine: shown.fold?.id ?? null,
     };
   };
   // Nothing above the final reply changes when the run ends: earlier text and the previous
@@ -308,7 +312,12 @@ it("hands the last slot between the status line and the reply footer as the run 
     last: { type: "thinking", label: "Working", createdAt: at, runId },
     footer: null,
   });
-  expect(slot(completed)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
+  expect(slot(completed)).toMatchObject({
+    above,
+    last: { id: "reply" },
+    footer: "reply",
+    footerRunLine: "run-fold:run",
+  });
   expect(slot(interrupted)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
   expect(slot(running).last).toBe(slot(running).last);
 });

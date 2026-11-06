@@ -12,6 +12,8 @@ export function NativeAppBar(props: {
   readonly actions?: ReactElement;
   /** Shorter bar for a one-row title. */
   readonly singleLine?: boolean;
+  /** Lets the surface below show through, such as a sheet's. */
+  readonly transparent?: boolean;
 }) {
   const { colors } = useControlTheme();
   const layout = useToolbarLayout(false, props.singleLine);
@@ -24,7 +26,7 @@ export function NativeAppBar(props: {
         // Every header shares the list toolbar's height, so titles line up across panes.
         modifiers={[fillMaxWidth(), height(layout.height)]}
         colors={{
-          containerColor: colors["--color-header"],
+          containerColor: props.transparent ? "#00000000" : colors["--color-header"],
           titleContentColor: colors["--color-header-foreground"],
           navigationIconContentColor: colors["--color-header-foreground"],
           actionIconContentColor: colors["--color-header-foreground"],

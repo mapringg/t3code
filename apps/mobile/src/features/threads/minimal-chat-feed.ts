@@ -36,7 +36,7 @@ function keepActivity(activity: ThreadFeedActivity) {
 
 /**
  * A run shows only its latest reply, live or settled, so ending a run never folds text away.
- * Earlier replies stay in the run sheet.
+ * A settled run keeps one line above it that opens the run sheet with its earlier replies and work.
  */
 export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFeedEntry[] {
   const latestReplyByRun = new Map<RunId, string>();
@@ -59,6 +59,7 @@ export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFee
         return [entry];
       case "html-render":
       case "mcp-app":
+      case "run-fold":
         return [entry];
       case "activity-group": {
         const activities = entry.activities.filter(keepActivity);
@@ -69,6 +70,31 @@ export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFee
         return [];
     }
   });
+}
+
+type RunFoldRow = Extract<ThreadFeedEntry, { readonly type: "run-fold" }>;
+
+/**
+ * The newest settled reply's footer carries its run line, taking the status line's slot, so
+ * settling a run adds nothing above the reply. Older replies keep the line above them.
+ */
+export function takeFooterRunFold<Row extends ThreadFeedEntry>(
+  rows: ReadonlyArray<Row>,
+  footerAssistantMessageId: MessageId | null,
+): { readonly rows: ReadonlyArray<Row>; readonly fold: RunFoldRow | null } {
+  if (footerAssistantMessageId === null) return { rows, fold: null };
+  let runId: RunId | null = null;
+  for (const row of rows) {
+    if (row.type === "message" && row.message.id === footerAssistantMessageId) {
+      runId = row.message.runId;
+    }
+  }
+  const fold = rows.find(
+    (row): row is Row & RunFoldRow => row.type === "run-fold" && row.runId === runId,
+  );
+  return fold === undefined
+    ? { rows, fold: null }
+    : { rows: rows.filter((row) => row !== fold), fold };
 }
 
 /** The step the presented feed's live work row names, if the provider reported one. */

@@ -615,7 +615,7 @@ function ThreadWorkLogRow(
             ) : null}
             <Text
               accessibilityLabel={timestamp.toLocaleString()}
-              className="shrink-0 text-xs text-foreground-subtle"
+              className="shrink-0 text-xs text-foreground-tertiary"
             >
               {timestamp.toLocaleString(undefined, {
                 month: "short",
@@ -779,7 +779,7 @@ function ThreadWorkLogRow(
                       : iconIsDestructive
                         ? "accent-adaptive-rose-600-400"
                         : failed
-                          ? "accent-danger-foreground/40"
+                          ? "accent-danger-foreground"
                           : undefined
                   }
                 />
@@ -796,7 +796,7 @@ function ThreadWorkLogRow(
                     row.workEntry.questionAnswer &&
                     hasQuestionAnswer(row.workEntry.questionAnswer)
                       ? "text-foreground"
-                      : "text-foreground-subtle"
+                      : "text-foreground-tertiary"
                   }
                 >{`  ${answerPreview}`}</Text>
               ) : null}
@@ -819,7 +819,7 @@ function ThreadWorkLogRow(
               <SymbolView
                 name="xmark"
                 size={11}
-                tintColorClassName="accent-danger-foreground/40"
+                tintColorClassName="accent-danger-foreground"
                 type="monochrome"
               />
             </View>
@@ -877,13 +877,7 @@ function ThreadWorkLogRow(
               </View>
             ))}
           </FilePreviewGallery>
-          <ScrollView
-            nestedScrollEnabled
-            directionalLockEnabled
-            showsVerticalScrollIndicator
-            className="max-h-60"
-            contentContainerStyle={{ paddingRight: 8 }}
-          >
+          <DetailViewport>
             {reasoning ? (
               props.renderReasoning(reasoning.text)
             ) : call ? (
@@ -938,7 +932,7 @@ function ThreadWorkLogRow(
               </Text>
             ) : null}
             {streamsOutput ? null : exitLine}
-          </ScrollView>
+          </DetailViewport>
           {streamsOutput ? (
             <>
               <ThreadCommandOutput
@@ -953,6 +947,23 @@ function ThreadWorkLogRow(
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Android details flow in the run sheet's own scroll; a nested scroller there traps drags. */
+function DetailViewport(props: { readonly children: ReactNode }) {
+  return Platform.OS === "android" ? (
+    <View>{props.children}</View>
+  ) : (
+    <ScrollView
+      nestedScrollEnabled
+      directionalLockEnabled
+      showsVerticalScrollIndicator
+      className="max-h-60"
+      contentContainerStyle={{ paddingRight: 8 }}
+    >
+      {props.children}
+    </ScrollView>
   );
 }
 

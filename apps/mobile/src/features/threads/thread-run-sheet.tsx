@@ -1,6 +1,7 @@
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
+import type React from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { Platform, ScrollView, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,6 +19,8 @@ import { ThreadWorkLog } from "./thread-work-log";
 import { useThreadSubagents } from "./use-live-subagents";
 import { WorkLogBlock, WorkLogIconSlot, WorkLogRows } from "./work-log-layout";
 
+const FOLLOW_END_SLACK = 24;
+
 /** A run's work, opened from its line in the feed. Rows expand here, never in the feed. */
 export function ThreadRunSheet(props: {
   readonly title: string;
@@ -25,6 +28,8 @@ export function ThreadRunSheet(props: {
   readonly threadId: ThreadId;
   readonly workspaceRoot: string | null | undefined;
   readonly items: ReadonlyArray<ThreadFeedRunWorkItem>;
+  /** A live run opens at its newest step and follows it while the reader stays at the end. */
+  readonly live: boolean;
   readonly copiedRowId: string | null;
   readonly iconSubtleColor: ColorValue;
   readonly themeAppearance: "light" | "dark";
@@ -35,6 +40,8 @@ export function ThreadRunSheet(props: {
   readonly onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const followEndRef = useRef(props.live);
   const subagents = useThreadSubagents(scopeThreadRef(props.environmentId, props.threadId));
   const [expandedRows, setExpandedRows] = useState<Readonly<Record<string, boolean>>>({});
   const loadWork = useAtomCommand(threadEnvironment.loadEarlierHistory, { reportFailure: false });
@@ -101,8 +108,18 @@ export function ThreadRunSheet(props: {
   return (
     <Sheet title={props.title} onClose={props.onClose}>
       <ScrollView
+        ref={scrollRef}
         nestedScrollEnabled
         className="flex-1"
+        scrollEventThrottle={100}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          followEndRef.current =
+            contentSize.height - contentOffset.y - layoutMeasurement.height <= FOLLOW_END_SLACK;
+        }}
+        onContentSizeChange={() => {
+          if (followEndRef.current) scrollRef.current?.scrollToEnd({ animated: false });
+        }}
         contentInsetAdjustmentBehavior={Platform.OS === "ios" ? "automatic" : "never"}
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -157,9 +174,9 @@ export function ThreadRunSheet(props: {
                   style={{ minHeight: THREAD_WORK_ROW_MIN_HEIGHT }}
                 >
                   <WorkLogIconSlot>
-                    <View className="size-3 rounded bg-subtle-strong" />
+                    <View className="size-3 rounded bg-foreground/10" />
                   </WorkLogIconSlot>
-                  <View className="h-2.5 rounded-full bg-subtle-strong" style={{ width }} />
+                  <View className="h-2.5 rounded-full bg-foreground/10" style={{ width }} />
                 </View>
               ))}
             </WorkLogRows>

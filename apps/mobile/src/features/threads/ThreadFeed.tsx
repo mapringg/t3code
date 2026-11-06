@@ -18,6 +18,7 @@ import { ThreadContextDivider } from "./thread-context-divider";
 import {
   appendRunStatusLine,
   minimalChatFeed,
+  takeFooterRunFold,
   runStatusActivity,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
@@ -1823,6 +1824,8 @@ function renderFeedEntry(
     };
     readonly footerUserMessageId: string | null;
     readonly footerAssistantMessageId: string | null;
+    /** Android: the newest reply's run line, which its footer carries instead of a row above it. */
+    readonly footerRunFold: Extract<ThreadFeedEntry, { type: "run-fold" }> | null;
     readonly messageActionsInMenu: boolean;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
@@ -2567,7 +2570,7 @@ function AssistantMessageRow({
             buttonWidth={props.replyActionSize.width}
             iconSize={props.replyActionSize.icon}
           />
-          {Platform.OS !== "android" && message.projectedItem ? (
+          {message.projectedItem ? (
             <AssistantForkButton
               environmentId={props.environmentId}
               iconColor={iconSubtleColor}
@@ -2586,9 +2589,59 @@ function AssistantMessageRow({
           >
             {timestampLabel}
           </Text>
+          {props.footerRunFold !== null && message.runId === props.footerRunFold.runId ? (
+            <FooterRunLink
+              fold={props.footerRunFold}
+              height={props.replyActionSize.button}
+              iconColor={iconSubtleColor}
+              onOpenRun={props.onOpenRun}
+              onOpenTurnDiff={props.onOpenTurnDiff}
+            />
+          ) : Platform.OS === "android" && message.checkpointSummary ? (
+            <View className="ml-auto">
+              <TurnDiffStat
+                checkpoint={message.checkpointSummary}
+                onOpenTurnDiff={props.onOpenTurnDiff}
+              />
+            </View>
+          ) : null}
         </View>
       ) : null}
     </Animated.View>
+  );
+}
+
+/** The newest reply's way into its run: the run line and diff stat, at the footer's end. */
+function FooterRunLink(props: {
+  readonly fold: Extract<ThreadFeedEntry, { type: "run-fold" }>;
+  readonly height: number;
+  readonly iconColor: ColorValue;
+  readonly onOpenRun: (anchor: string, title: string) => void;
+  readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
+}) {
+  const { fold } = props;
+  return (
+    <View className="ml-auto min-w-0 shrink flex-row items-center">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens this run's work"
+        onPress={() => props.onOpenRun(fold.runId, fold.label)}
+        android_ripple={{ borderless: false, foreground: true }}
+        className="min-w-0 shrink flex-row items-center gap-1 px-2"
+        style={{ height: props.height }}
+      >
+        <Text
+          numberOfLines={1}
+          className="shrink font-t3-medium text-xs tabular-nums text-foreground-secondary"
+        >
+          {fold.label}
+        </Text>
+        <SymbolView name="chevron.right" size={12} tintColor={props.iconColor} type="monochrome" />
+      </Pressable>
+      {fold.checkpointSummary ? (
+        <TurnDiffStat checkpoint={fold.checkpointSummary} onOpenTurnDiff={props.onOpenTurnDiff} />
+      ) : null}
+    </View>
   );
 }
 
@@ -3482,8 +3535,14 @@ export const ThreadFeed = memo(function ThreadFeed({
   const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
   const { jumpToMessageId } = props;
   const jumpReady = !!jumpToMessageId && loadedListKey === `${feedThreadKey}:filled`;
-  const presentedFeed = appendGuestPendingMessages(useThreadFeedPresentation(props), guestShare);
-  const footerMessageIds = resolveFooterMessageIds(presentedFeed, unsettledTurnId);
+  const threadRows = useThreadFeedPresentation(props);
+  // Guest drafts are never replies, so they cannot move either footer.
+  const footerMessageIds = resolveFooterMessageIds(threadRows, unsettledTurnId);
+  const { rows: footedRows, fold: footerRunFold } =
+    Platform.OS === "android"
+      ? takeFooterRunFold(threadRows, footerMessageIds.assistant)
+      : { rows: threadRows, fold: null };
+  const presentedFeed = appendGuestPendingMessages(footedRows, guestShare);
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
@@ -3494,6 +3553,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     unsettledTurnId,
     footerUserMessageId: footerMessageIds.user,
     footerAssistantMessageId: footerMessageIds.assistant,
+    footerRunFold,
     messageActionsInMenu,
     copiedRowId,
     workRowSizing,
@@ -3756,6 +3816,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           terminalAssistantMessageIds,
           footerUserMessageId: footerMessageIds.user,
           footerAssistantMessageId: footerMessageIds.assistant,
+          footerRunFold,
           messageActionsInMenu,
           unsettledTurnId,
           compactionLabelsByEntryId,
@@ -3986,6 +4047,7 @@ export const ThreadFeed = memo(function ThreadFeed({
               threadId={props.threadId}
               workspaceRoot={props.workspaceRoot}
               items={runSheetItems}
+              live={runSheet.anchor === unsettledTurnId}
               copiedRowId={copiedRowId}
               iconSubtleColor={iconSubtleColor}
               themeAppearance={themeAppearance}

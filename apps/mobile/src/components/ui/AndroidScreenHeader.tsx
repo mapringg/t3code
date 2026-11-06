@@ -3,6 +3,7 @@ import { Column, Row, Text as NativeText, RNHostView } from "@expo/ui/jetpack-co
 import { weight } from "@expo/ui/jetpack-compose/modifiers";
 import { use, useState, type ReactNode } from "react";
 import { View } from "react-native";
+import { cn } from "../../lib/cn";
 
 import type { AppSymbolName } from "./AppSymbol";
 import { NativeAppBar } from "./NativeAppBar.android";
@@ -63,7 +64,8 @@ export function AndroidScreenHeader(props: {
   return (
     <View
       onLayout={(event) => setHeaderWidth(event.nativeEvent.layout.width)}
-      className="border-b border-header-border bg-header"
+      // A sheet's own surface shows through its embedded header.
+      className={cn("border-b border-header-border", !props.embedded && "bg-header")}
       style={{
         paddingTop,
         paddingBottom,
@@ -78,6 +80,7 @@ export function AndroidScreenHeader(props: {
       ) : null}
       <NativeAppBar
         singleLine={props.compact}
+        transparent={props.embedded}
         navigationIcon={
           props.onBack || props.leading ? (
             <View collapsable={false} className="flex-row items-center">
