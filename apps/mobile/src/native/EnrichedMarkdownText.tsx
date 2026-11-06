@@ -349,7 +349,8 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
             preserveWindowsPaths: true,
           }}
           enableTaskListItemToggle={false}
-          enableCodeBlockWrapToggle
+          // Android code scrolls sideways with only copy in its header, as Gemini's does.
+          enableCodeBlockWrapToggle={Platform.OS !== "android"}
           spoilerOverlay="solid"
           onLinkPress={
             props.onLinkPress || props.onImagePress ? ({ url }) => onLinkPress(url) : undefined
