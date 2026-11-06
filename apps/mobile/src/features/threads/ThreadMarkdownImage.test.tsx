@@ -10,6 +10,7 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
   Pressable: harness.Passthrough,
   StyleSheet: { absoluteFill: {} },
   View: ({ children, style }: { children?: ReactNode; style?: unknown }) => (
@@ -33,6 +34,7 @@ vi.mock("../../components/ui/AppActivityIndicator", () => ({ AppActivityIndicato
 vi.mock("../../components/FilePreviewGallery", () => ({
   useFilePreviewGallery: () => (source: unknown) => source,
 }));
+vi.mock("../../components/ui/AppSymbol", () => ({ SymbolView: () => null }));
 vi.mock("../../components/ui/AppText", () => ({
   AppText: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
 }));
