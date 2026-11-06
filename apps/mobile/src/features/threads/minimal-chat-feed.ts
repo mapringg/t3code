@@ -15,15 +15,26 @@ import type { PendingThreadFeedEntry } from "./pending-thread-feed";
 
 const OPEN_REQUEST_STATUSES = new Set(["idle", "pending", "running", "waiting"]);
 
+/** Requests still awaiting the reader; an async question's item can complete before its request. */
+export type OpenRequests = {
+  readonly approval: string | null;
+  readonly userInput: string | null;
+};
+
+const NO_OPEN_REQUESTS: OpenRequests = { approval: null, userInput: null };
+
 function isOpenRequest(
   activity: ThreadFeedActivity,
   type: "approval_request" | "user_input_request",
+  open: OpenRequests,
 ) {
   const item = activity.projectedItem.item;
-  return item.type === type && OPEN_REQUEST_STATUSES.has(item.status);
+  if (item.type !== type) return false;
+  const openId = type === "approval_request" ? open.approval : open.userInput;
+  return OPEN_REQUEST_STATUSES.has(item.status) || item.requestId === openId;
 }
 
-function keepActivity(activity: ThreadFeedActivity) {
+function keepActivity(activity: ThreadFeedActivity, open: OpenRequests) {
   const item = activity.projectedItem.item;
   switch (item.type) {
     case "approval_request":
@@ -36,7 +47,7 @@ function keepActivity(activity: ThreadFeedActivity) {
       return item.linkStatus === "pending" || item.linkStatus === "failed";
     case "user_input_request":
       // The open question is the card above the composer; the feed keeps it once answered.
-      return !isOpenRequest(activity, "user_input_request");
+      return !isOpenRequest(activity, "user_input_request", open);
     case "proposed_plan":
     case "error":
     case "system_notice":
@@ -50,7 +61,10 @@ function keepActivity(activity: ThreadFeedActivity) {
  * A run shows only its latest reply, live or settled, so ending a run never folds text away.
  * A settled run keeps one line above it that opens the run sheet with its earlier replies and work.
  */
-export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFeedEntry[] {
+export function minimalChatFeed(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+  open: OpenRequests = NO_OPEN_REQUESTS,
+): ThreadFeedEntry[] {
   const latestReplyByRun = new Map<RunId, string>();
   for (const entry of feed) {
     if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
@@ -74,7 +88,7 @@ export function minimalChatFeed(feed: ReadonlyArray<ThreadFeedEntry>): ThreadFee
       case "run-fold":
         return [entry];
       case "activity-group": {
-        const activities = entry.activities.filter(keepActivity);
+        const activities = entry.activities.filter((activity) => keepActivity(activity, open));
         if (activities.length === 0) return [];
         return [activities.length === entry.activities.length ? entry : { ...entry, activities }];
       }
@@ -126,12 +140,15 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
 }
 
 /** What a live run waits on from the reader, which the status line names over its step. */
-export function runWaitingLabel(presented: ReadonlyArray<ThreadFeedEntry>): string | null {
+export function runWaitingLabel(
+  presented: ReadonlyArray<ThreadFeedEntry>,
+  open: OpenRequests = NO_OPEN_REQUESTS,
+): string | null {
   for (const row of presented) {
     if (row.type !== "activity-group") continue;
     for (const activity of row.activities) {
-      if (isOpenRequest(activity, "user_input_request")) return "Waiting for your answer";
-      if (isOpenRequest(activity, "approval_request")) return "Waiting for approval";
+      if (isOpenRequest(activity, "user_input_request", open)) return "Waiting for your answer";
+      if (isOpenRequest(activity, "approval_request", open)) return "Waiting for approval";
     }
   }
   return null;

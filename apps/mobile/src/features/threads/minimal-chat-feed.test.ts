@@ -228,6 +228,13 @@ it("preserves requests and generated content when tool details are hidden", () =
   // The open question is the card above the composer, and the status line says what the run awaits.
   expect(runWaitingLabel(presented)).toBe("Waiting for approval");
   expect(runWaitingLabel(feed([openQuestion]))).toBe("Waiting for your answer");
+  // An async question's item completes before its request is answered.
+  const asyncQuestion = feed([
+    { ...openQuestion, status: "completed", completedAt: base("x").startedAt },
+  ]);
+  const open = { approval: null, userInput: "question" };
+  expect(minimalChatFeed(asyncQuestion, open)).toEqual([]);
+  expect(runWaitingLabel(asyncQuestion, open)).toBe("Waiting for your answer");
 });
 
 const userMessage: OrchestrationV2TurnItem = {

@@ -644,6 +644,14 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     !isSubmissionLocked &&
     sendBlockedReason === null &&
     !modelUnavailable;
+  // Android reaches Stop through the send menu, which a disabled send cannot open; a draft that
+  // cannot go anyway gives the button back to Stop.
+  const stopReplacesSend =
+    Platform.OS === "android" &&
+    hasContent &&
+    !canSend &&
+    props.canStopThread &&
+    queuedEdit === null;
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the workspace layout's composer-editing flag when the composer unmounts
   useEffect(() => () => setComposerEditing(false), [setComposerEditing]);
@@ -1132,7 +1140,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     onCancel={voiceInput.cancel}
                   />
                 ) : null}
-                {showStopAction ? (
+                {showStopAction || stopReplacesSend ? (
                   <ComposerActionButton
                     size={usesLargeControls ? "large" : "regular"}
                     accessibilityLabel="Stop agent"
@@ -1204,7 +1212,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     onConfirm={voiceInput.stop}
                     onCancel={voiceInput.cancel}
                   />
-                  {showStopAction ? (
+                  {showStopAction || stopReplacesSend ? (
                     <ComposerActionButton
                       size={usesLargeControls ? "large" : "regular"}
                       accessibilityLabel="Stop agent"

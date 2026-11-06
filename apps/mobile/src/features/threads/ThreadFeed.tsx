@@ -19,6 +19,7 @@ import {
   appendRunStatusLine,
   minimalChatFeed,
   runWaitingLabel,
+  type OpenRequests,
   takeFooterRunFold,
   runStatusActivity,
   worktreeSetupRunStep,
@@ -360,6 +361,8 @@ export interface ThreadFeedHandle {
 
 export interface ThreadFeedProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
+  /** The requests the cards above the composer show; their feed rows step aside. */
+  readonly openRequests?: OpenRequests;
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   readonly dispatchingMessageId: MessageId | null;
@@ -2905,10 +2908,14 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     return appendPendingThreadMessages(presented, props.feed, props.queuedMessages);
   }
   return appendRunStatusLine(
-    appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
+    appendPendingThreadMessages(
+      minimalChatFeed(presented, props.openRequests),
+      props.feed,
+      props.queuedMessages,
+    ),
     {
       activity: runStatusActivity(presented),
-      waiting: runWaitingLabel(presented),
+      waiting: runWaitingLabel(presented, props.openRequests),
       liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,
@@ -3617,6 +3624,12 @@ export const ThreadFeed = memo(function ThreadFeed({
     );
     if (index !== -1) return index;
     const foldRunId = messageFoldRunId(props.feed, jumpToMessageId);
+    // The newest settled run's line lives in its reply's footer, so that reply is the target.
+    if (footerRunFold !== null && footerRunFold.runId === foldRunId) {
+      return presentedFeed.findIndex(
+        (entry) => entry.type === "message" && entry.message.id === footerMessageIds.assistant,
+      );
+    }
     return presentedFeed.findIndex(
       (entry) => entry.type === "run-fold" && entry.runId === foldRunId,
     );
@@ -3843,12 +3856,14 @@ export const ThreadFeed = memo(function ThreadFeed({
     workspaceRoot: props.workspaceRoot,
     workflowOpening,
   };
+  const rowCapturedDeps = [resolveImageSource, shareFileChip];
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
     <FeedRow
       item={info.item}
       index={info.index}
       isLastFeedRow={info.index === groupedFeed.length - 1}
       context={rowContext}
+      capturedDeps={rowCapturedDeps}
       setupCard={setupCard && info.index === setupAnchorIndex ? setupCard : null}
       setupWorkingStartedAt={
         Platform.OS !== "android" && info.index === setupAnchorIndex
@@ -4113,6 +4128,11 @@ type FeedRowProps = {
   readonly context: FeedRowContext;
   readonly setupCard: ComponentProps<typeof WorktreeSetupCard> | null;
   readonly setupWorkingStartedAt: string | null;
+  /**
+   * Values the row's callbacks capture that change with the connection, such as the image
+   * resolver; compared by identity because callbacks themselves are compared as equal.
+   */
+  readonly capturedDeps: ReadonlyArray<unknown>;
 };
 
 function feedRowPropsEqual(previous: FeedRowProps, next: FeedRowProps): boolean {
@@ -4122,6 +4142,8 @@ function feedRowPropsEqual(previous: FeedRowProps, next: FeedRowProps): boolean 
     previous.isLastFeedRow === next.isLastFeedRow &&
     previous.setupCard === next.setupCard &&
     previous.setupWorkingStartedAt === next.setupWorkingStartedAt &&
+    previous.capturedDeps.length === next.capturedDeps.length &&
+    previous.capturedDeps.every((value, index) => Object.is(value, next.capturedDeps[index])) &&
     sameRowValue(previous.context, next.context, 2)
   );
 }
