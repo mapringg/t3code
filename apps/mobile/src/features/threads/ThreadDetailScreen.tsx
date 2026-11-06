@@ -861,8 +861,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       composerOverlapHeight: composerBottomInset,
     }),
   );
+  // Only a question card needs the cap. A constant otherwise, so the keyboard's frames don't
+  // re-lay out the screen.
+  const questionCardOpen = activeUserInputRequestId !== null;
   const composerPanelsHeightStyle = useAnimatedStyle(() => ({
-    maxHeight: pendingUserInputMaxHeight.value,
+    maxHeight: questionCardOpen ? pendingUserInputMaxHeight.value : screenAreaHeight,
     flexGrow: 0,
   }));
   // The usage panel stacks with the composer and any approval card, so it gets
