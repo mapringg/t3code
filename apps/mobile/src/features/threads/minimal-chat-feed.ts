@@ -287,7 +287,8 @@ export function appendRunStatusLine(
         ({ projectedItem: { item } }) => item.type === "error" && item.runId === ended.runId,
       ),
   );
-  const label = errorShown ? "" : (END_LABELS[ended.status] ?? "");
+  // A question or approval still open after the run ended is what the reader acts on next.
+  const label = input.waiting ?? (errorShown ? "" : (END_LABELS[ended.status] ?? ""));
   // The line stays once the run settles: removing the row would shrink the list and clamp its
   // offset, dropping the turn the send anchored.
   return [...rows, runStatusRow(ended.startedAt, ended.runId, label, undefined, true)];

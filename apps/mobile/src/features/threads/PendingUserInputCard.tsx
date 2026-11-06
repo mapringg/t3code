@@ -368,7 +368,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       {props.pendingUserInput.dismissible ? (
         <Button
           label="Dismiss without answering"
-          tone="text"
+          tone={Platform.OS === "android" ? "mutedText" : "text"}
           disabled={isResponding}
           onPress={() => void props.onDismiss()}
         />

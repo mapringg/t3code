@@ -514,8 +514,10 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     running: props.activeThreadBusy,
     canSteer: props.canSteerActiveTurn,
     followUpBehavior: props.followUpBehavior,
+    // An empty draft has nothing to defer: the queue icon flashed while a sent message dispatched.
     deliveryDeferred:
-      props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading,
+      hasContent &&
+      (props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading),
   });
   const sendLabel = sendPresentation.label;
   const currentModelSelection = props.selectedThread.modelSelection;

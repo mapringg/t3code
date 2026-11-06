@@ -2945,6 +2945,7 @@ export const ThreadFeed = memo(function ThreadFeed({
   const endFollowEnabledRef = useRef(true);
   const anchorGlidingRef = useRef(false);
   const anchoredRef = useRef(false);
+  const anchorGlideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Only user scrolls from drag through momentum break follow; ignore MVCP and programmatic adjustments.
   const userScrollSessionRef = useRef(false);
   const setEndFollow = (enabled: boolean) => {
@@ -3524,7 +3525,9 @@ export const ThreadFeed = memo(function ThreadFeed({
   useImperativeHandle(ref, () => ({
     resetEndFollow: () => {
       anchorGlidingRef.current = true;
-      setTimeout(() => {
+      if (anchorGlideTimerRef.current !== null) clearTimeout(anchorGlideTimerRef.current);
+      anchorGlideTimerRef.current = setTimeout(() => {
+        anchorGlideTimerRef.current = null;
         anchorGlidingRef.current = false;
         // A reply that outgrew the screen during the glide reported no size change since.
         leaveEndIfAnchoredReplyOverflows();
@@ -3731,6 +3734,7 @@ export const ThreadFeed = memo(function ThreadFeed({
       if (userScrollSettleTimerRef.current !== null) clearTimeout(userScrollSettleTimerRef.current);
       if (reflowSettleTimerRef.current !== null) clearTimeout(reflowSettleTimerRef.current);
       if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+      if (anchorGlideTimerRef.current !== null) clearTimeout(anchorGlideTimerRef.current);
     },
     [],
   );

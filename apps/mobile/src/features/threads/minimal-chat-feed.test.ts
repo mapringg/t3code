@@ -399,6 +399,15 @@ it("says once how a stopped or failed run ended", () => {
   expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
   expect(last([userMessage, reply], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
   expect(last([userMessage, reply], "failed")).toMatchObject({ ...ended, label: "Failed" });
+  // A question left open by the stopped run names what is waiting, not how the run ended.
+  expect(
+    appendRunStatusLine(minimalChatFeed(feed([userMessage, reply])), {
+      ...idle,
+      activity: null,
+      waiting: "Waiting for your answer",
+      latestRun: { runId, status: "interrupted", startedAt: at, completedAt: endedAt },
+    }).at(-1),
+  ).toMatchObject({ ...ended, label: "Waiting for your answer" });
   // The error row already says the run failed; the line stays, blank.
   expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "" });
   expect(last([userMessage, reply, failure], "failed")).toMatchObject({ ...ended, label: "" });
