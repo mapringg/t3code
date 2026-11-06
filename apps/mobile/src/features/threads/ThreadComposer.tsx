@@ -52,6 +52,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
+import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { armAgentAwarenessLiveActivityForLocalWork } from "../agent-awareness/remoteRegistration";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import {
@@ -443,6 +444,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const composerPanel = materialTheme["--color-composer-panel"];
+  const screenColor = materialTheme["--color-screen"];
   const navigation = useNavigation();
   const foregroundColor = useUniwindTheme()["--color-foreground"];
   const bodyText = useScaledTextRole("body");
@@ -868,8 +870,20 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
       {/* Use a plain View: Reanimated Animated.View drops experimental_backgroundImage on Android. */}
       {/* The conversation fades out under the pill, as in Gemini, instead of meeting a hard edge. */}
       <View
-        className="absolute inset-0 bg-linear-to-b from-screen/0 via-screen/60 to-screen/90"
+        className={
+          Platform.OS === "android"
+            ? "absolute inset-x-0 -top-6 bottom-0"
+            : "absolute inset-0 bg-linear-to-b from-screen/0 via-screen/60 to-screen/90"
+        }
         pointerEvents="none"
+        // Android drops the class-built gradient; it needs the resolved colours.
+        style={
+          Platform.OS === "android"
+            ? {
+                experimental_backgroundImage: `linear-gradient(to bottom, ${themeColorWithAlpha(screenColor, 0)} 0%, ${screenColor} 45%)`,
+              }
+            : undefined
+        }
       />
       <Animated.View
         className="relative w-full self-center"
