@@ -7,7 +7,7 @@ import { useNativePaste } from "../../lib/useNativePaste";
 import { convertPastedImagesToAttachments } from "../../lib/composerImages";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type UserInputQuestion } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { ComposerAttachmentButton } from "./ComposerAttachmentButton";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
@@ -159,16 +159,17 @@ export function QuestionAttachments(props: {
       Dialog.alert("Could not attach file", error instanceof Error ? error.message : "Try again.");
     }
   };
+  const attachButton = (
+    <ComposerAttachmentButton
+      disabled={props.disabled}
+      supportsFiles
+      onPickMedia={() => pick("media")}
+      onPickFiles={() => pick("files")}
+    />
+  );
   return (
     <View className="gap-2">
-      {canAttach ? (
-        <ComposerAttachmentButton
-          disabled={props.disabled}
-          supportsFiles
-          onPickMedia={() => pick("media")}
-          onPickFiles={() => pick("files")}
-        />
-      ) : null}
+      {canAttach && Platform.OS !== "android" ? attachButton : null}
       <ComposerAttachmentStrip
         environmentId={environmentId}
         attachments={attachments}
@@ -193,26 +194,32 @@ export function QuestionAttachments(props: {
       />
       <FilePreviewModal source={previewFile} onRequestClose={() => setPreviewFile(null)} />
       <VideoPreviewModal source={previewVideo} onRequestClose={() => setPreviewVideo(null)} />
-      <TextInputWrapper onPaste={paste}>
-        <TextInput
-          accessibilityLabel={`Custom answer: ${props.question.question}`}
-          value={props.value}
-          multiline={props.question.initialAnswer !== undefined}
-          submitBehavior={props.question.initialAnswer !== undefined ? "newline" : undefined}
-          editable={!props.disabled}
-          onChangeText={props.onChangeText}
-          onFocus={() => {
-            focusedRef.current = true;
-            onInputFocusChange?.(true);
-          }}
-          onBlur={() => {
-            focusedRef.current = false;
-            onInputFocusChange?.(false);
-          }}
-          placeholder="Or type a custom answer"
-          className="min-h-[54px] rounded-2xl border border-input-border bg-input px-3.5 py-3 font-sans text-base text-foreground"
-        />
-      </TextInputWrapper>
+      <View className="flex-row items-center gap-1">
+        <View className="flex-1">
+          <TextInputWrapper onPaste={paste}>
+            <TextInput
+              accessibilityLabel={`Custom answer: ${props.question.question}`}
+              value={props.value}
+              multiline={props.question.initialAnswer !== undefined}
+              submitBehavior={props.question.initialAnswer !== undefined ? "newline" : undefined}
+              editable={!props.disabled}
+              onChangeText={props.onChangeText}
+              onFocus={() => {
+                focusedRef.current = true;
+                onInputFocusChange?.(true);
+              }}
+              onBlur={() => {
+                focusedRef.current = false;
+                onInputFocusChange?.(false);
+              }}
+              placeholder="Or type a custom answer"
+              className="min-h-[54px] rounded-2xl border border-input-border bg-input px-3.5 py-3 font-sans text-base text-foreground android:rounded-xl"
+            />
+          </TextInputWrapper>
+        </View>
+        {/* Android keeps attaching beside the answer it belongs to instead of on its own row. */}
+        {canAttach && Platform.OS === "android" ? attachButton : null}
+      </View>
     </View>
   );
 }

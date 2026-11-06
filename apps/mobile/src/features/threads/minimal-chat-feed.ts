@@ -13,6 +13,16 @@ import {
 } from "../../lib/threadActivity";
 import type { PendingThreadFeedEntry } from "./pending-thread-feed";
 
+const OPEN_REQUEST_STATUSES = new Set(["idle", "pending", "running", "waiting"]);
+
+function isOpenRequest(
+  activity: ThreadFeedActivity,
+  type: "approval_request" | "user_input_request",
+) {
+  const item = activity.projectedItem.item;
+  return item.type === type && OPEN_REQUEST_STATUSES.has(item.status);
+}
+
 function keepActivity(activity: ThreadFeedActivity) {
   const item = activity.projectedItem.item;
   switch (item.type) {
@@ -25,6 +35,8 @@ function keepActivity(activity: ThreadFeedActivity) {
     case "link_request":
       return item.linkStatus === "pending" || item.linkStatus === "failed";
     case "user_input_request":
+      // The open question is the card above the composer; the feed keeps it once answered.
+      return !isOpenRequest(activity, "user_input_request");
     case "proposed_plan":
     case "error":
     case "system_notice":
@@ -113,6 +125,18 @@ export function runStatusActivity(presented: ReadonlyArray<ThreadFeedEntry>): st
   return null;
 }
 
+/** What a live run waits on from the reader, which the status line names over its step. */
+export function runWaitingLabel(presented: ReadonlyArray<ThreadFeedEntry>): string | null {
+  for (const row of presented) {
+    if (row.type !== "activity-group") continue;
+    for (const activity of row.activities) {
+      if (isOpenRequest(activity, "user_input_request")) return "Waiting for your answer";
+      if (isOpenRequest(activity, "approval_request")) return "Waiting for approval";
+    }
+  }
+  return null;
+}
+
 /** The setup step the status line names until the thread's first turn starts. */
 export function worktreeSetupRunStep(
   setup: { readonly snapshot: WorktreeSetupSnapshot; readonly turnStarted: boolean } | null,
@@ -148,6 +172,8 @@ export function appendRunStatusLine(
   rows: ReadonlyArray<PendingThreadFeedEntry>,
   input: {
     readonly activity: string | null;
+    /** A question or approval the run waits on; it replaces the step and elapsed-time wording. */
+    readonly waiting?: string | null;
     /** Subagents of this thread still working; named on the line only while it is live. */
     readonly liveSubagents: number;
     readonly latestRun: ThreadFeedLatestRun | null;
@@ -177,7 +203,7 @@ export function appendRunStatusLine(
       input.liveSubagents > 0
         ? `${input.liveSubagents} ${input.liveSubagents === 1 ? "agent" : "agents"}`
         : input.activity;
-    const label = step ? `Working · ${step}` : "Working";
+    const label = input.waiting ?? (step ? `Working · ${step}` : "Working");
     return [...rows, runStatusRow(startedAt, run?.runId ?? null, label, undefined)];
   }
 
@@ -189,7 +215,8 @@ export function appendRunStatusLine(
     last.message.runId === ended?.runId;
   if (!ended || endLabel === undefined || replyIsLast || ended.startedAt === null) return rows;
   return [
-    ...rows,
+    // The end line opens the same run sheet, so the run's fold line would only repeat it.
+    ...rows.filter((row) => row.type !== "run-fold" || row.runId !== ended.runId),
     runStatusRow(ended.startedAt, ended.runId, endLabel, ended.completedAt ?? ended.startedAt),
   ];
 }

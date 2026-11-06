@@ -320,6 +320,8 @@ function SendActionButton(props: {
   readonly presentation: ComposerSendPresentation;
   readonly disabled: boolean;
   readonly onSend: (followUp?: ActiveTurnComposerAction) => void;
+  /** Android: a draft replaces the Stop button, so its long-press menu keeps Stop in reach. */
+  readonly onStop: (() => void) | null;
 }) {
   const { presentation } = props;
   const button = (
@@ -332,29 +334,41 @@ function SendActionButton(props: {
       onPress={() => props.onSend()}
     />
   );
-  if (
-    Platform.OS === "android" ||
-    !presentation.offersFollowUpChoice ||
-    presentation.action === null ||
-    props.disabled
-  ) {
+  const stop = Platform.OS === "android" ? props.onStop : null;
+  const actions = presentation.offersFollowUpChoice
+    ? [presentation.action, presentation.alternate].filter(
+        (action): action is ActiveTurnComposerAction => action !== null,
+      )
+    : [];
+  if ((actions.length === 0 && stop === null) || props.disabled) {
     return button;
   }
-  const actions = [presentation.action, presentation.alternate].filter(
-    (action): action is ActiveTurnComposerAction => action !== null,
-  );
   return (
     <Menu
       accessibilityLabel="Choose how to send this message"
       shouldOpenOnLongPress
-      actions={actions.map((action) => ({
-        id: action,
-        title: FOLLOW_UP_ACTION_LABEL[action],
-        subtitle: FOLLOW_UP_ACTION_SUBTITLE[action],
-        state: action === presentation.action ? ("on" as const) : ("off" as const),
-      }))}
+      actions={[
+        ...actions.map((action) => ({
+          id: action,
+          title: FOLLOW_UP_ACTION_LABEL[action],
+          subtitle: FOLLOW_UP_ACTION_SUBTITLE[action],
+          state: action === presentation.action ? ("on" as const) : ("off" as const),
+        })),
+        ...(stop === null
+          ? []
+          : [
+              {
+                id: "stop",
+                title: "Stop agent",
+                subtitle: "Keeps this draft",
+                attributes: { destructive: true },
+              },
+            ]),
+      ]}
       onPressAction={({ nativeEvent }) =>
-        props.onSend(nativeEvent.event as ActiveTurnComposerAction)
+        nativeEvent.event === "stop"
+          ? stop?.()
+          : props.onSend(nativeEvent.event as ActiveTurnComposerAction)
       }
     >
       {button}
@@ -1142,6 +1156,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     presentation={sendPresentation}
                     disabled={!canSend}
                     onSend={handleSend}
+                    onStop={
+                      props.canStopThread && props.canOperateThread ? props.onStopThread : null
+                    }
                   />
                 )}
               </View>
@@ -1211,6 +1228,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       presentation={sendPresentation}
                       disabled={!canSend}
                       onSend={handleSend}
+                      onStop={
+                        props.canStopThread && props.canOperateThread ? props.onStopThread : null
+                      }
                     />
                   ) : null}
                 </View>

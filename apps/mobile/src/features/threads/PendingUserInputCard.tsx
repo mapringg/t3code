@@ -98,6 +98,10 @@ function QuestionText(props: {
 
 export function PendingUserInputCard(props: PendingUserInputCardProps) {
   const questionCount = props.pendingUserInput.questions.length;
+  const singleHeader =
+    questionCount === 1 ? props.pendingUserInput.questions[0]!.header.trim() : "";
+  const questionsLabel =
+    questionCount === 1 ? singleHeader || "Question" : `${questionCount} questions`;
   const canRespond = props.pendingUserInput.responseCapability !== "not_resumable";
   const isResponding = props.respondingUserInputId === props.pendingUserInput.requestId;
   const responseDisabled = !canRespond || isResponding;
@@ -163,12 +167,18 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         onPress={props.onToggleCollapsed}
         className="min-h-10 flex-1 flex-row items-center gap-2 active:opacity-70"
       >
-        <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
-          User input needed
-        </Text>
-        <Text className="font-sans text-xs text-foreground-muted">
-          {questionCount} question{questionCount === 1 ? "" : "s"}
-        </Text>
+        {Platform.OS === "android" ? (
+          <Text className="font-t3-medium text-sm text-foreground">{questionsLabel}</Text>
+        ) : (
+          <>
+            <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
+              User input needed
+            </Text>
+            <Text className="font-sans text-xs text-foreground-muted">
+              {questionCount} question{questionCount === 1 ? "" : "s"}
+            </Text>
+          </>
+        )}
         <View className="flex-1" />
         <SymbolView
           name="chevron.up"
@@ -214,12 +224,21 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         onPress={props.onToggleCollapsed}
         className="flex-row items-start gap-2"
       >
-        <View className="flex-1 gap-2.5">
-          <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
-            User input needed
+        {Platform.OS === "android" ? (
+          // The status line already says the run waits; the card names only what it asks.
+          <Text className="flex-1 self-center font-t3-medium text-sm text-foreground-muted">
+            {questionsLabel}
           </Text>
-          <Text className="font-t3-bold text-lg text-foreground">Fill in the pending answers</Text>
-        </View>
+        ) : (
+          <View className="flex-1 gap-2.5">
+            <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
+              User input needed
+            </Text>
+            <Text className="font-t3-bold text-lg text-foreground">
+              Fill in the pending answers
+            </Text>
+          </View>
+        )}
         <View className="h-8 w-8 items-center justify-center rounded-full bg-subtle-strong">
           <SymbolView
             name="chevron.down"
@@ -248,12 +267,14 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
           const draft = props.drafts[question.id];
           return (
             <View key={question.id} className="gap-2 pt-1">
-              <Text
-                className="font-t3-bold text-xs uppercase tracking-[1px] text-foreground-muted"
-                style={proseDirectionStyle(question.header, setDirection)}
-              >
-                {question.header}
-              </Text>
+              {Platform.OS === "android" && questionCount === 1 ? null : (
+                <Text
+                  className="font-t3-bold text-xs uppercase tracking-[1px] text-foreground-muted android:font-t3-medium android:normal-case android:tracking-normal"
+                  style={proseDirectionStyle(question.header, setDirection)}
+                >
+                  {question.header}
+                </Text>
+              )}
               <QuestionText
                 markdown={question.question}
                 environmentId={props.environmentId}
@@ -271,9 +292,12 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
                       accessibilityRole={question.multiSelect ? "checkbox" : "radio"}
                       accessibilityState={{ checked: selected, disabled: responseDisabled }}
                       disabled={responseDisabled}
+                      android_ripple={{ borderless: false, foreground: true }}
                       className={cn(
-                        "min-h-12 w-full rounded-2xl border px-3.5 py-3",
-                        selected ? "border-primary bg-primary/10" : "border-border bg-input",
+                        "min-h-12 w-full rounded-2xl border px-3.5 py-3 android:rounded-xl",
+                        selected
+                          ? "border-primary bg-primary/10 android:border-foreground android:bg-foreground/5"
+                          : "border-border bg-input",
                       )}
                       onPress={() =>
                         props.onSelectOption(
@@ -286,8 +310,10 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
                       <View className="min-w-0 flex-1 gap-0.5">
                         <Text
                           className={cn(
-                            "font-t3-bold text-sm",
-                            selected ? "text-foreground" : "text-foreground-secondary",
+                            "font-t3-bold text-sm android:font-t3-medium android:text-base",
+                            selected
+                              ? "text-foreground"
+                              : "text-foreground-secondary android:text-foreground",
                           )}
                           style={proseDirectionStyle(option.label, setDirection)}
                         >

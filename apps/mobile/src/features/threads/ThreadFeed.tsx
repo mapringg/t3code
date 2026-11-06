@@ -18,6 +18,7 @@ import { ThreadContextDivider } from "./thread-context-divider";
 import {
   appendRunStatusLine,
   minimalChatFeed,
+  runWaitingLabel,
   takeFooterRunFold,
   runStatusActivity,
   worktreeSetupRunStep,
@@ -2905,6 +2906,7 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
     appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
     {
       activity: runStatusActivity(presented),
+      waiting: runWaitingLabel(presented),
       liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,

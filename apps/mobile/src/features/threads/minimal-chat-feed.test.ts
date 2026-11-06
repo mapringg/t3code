@@ -17,6 +17,7 @@ import {
   appendRunStatusLine,
   minimalChatFeed,
   runStatusActivity,
+  runWaitingLabel,
   takeFooterRunFold,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
@@ -128,6 +129,15 @@ it("keeps provider failures while removing adjacent tool activity", () => {
   ]);
 });
 
+const openQuestion: OrchestrationV2TurnItem = {
+  ...base("question"),
+  type: "user_input_request",
+  status: "waiting",
+  completedAt: null,
+  requestId: RuntimeRequestId.make("question"),
+  questions: [],
+};
+
 it("preserves requests and generated content when tool details are hidden", () => {
   const source = feed([
     {
@@ -162,6 +172,7 @@ it("preserves requests and generated content when tool details are hidden", () =
       requestId: RuntimeRequestId.make("waiting"),
       requestKind: "file-change",
     },
+    openQuestion,
     {
       ...base("secret"),
       type: "secret_request",
@@ -214,6 +225,9 @@ it("preserves requests and generated content when tool details are hidden", () =
   ]);
   expect(minimal[3]).toBe(presented.find((entry) => entry.type === "html-render"));
   expect(minimal[4]).toBe(presented.find((entry) => entry.type === "mcp-app"));
+  // The open question is the card above the composer, and the status line says what the run awaits.
+  expect(runWaitingLabel(presented)).toBe("Waiting for approval");
+  expect(runWaitingLabel(feed([openQuestion]))).toBe("Waiting for your answer");
 });
 
 const userMessage: OrchestrationV2TurnItem = {
@@ -330,20 +344,27 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
     status: "failed",
     failure: { class: "provider_error", message: "Please retry", code: null, retryable: true },
   };
-  const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
+  const rows = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
     const latestRun = { runId, status, startedAt: at, completedAt: endedAt };
     const presented = deriveThreadFeedPresentation(feed(items), latestRun);
     return appendRunStatusLine(minimalChatFeed(presented), {
       ...idle,
       activity: runStatusActivity(presented),
       latestRun,
-    }).at(-1);
+    });
   };
+  const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") =>
+    rows(items, status).at(-1);
   const ended = { type: "thinking", id: "run-status-line", createdAt: at, endedAt, runId };
   expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
   expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
   // A stopped run's partial reply takes the slot with its footer, as a finished reply does.
   expect(last([userMessage, reply], "interrupted")).toMatchObject({ id: "reply" });
+  // The end line opens the run sheet itself, so the run keeps no second line into it.
+  expect(rows([userMessage, command], "interrupted").map((row) => row.id)).toEqual([
+    "user",
+    "run-status-line",
+  ]);
 });
 
 it("shows the status line from send, below pending messages, until the run settles", () => {
