@@ -3714,11 +3714,23 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const [endSpaceHoldsKeyboard, setEndSpaceHoldsKeyboard] = useState(false);
+  const [reopenLandingPending, setReopenLandingPending] = useState(
+    () => Platform.OS === "android" && props.anchorMessageId !== null,
+  );
   const handleAnchoredEndSpaceSize = (size: number) => {
+    // A thread reopened with an anchor lands at its end before the space below the anchor is
+    // measured; land again once it is, so the anchored turn sits where it was left.
+    if (reopenLandingPending) setReopenLandingPending(false);
     const keyboardHeight = props.keyboardHeightHint || FALLBACK_KEYBOARD_HEIGHT;
     const holds = size >= keyboardHeight;
     setEndSpaceHoldsKeyboard((current) => (current === holds ? current : holds));
   };
+  const [reopenedWithAnchor] = useState(reopenLandingPending);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- lands the reopened list again once the native list has measured the space below its anchor
+  useEffect(() => {
+    if (!reopenedWithAnchor || reopenLandingPending) return;
+    requestAnimationFrame(() => void listRef.current?.scrollToEnd({ animated: false }));
+  }, [reopenedWithAnchor, reopenLandingPending, listRef]);
   const anchoredEndSpace =
     Platform.OS === "android"
       ? androidAnchoredEndSpace(
@@ -4165,10 +4177,13 @@ function androidAnchoredEndSpace(
 ) {
   // Once a send has anchored, every newer turn re-anchors, as in Gemini: queued follow-ups and
   // messages from other devices get the same space below them as the one sent here.
-  const anchorIndex =
-    anchorsSendingMessage || anchorMessageId
-      ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
-      : -1;
+  const isUserMessage = (row: ThreadFeedRow | undefined) =>
+    row?.type === "message" && row.message.role === "user";
+  let anchorIndex =
+    anchorsSendingMessage || anchorMessageId ? rows.findLastIndex(isUserMessage) : -1;
+  // Messages sent back to back, such as a steer before any reply, read as one turn: the first
+  // of them stays the anchor, so the steer joins it without moving the conversation.
+  while (anchorIndex > 0 && isUserMessage(rows[anchorIndex - 1])) anchorIndex--;
   return anchorIndex === -1
     ? undefined
     : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET, onSizeChanged };
