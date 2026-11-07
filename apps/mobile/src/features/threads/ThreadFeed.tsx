@@ -18,6 +18,8 @@ import { ThreadContextDivider } from "./thread-context-divider";
 import {
   appendRunStatusLine,
   minimalChatFeed,
+  runWaitingLabel,
+  type OpenRequests,
   runStatusActivity,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
@@ -32,7 +34,6 @@ import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import {
   WorktreeWorkingHeader,
   WorktreeSetupCard,
-  WorktreeSetupDetailsSheet,
   type WorktreeSetupCardProps,
 } from "./worktree-setup-card";
 import { worktreeSetupCardVisible } from "./worktree-setup-state";
@@ -119,6 +120,7 @@ import {
   useRef,
   useState,
   useId,
+  type ComponentProps,
   type ComponentPropsWithRef,
   type ReactNode,
   type Ref,
@@ -183,7 +185,6 @@ import { setReviewSelectedSectionId } from "../review/reviewState";
 import { Menu } from "../../components/ui/Menu";
 import type { MenuAction } from "@react-native-menu/menu";
 import { MessageActionsMenu } from "./MessageActionsMenu";
-import { useScreenReaderEnabled } from "../../lib/useScreenReaderEnabled";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
@@ -239,7 +240,9 @@ import {
   ThreadWorkLog,
 } from "./thread-work-log";
 import { ThreadRunSheet } from "./thread-run-sheet";
+import { sameRowValue } from "./feed-row-equality";
 import { useLiveSubagentCount } from "./use-live-subagents";
+import { useEndedRuns } from "./use-ended-runs";
 import {
   appendGuestPendingMessages,
   appendPendingThreadMessages,
@@ -356,6 +359,10 @@ export interface ThreadFeedHandle {
 
 export interface ThreadFeedProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
+  /** The requests the cards above the composer show; their feed rows step aside. */
+  /** The approval and question the cards above the composer show, by request id. */
+  readonly openApprovalId?: string | null;
+  readonly openUserInputId?: string | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   readonly dispatchingMessageId: MessageId | null;
@@ -371,19 +378,21 @@ export interface ThreadFeedProps {
   readonly contentPresentation: ThreadContentPresentation;
   // Until the first catch-up lands the list stays unmounted, then mounts once at the final end.
   readonly awaitsCatchUp?: boolean;
-  // The list also waits for the opening transition to end.
-  readonly awaitsEntry?: boolean;
   readonly latestRun: ThreadFeedLatestRun | null;
   readonly activeWorkStartedAt: string | null;
   readonly runlessWorkActive?: boolean;
   readonly listRef: RefObject<LegendListRef | null>;
   readonly freeze: SharedValue<boolean>;
   readonly anchorMessageId: MessageId | null;
+  /** Android: anchor the newest user message, a send whose id has not returned yet. */
+  readonly anchorsSendingMessage?: boolean;
   /** A message to scroll to once it is in the feed; see `onJumpedToMessage`. */
   readonly jumpToMessageId?: MessageId | null;
   readonly onJumpedToMessage?: () => void;
   readonly contentInsetEndAdjustment: SharedValue<number>;
   readonly keyboardOffset: number;
+  /** The keyboard's last reported height, or 0 before it has opened. */
+  readonly keyboardHeightHint?: number;
   readonly contentTopInset?: number;
   readonly contentBottomInset?: number;
   readonly historyControls?: ThreadFeedHistoryControls;
@@ -1474,7 +1483,12 @@ function FeedContentSheet(props: {
 
 function useMarkdownStyles(): MarkdownStyleSets {
   const { appearance } = useAppearancePreferences();
-  const nativeMarkdownTypography = resolveNativeMarkdownTypography(appearance.baseFontSize);
+  const baseTypography = resolveNativeMarkdownTypography(appearance.baseFontSize);
+  // Android reads messages at Gemini's looser rhythm, about 1.6 lines per font size.
+  const nativeMarkdownTypography =
+    Platform.OS === "android"
+      ? { ...baseTypography, lineHeight: Math.round(baseTypography.fontSize * 1.6) }
+      : baseTypography;
   const theme = useUniwindTheme();
   const markdownBodyColor = theme["--color-md-body"];
   const markdownStrongColor = theme["--color-md-strong"];
@@ -1805,8 +1819,6 @@ function renderFeedEntry(
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     /** Opens the sheet listing the run keyed by, or holding the activity, `anchor`. */
     readonly onOpenRun: (anchor: string, title: string) => void;
-    /** Opens worktree setup progress, which the status line reports before the first turn. */
-    readonly onOpenSetup: (() => void) | null;
     readonly onOpenTurnDiff: (checkpoint: ThreadCheckpointSummary) => void;
     readonly onPressPreview: (source: FilePreviewSource) => void;
     readonly onPlaybackStart: () => void;
@@ -1824,6 +1836,8 @@ function renderFeedEntry(
     readonly footerUserMessageId: string | null;
     readonly footerAssistantMessageId: string | null;
     readonly messageActionsInMenu: boolean;
+    /** Android: no copy, time or fork rows under messages; pending and edit states still show. */
+    readonly messageMetaHidden: boolean;
     readonly screenColor: string;
     readonly userBubbleColor: string | import("react-native").ColorValue;
     readonly markdownStyles: MarkdownStyleSets;
@@ -1885,14 +1899,12 @@ function renderFeedEntry(
   }
 
   if (entry.type === "thinking" && entry.label !== undefined) {
-    const { runId, label } = entry;
     return (
       <RunStatusLine
-        label={label}
-        startedAt={entry.createdAt}
-        endedAt={entry.endedAt}
+        label={entry.label}
         height={props.replyActionSize.button}
-        onOpen={runId === null ? props.onOpenSetup : () => props.onOpenRun(runId, RUN_SHEET_TITLE)}
+        // An older turn's end line closes the turn, so the next message keeps the turn gap.
+        endsTurn={entry.id !== "run-status-line"}
       />
     );
   }
@@ -2136,10 +2148,14 @@ function renderFeedEntry(
         !entry.acknowledged &&
         !entry.pendingMessage.creation &&
         entry.pendingMessage.messageId !== props.dispatchingMessageId;
-      const showTimestamp = !metaInMenu || pendingUnacknowledged;
+      const metaShown = !metaInMenu && !props.messageMetaHidden;
+      const showTimestamp = metaShown || pendingUnacknowledged;
       const showFooter =
         bubbleBodyVisible &&
-        (!metaInMenu || intentBadge !== null || pendingUnacknowledged || canEditPending);
+        (metaShown || intentBadge !== null || pendingUnacknowledged || canEditPending);
+      // Android: a send acknowledges within a moment; "Pending" only shows if it does not.
+      const footerWaits =
+        props.messageMetaHidden && pendingUnacknowledged && !canEditPending && intentBadge === null;
       const userMessageContent = (
         <UserMessageContent
           text={renderedText}
@@ -2216,7 +2232,7 @@ function renderFeedEntry(
           ) : null}
           {hasBubble ? (
             <View
-              className="min-w-0 rounded-[20px]"
+              className="min-w-0 rounded-[20px] android:rounded-[24px]"
               style={{
                 backgroundColor: userBubbleColor,
                 maxWidth: props.duoColumns ? "85%" : props.userBubbleMaxWidth,
@@ -2280,7 +2296,7 @@ function renderFeedEntry(
                 />
               ) : null}
               {bubbleBodyVisible ? (
-                <View className="gap-2 px-3.5 pb-2.5 pt-2.5">
+                <View className="gap-2 px-3.5 pb-2.5 pt-2.5 android:px-4 android:pb-3 android:pt-3">
                   {pendingBubbleAttachments.map((attachment) =>
                     attachment.type === "image" && attachment.uploadedAttachmentId ? (
                       <MessageAttachmentImage
@@ -2374,63 +2390,65 @@ function renderFeedEntry(
             </View>
           ) : null}
           {showFooter ? (
-            <View
-              className={cn(
-                "mt-1 flex-row items-center justify-end gap-1 pr-0.5",
-                // Pending and acknowledged rows hold different controls; keep one height.
-                props.messageActionsInMenu && "min-h-7",
-              )}
-            >
-              {intentBadge ? (
-                <View
-                  accessible
-                  accessibilityLabel={intentBadge.accessibilityLabel}
-                  className="flex-row items-center gap-1"
-                >
-                  <SymbolView name="arrow.uturn.forward" size={12} tintColor={iconSubtleColor} />
-                  <Text className="font-t3-medium text-xs text-foreground-secondary">
-                    {intentBadge.label}
+            <DelayedReveal delayMs={footerWaits ? 1000 : 0}>
+              <View
+                className={cn(
+                  "mt-1 flex-row items-center justify-end gap-1 pr-0.5",
+                  // Pending and acknowledged rows hold different controls; keep one height.
+                  props.messageActionsInMenu && "min-h-7",
+                )}
+              >
+                {intentBadge ? (
+                  <View
+                    accessible
+                    accessibilityLabel={intentBadge.accessibilityLabel}
+                    className="flex-row items-center gap-1"
+                  >
+                    <SymbolView name="arrow.uturn.forward" size={12} tintColor={iconSubtleColor} />
+                    <Text className="font-t3-medium text-xs text-foreground-secondary">
+                      {intentBadge.label}
+                    </Text>
+                  </View>
+                ) : null}
+                {intentBadge && showTimestamp ? (
+                  <Text
+                    accessible={false}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                    className="font-t3-medium text-xs text-foreground-secondary"
+                  >
+                    ·
                   </Text>
-                </View>
-              ) : null}
-              {intentBadge && showTimestamp ? (
-                <Text
-                  accessible={false}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                  className="font-t3-medium text-xs text-foreground-secondary"
-                >
-                  ·
-                </Text>
-              ) : null}
-              {showTimestamp ? (
-                <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
-                  {pendingUnacknowledged ? "Pending" : timestampLabel}
-                </Text>
-              ) : null}
-              {canEditPending ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit pending message"
-                  hitSlop={8}
-                  className="size-7 items-center justify-center"
-                  onPress={() => {
-                    if (entry.pendingMessage && props.onEditPendingMessage) {
-                      props.onEditPendingMessage(entry.pendingMessage);
-                    }
-                  }}
-                >
-                  <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
-                </Pressable>
-              ) : null}
-              {presentation.text.trim().length > 0 && !metaInMenu ? (
-                <UserMessageCopyButton
-                  text={presentation.text}
-                  onCopy={onCopyUserMessage}
-                  tintColor={iconSubtleColor}
-                />
-              ) : null}
-            </View>
+                ) : null}
+                {showTimestamp ? (
+                  <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
+                    {pendingUnacknowledged ? "Pending" : timestampLabel}
+                  </Text>
+                ) : null}
+                {canEditPending ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit pending message"
+                    hitSlop={8}
+                    className="size-7 items-center justify-center"
+                    onPress={() => {
+                      if (entry.pendingMessage && props.onEditPendingMessage) {
+                        props.onEditPendingMessage(entry.pendingMessage);
+                      }
+                    }}
+                  >
+                    <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
+                  </Pressable>
+                ) : null}
+                {presentation.text.trim().length > 0 && !metaInMenu ? (
+                  <UserMessageCopyButton
+                    text={presentation.text}
+                    onCopy={onCopyUserMessage}
+                    tintColor={iconSubtleColor}
+                  />
+                ) : null}
+              </View>
+            </DelayedReveal>
           ) : null}
         </Animated.View>
       );
@@ -2451,7 +2469,10 @@ function renderFeedEntry(
       iconSubtleColor={iconSubtleColor}
       themeAppearance={props.themeAppearance}
       onCopyRow={props.onCopyWorkRow}
-      onPressRow={(row) => props.onOpenRun(row.id, RUN_SHEET_TITLE)}
+      // Android's feed rows are static; there is no run sheet to open.
+      onPressRow={
+        Platform.OS === "android" ? undefined : (row) => props.onOpenRun(row.id, RUN_SHEET_TITLE)
+      }
       renderImage={props.renderViewedImage}
       renderReasoning={props.renderReasoning}
       onPressPreview={props.onPressPreview}
@@ -2486,16 +2507,14 @@ function AssistantMessageRow({
     !assistantTurnStillInProgress &&
     !message.streaming;
   if (renderedText.trim().length === 0 && attachments.length === 0) {
-    // Android shows only a run's latest reply, so a reply that starts empty holds the line
-    // of the one it replaced instead of letting the feed drop and regrow.
+    // A reply that starts empty holds a line on Android, so its first text does not push the feed.
     return Platform.OS === "android" && message.streaming ? (
       <View className="mb-1 px-1" style={{ height: styles.nativeTextStyle.lineHeight }} />
     ) : null;
   }
 
   const enterAnimated = Platform.OS !== "android" && isFreshTimestamp(message.createdAt);
-  // Android keeps the footer on the newest settled reply; older replies move it into their
-  // actions menu. Every reply keeps the menu wrapper so the footer moving does not remount it.
+  // Every reply keeps the menu wrapper so the footer moving does not remount it.
   const replyActionsMenu =
     props.messageActionsInMenu && showAssistantMeta && renderedText.trim().length > 0;
   const replyActionsInMenu = replyActionsMenu && message.id !== props.footerAssistantMessageId;
@@ -2513,8 +2532,15 @@ function AssistantMessageRow({
   return (
     <Animated.View
       className={cn(
-        Platform.OS === "android" && props.isLastFeedRow
-          ? "mb-1 px-1"
+        // Padding, not margin: the footer's touch targets reach into it, and Android hit-tests
+        // only inside a view's bounds.
+        Platform.OS === "android"
+          ? // Fixed until a new message follows, so a run settling moves nothing below it.
+            props.isLastFeedRow
+            ? "pb-1 px-1"
+            : props.precedesUserMessage
+              ? "mb-5 px-1"
+              : "mb-1 px-1"
           : (showAssistantMeta && !(message.runId && props.failedRunIds.has(message.runId))) ||
               props.precedesUserMessage
             ? "mb-5 px-1"
@@ -2552,7 +2578,7 @@ function AssistantMessageRow({
           onOpenTurnDiff={props.onOpenTurnDiff}
         />
       ) : null}
-      {showAssistantMeta && !replyActionsInMenu ? (
+      {showAssistantMeta && !replyActionsInMenu && !props.messageMetaHidden ? (
         <View
           className={cn("mt-1 flex-row items-center", Platform.OS !== "android" && "gap-1")}
           style={
@@ -2567,7 +2593,7 @@ function AssistantMessageRow({
             buttonWidth={props.replyActionSize.width}
             iconSize={props.replyActionSize.icon}
           />
-          {Platform.OS !== "android" && message.projectedItem ? (
+          {message.projectedItem ? (
             <AssistantForkButton
               environmentId={props.environmentId}
               iconColor={iconSubtleColor}
@@ -2834,12 +2860,14 @@ function ThreadFeedPlaceholder(props: {
 function useThreadFeedPresentation(props: ThreadFeedProps) {
   const [feedCache] = useState(createThreadFeedCache);
   const liveSubagents = useLiveSubagentCount(props.detailRef);
+  const endedRuns = useEndedRuns(props.detailRef);
+  const conversation = props.feed.filter(
+    (entry) =>
+      entry.type !== "activity-group" ||
+      entry.activities[0]?.projectedItem.item.type !== "subagent",
+  );
   const presented = deriveThreadFeedPresentation(
-    props.feed.filter(
-      (entry) =>
-        entry.type !== "activity-group" ||
-        entry.activities[0]?.projectedItem.item.type !== "subagent",
-    ),
+    conversation,
     props.latestRun,
     props.activeWorkStartedAt,
     props.runlessWorkActive ?? false,
@@ -2848,16 +2876,26 @@ function useThreadFeedPresentation(props: ThreadFeedProps) {
   if (Platform.OS !== "android") {
     return appendPendingThreadMessages(presented, props.feed, props.queuedMessages);
   }
+  const openRequests: OpenRequests = {
+    approval: props.openApprovalId ?? null,
+    userInput: props.openUserInputId ?? null,
+  };
   return appendRunStatusLine(
-    appendPendingThreadMessages(minimalChatFeed(presented), props.feed, props.queuedMessages),
+    appendPendingThreadMessages(
+      minimalChatFeed(conversation, openRequests),
+      props.feed,
+      props.queuedMessages,
+    ),
     {
       activity: runStatusActivity(presented),
+      waiting: runWaitingLabel(openRequests),
       liveSubagents,
       latestRun: props.latestRun,
       activeWorkStartedAt: props.activeWorkStartedAt,
       runlessWorkActive: props.runlessWorkActive ?? false,
       dispatchingMessageId: props.dispatchingMessageId,
       setupStep: worktreeSetupRunStep(props.worktreeSetup ?? null),
+      endedRuns,
     },
   );
 }
@@ -2907,6 +2945,9 @@ export const ThreadFeed = memo(function ThreadFeed({
   // LegendList's geometric follow threshold can reclaim users reading history when streamed rows grow.
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   const endFollowEnabledRef = useRef(true);
+  const anchorGlidingRef = useRef(false);
+  const anchoredRef = useRef(false);
+  const anchorGlideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Only user scrolls from drag through momentum break follow; ignore MVCP and programmatic adjustments.
   const userScrollSessionRef = useRef(false);
   const setEndFollow = (enabled: boolean) => {
@@ -2940,7 +2981,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     readonly anchor: string;
     readonly title: string;
   } | null>(null);
-  const [setupSheetThreadId, setSetupSheetThreadId] = useState<ThreadId | null>(null);
   const markdownLinkRequest = useRef<AbortController | null>(null);
   const onInlinePlaybackStart = () => {
     markdownLinkRequest.current?.abort();
@@ -2985,7 +3025,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     props.threadId,
     fileShareSourceIdentifier,
   );
-  const horizontalPadding = props.layoutVariant === "split" ? 20 : 16;
+  const horizontalPadding = props.layoutVariant === "split" || Platform.OS === "android" ? 20 : 16;
   const contentLeftInset = props.contentSideInsets?.left ?? 0;
   const contentRightInset = props.contentSideInsets?.right ?? 0;
   const usableViewportWidth = Math.max(0, viewportWidth - contentLeftInset - contentRightInset);
@@ -3398,14 +3438,15 @@ export const ThreadFeed = memo(function ThreadFeed({
     />
   );
   const reviewCommentColors = useReviewCommentColors();
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const unsettledTurnId = threadFeedRunIsUnsettled(props.latestRun) ? props.latestRun.runId : null;
   const compactionLabelsByEntryId = useMemo(
     () => threadFeedCompactionLabels(props.feed),
     [props.feed],
   );
-  // The selection-toolbar menu is out of reach for screen readers, so they keep the footers.
-  const screenReaderEnabled = useScreenReaderEnabled();
-  const messageActionsInMenu = Platform.OS === "android" && !screenReaderEnabled;
+  // Android keeps the feed to message text: no per-message footers or action menus.
+  const messageActionsInMenu = false;
+  const messageMetaHidden = Platform.OS === "android";
   const reportHeaderMaterialVisibility = (visible: boolean) => {
     if (headerMaterialVisibleRef.current === visible) {
       return;
@@ -3432,6 +3473,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
   };
   const handleScrollBeginDrag = () => {
+    if (!userHasScrolled) setUserHasScrolled(true);
     clearUserScrollSettle();
     userScrollSessionRef.current = true;
     cancelReflow();
@@ -3465,10 +3507,33 @@ export const ThreadFeed = memo(function ThreadFeed({
     finishUserScroll();
   };
 
+  // An anchored turn does not follow its reply, so once the reply grows past the screen the
+  // reader is no longer at the end and gets the way back. The send's own glide is exempt.
+  const leaveEndIfAnchoredReplyOverflows = () => {
+    if (
+      Platform.OS === "android" &&
+      anchoredRef.current &&
+      endFollowEnabledRef.current &&
+      !userScrollSessionRef.current &&
+      !anchorGlidingRef.current &&
+      listRef.current?.getState().isAtEnd === false
+    ) {
+      setEndFollow(false);
+    }
+  };
+
   const feedThreadKey = scopedThreadKey(props.environmentId, props.threadId);
   // ThreadDetailScreen remounts the feed per thread, so only a send resets following.
   useImperativeHandle(ref, () => ({
     resetEndFollow: () => {
+      anchorGlidingRef.current = true;
+      if (anchorGlideTimerRef.current !== null) clearTimeout(anchorGlideTimerRef.current);
+      anchorGlideTimerRef.current = setTimeout(() => {
+        anchorGlideTimerRef.current = null;
+        anchorGlidingRef.current = false;
+        // A reply that outgrew the screen during the glide reported no size change since.
+        leaveEndIfAnchoredReplyOverflows();
+      }, ANCHOR_GLIDE_MS);
       clearUserScrollSettle();
       userScrollSessionRef.current = false;
       cancelReflow();
@@ -3482,8 +3547,19 @@ export const ThreadFeed = memo(function ThreadFeed({
   const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
   const { jumpToMessageId } = props;
   const jumpReady = !!jumpToMessageId && loadedListKey === `${feedThreadKey}:filled`;
-  const presentedFeed = appendGuestPendingMessages(useThreadFeedPresentation(props), guestShare);
-  const footerMessageIds = resolveFooterMessageIds(presentedFeed, unsettledTurnId);
+  const terminalAssistantMessageIds = (() => {
+    const terminalIdsByTurn = new Map<RunId, string>();
+    for (const entry of props.feed) {
+      if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
+        terminalIdsByTurn.set(entry.message.runId, entry.message.id);
+      }
+    }
+    return new Set(terminalIdsByTurn.values());
+  })();
+  const threadRows = useThreadFeedPresentation(props);
+  // Guest drafts are never replies, so they cannot move either footer.
+  const footerMessageIds = resolveFooterMessageIds(threadRows, unsettledTurnId);
+  const presentedFeed = appendGuestPendingMessages(threadRows, guestShare);
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
@@ -3495,6 +3571,7 @@ export const ThreadFeed = memo(function ThreadFeed({
     footerUserMessageId: footerMessageIds.user,
     footerAssistantMessageId: footerMessageIds.assistant,
     messageActionsInMenu,
+    messageMetaHidden,
     copiedRowId,
     workRowSizing,
     iconSubtleColor,
@@ -3539,7 +3616,12 @@ export const ThreadFeed = memo(function ThreadFeed({
     setCaughtUpThreadKey(feedThreadKey);
   }
   const holdsForCatchUp = props.awaitsCatchUp === true && caughtUpThreadKey !== feedThreadKey;
-  const listAwaitsLanding = listMountKey.endsWith(":filled") && revealedListKey !== listMountKey;
+  // Android shows the feed as it mounts, during the open slide, as Gemini does; its end
+  // landing does not visibly move there, and hiding it left a blank page after the slide.
+  const listAwaitsLanding =
+    Platform.OS !== "android" &&
+    listMountKey.endsWith(":filled") &&
+    revealedListKey !== listMountKey;
   const { contentInsetEndAdjustment } = props;
   const attachList = (list: LegendListRef | null) => {
     listRef.current = list;
@@ -3633,22 +3715,27 @@ export const ThreadFeed = memo(function ThreadFeed({
     setViewportHeight((current) => (Math.abs(current - nextHeight) > 1 ? nextHeight : current));
   };
 
-  const anchoredEndSpace = resolveChatListAnchoredEndSpace(
-    presentedFeed,
-    props.anchorMessageId,
-    (entry) => (entry.type === "message" ? entry.id : null),
-    { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
-  );
+  const [endSpaceHoldsKeyboard, setEndSpaceHoldsKeyboard] = useState(false);
+  const handleAnchoredEndSpaceSize = (size: number) => {
+    const keyboardHeight = props.keyboardHeightHint || FALLBACK_KEYBOARD_HEIGHT;
+    const holds = size >= keyboardHeight;
+    setEndSpaceHoldsKeyboard((current) => (current === holds ? current : holds));
+  };
+  const anchoredEndSpace =
+    Platform.OS === "android"
+      ? androidAnchoredEndSpace(
+          presentedFeed,
+          props.anchorMessageId,
+          props.anchorsSendingMessage === true,
+          handleAnchoredEndSpaceSize,
+        )
+      : resolveChatListAnchoredEndSpace(
+          presentedFeed,
+          props.anchorMessageId,
+          (entry) => (entry.type === "message" ? entry.id : null),
+          { anchorOffset: anchorTopInset + CHAT_LIST_ANCHOR_OFFSET },
+        );
   const failedRunIds = failedFeedRunIds(props.feed, props.latestRun);
-  const terminalAssistantMessageIds = (() => {
-    const terminalIdsByTurn = new Map<RunId, string>();
-    for (const entry of props.feed) {
-      if (entry.type === "message" && entry.message.role === "assistant" && entry.message.runId) {
-        terminalIdsByTurn.set(entry.message.runId, entry.message.id);
-      }
-    }
-    return new Set(terminalIdsByTurn.values());
-  })();
   // Timers the feed schedules die with it.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the feed's scroll, reflow and copy timers on unmount
   useEffect(
@@ -3656,13 +3743,20 @@ export const ThreadFeed = memo(function ThreadFeed({
       if (userScrollSettleTimerRef.current !== null) clearTimeout(userScrollSettleTimerRef.current);
       if (reflowSettleTimerRef.current !== null) clearTimeout(reflowSettleTimerRef.current);
       if (copyFeedbackTimeoutRef.current) clearTimeout(copyFeedbackTimeoutRef.current);
+      if (anchorGlideTimerRef.current !== null) clearTimeout(anchorGlideTimerRef.current);
     },
     [],
   );
 
   const handleItemSizeChanged = (info: { readonly itemKey: string; readonly size: number }) => {
     rememberedRowSizes.set(info.itemKey, info.size);
+    leaveEndIfAnchoredReplyOverflows();
   };
+  const anchored = anchoredEndSpace !== undefined;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mirrors the committed anchor for the glide timer, which outlives the render that started it
+  useEffect(() => {
+    anchoredRef.current = anchored;
+  }, [anchored]);
 
   const onCopyWorkRow = (rowId: string, value: string) => {
     copyTextWithHaptic(value, {
@@ -3680,10 +3774,6 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const onOpenRun = (anchor: string, title: string) => setRunSheet({ anchor, title });
-  const onOpenSetup =
-    worktreeSetupRunStep(props.worktreeSetup ?? null) === null
-      ? null
-      : () => setSetupSheetThreadId(props.threadId);
   // Android reports running setup on the status line; the card stays for outcomes to act on.
   const setupCard =
     props.worktreeSetup &&
@@ -3698,13 +3788,16 @@ export const ThreadFeed = memo(function ThreadFeed({
 
   // The status line's minimum height plus its bottom margin; it fits whenever work rows do.
   const runStatusLineSize = replyActionSize.button + 4;
+  // An older turn's end line keeps the 20dp turn gap below it.
+  const statusRowSize = (entry: ThreadFeedRow) =>
+    entry.id === "run-status-line" ? runStatusLineSize : runStatusLineSize + 16;
   // Without this, every row above the viewport is assumed to be
   // estimatedItemSize tall, and scrolling up through unmeasured content
   // corrects each row's height as it mounts — the feed visibly jumps.
   const getFixedItemSize = (entry: ThreadFeedRow) => {
     if (entry.type === "guest-pending") return undefined;
     if (entry.type === "thinking" && entry.label !== undefined) {
-      return workRowSizing.fixedRowHeight === undefined ? undefined : runStatusLineSize;
+      return workRowSizing.fixedRowHeight === undefined ? undefined : statusRowSize(entry);
     }
     if (isAndroidChatNotice(entry)) return undefined;
     if (entry.type === "html-render") {
@@ -3734,68 +3827,65 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
   }, [textSizeKey, contentWidth, hasHtmlRenders, beginReflow, listRef]);
 
+  // Rows compare this by content (see feedRowPropsEqual), so a list container re-rendering for
+  // layout, or a feed update elsewhere, leaves unchanged rows alone.
+  const rowContext: FeedRowContext = {
+    environmentId: props.environmentId,
+    dispatchingMessageId: props.dispatchingMessageId,
+    onEditPendingMessage: props.onEditPendingMessage,
+    onUseArtifactTemplate: props.onUseArtifactTemplate,
+    threadId: props.threadId,
+    copiedRowId,
+    workRowSizing,
+    terminalAssistantMessageIds,
+    footerUserMessageId: footerMessageIds.user,
+    footerAssistantMessageId: footerMessageIds.assistant,
+    messageActionsInMenu,
+    messageMetaHidden,
+    unsettledTurnId,
+    compactionLabelsByEntryId,
+    failedRunIds,
+    onCopyWorkRow,
+    onOpenRun,
+    onOpenTurnDiff,
+    onPressPreview,
+    onPlaybackStart: onInlinePlaybackStart,
+    markdownLinkHandlers,
+    renderMarkdownImage,
+    renderViewedImage,
+    renderReasoning,
+    iconSubtleColor,
+    replyActionSize,
+    screenColor,
+    userBubbleColor,
+    markdownStyles,
+    reviewCommentColors,
+    reviewCommentBubbleWidth,
+    themeAppearance,
+    duoColumns,
+    userBubbleMaxWidth,
+    markdownContentWidth,
+    contentWidth,
+    threadTitle: props.threadTitle,
+    skills: props.skills,
+    workspaceRoot: props.workspaceRoot,
+    workflowOpening,
+  };
+  const rowCapturedDeps = [resolveImageSource, shareFileChip, markdownLinkScope];
   const renderItem = (info: { item: GroupedThreadFeedRow; index: number }) => (
-    <MessageImageGalleryScope
-      entry={info.item}
-      environmentId={props.environmentId}
-      threadId={props.threadId}
-      workspaceRoot={props.workspaceRoot}
-    >
-      <ThreadMediaVisibility>
-        {renderFeedEntry(info, {
-          userMessageGrouping: info.item.userMessageGrouping,
-          precedesUserMessage: info.item.precedesUserMessage,
-          isLastFeedRow: info.index === groupedFeed.length - 1,
-          environmentId: props.environmentId,
-          dispatchingMessageId: props.dispatchingMessageId,
-          onEditPendingMessage: props.onEditPendingMessage,
-          onUseArtifactTemplate: props.onUseArtifactTemplate,
-          threadId: props.threadId,
-          copiedRowId,
-          workRowSizing,
-          terminalAssistantMessageIds,
-          footerUserMessageId: footerMessageIds.user,
-          footerAssistantMessageId: footerMessageIds.assistant,
-          messageActionsInMenu,
-          unsettledTurnId,
-          compactionLabelsByEntryId,
-          failedRunIds,
-          onCopyWorkRow,
-          onOpenRun,
-          onOpenSetup,
-          onOpenTurnDiff,
-          onPressPreview,
-          onPlaybackStart: onInlinePlaybackStart,
-          markdownLinkHandlers,
-          renderMarkdownImage,
-          renderViewedImage,
-          renderReasoning,
-          iconSubtleColor,
-          replyActionSize,
-          screenColor,
-          userBubbleColor,
-          markdownStyles,
-          reviewCommentColors,
-          reviewCommentBubbleWidth,
-          themeAppearance,
-          duoColumns,
-          userBubbleMaxWidth,
-          markdownContentWidth,
-          contentWidth,
-          threadTitle: props.threadTitle,
-          skills: props.skills,
-          workspaceRoot: props.workspaceRoot,
-          workflowOpening,
-        })}
-        {setupCard && info.index === setupAnchorIndex ? (
-          <WorktreeSetupCard key={props.threadId} {...setupCard} />
-        ) : props.setupWorkingStartedAt &&
-          Platform.OS !== "android" &&
-          info.index === setupAnchorIndex ? (
-          <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
-        ) : null}
-      </ThreadMediaVisibility>
-    </MessageImageGalleryScope>
+    <FeedRow
+      item={info.item}
+      index={info.index}
+      isLastFeedRow={info.index === groupedFeed.length - 1}
+      context={rowContext}
+      capturedDeps={rowCapturedDeps}
+      setupCard={setupCard && info.index === setupAnchorIndex ? setupCard : null}
+      setupWorkingStartedAt={
+        Platform.OS !== "android" && info.index === setupAnchorIndex
+          ? (props.setupWorkingStartedAt ?? null)
+          : null
+      }
+    />
   );
 
   if (props.contentPresentation.kind === "unavailable" && props.queuedMessages.length === 0) {
@@ -3818,7 +3908,7 @@ export const ThreadFeed = memo(function ThreadFeed({
           pointerEvents={listAwaitsLanding ? "none" : "auto"}
           style={listAwaitsLanding ? { opacity: 0 } : undefined}
         >
-          {holdsForCatchUp || props.awaitsEntry ? null : (
+          {holdsForCatchUp ? null : (
             /* oxlint-disable-next-line t3code/require-registered-list-scroll -- ThreadFeedScrollView is passed through the iOS-only spread below; the prop rejects undefined. */
             <KeyboardAwareLegendList
               ref={Platform.OS === "android" ? listRef : attachList}
@@ -3857,7 +3947,9 @@ export const ThreadFeed = memo(function ThreadFeed({
               freeze={props.freeze}
               // Follow the measured end immediately; animating estimates races row measurement on acknowledgement.
               maintainScrollAtEnd={
-                !followsEnd
+                // Android holds an anchored send at the top while its reply grows below, as
+                // Gemini does; following the end would push the sent message off screen.
+                !followsEnd || (Platform.OS === "android" && anchoredEndSpace !== undefined)
                   ? false
                   : {
                       animated: false,
@@ -3892,15 +3984,23 @@ export const ThreadFeed = memo(function ThreadFeed({
               getEstimatedItemSize={(entry) =>
                 rememberedRowSizes.get(entry.id) ??
                 (entry.type === "thinking" && entry.label !== undefined
-                  ? runStatusLineSize
+                  ? statusRowSize(entry)
                   : undefined)
               }
               // Native layout transitions retain stale row positions during sync, even at duration zero.
               onItemSizeChanged={handleItemSizeChanged}
-              drawDistance={500}
+              // Measured on a 120Hz phone: 100dp cuts the worst open frame by a third; flings stay clean.
+              drawDistance={Platform.OS === "android" ? 100 : 500}
               keyboardShouldPersistTaps="always"
               keyboardDismissMode="none"
-              keyboardLiftBehavior="whenAtEnd"
+              // An anchored turn with more empty space below it than the keyboard is tall stays
+              // still, as in ChatGPT and Gemini: the keyboard covers empty space instead of
+              // lifting the turn off the top and dropping it back when it closes.
+              keyboardLiftBehavior={
+                Platform.OS === "android" && anchoredEndSpace !== undefined && endSpaceHoldsKeyboard
+                  ? "never"
+                  : "whenAtEnd"
+              }
               // Seed viewport size to skip programmatic attach-time positioning, which races UIKit's adjustedContentInset.
               {...(viewportHeight > 0 && viewportWidth > 0
                 ? { estimatedListSize: { height: viewportHeight, width: viewportWidth } }
@@ -3925,6 +4025,9 @@ export const ThreadFeed = memo(function ThreadFeed({
                   void listRef.current?.scrollToEnd({ animated: false });
                 }
               }}
+              // Android shows the scrollbar from the first drag: the landing scroll otherwise
+              // flashes it, and its fade redraws the whole feed at ~40 Hz after the open.
+              showsVerticalScrollIndicator={Platform.OS !== "android" || userHasScrolled}
               onScroll={handleScroll}
               onScrollBeginDrag={handleScrollBeginDrag}
               onScrollEndDrag={handleScrollEndDrag}
@@ -3943,7 +4046,7 @@ export const ThreadFeed = memo(function ThreadFeed({
                 </>
               }
               ListFooterComponent={
-                props.pendingHandoff ? (
+                props.pendingHandoff && Platform.OS !== "android" ? (
                   <ThreadHandoffDivider
                     environmentId={props.environmentId}
                     endpoints={props.pendingHandoff}
@@ -3986,6 +4089,18 @@ export const ThreadFeed = memo(function ThreadFeed({
               threadId={props.threadId}
               workspaceRoot={props.workspaceRoot}
               items={runSheetItems}
+              // A sheet opened from one of the run's rows is anchored on that row, not the run.
+              live={
+                unsettledTurnId !== null &&
+                (runSheet.anchor === unsettledTurnId ||
+                  runSheetItems.some((item) =>
+                    item.type === "activity"
+                      ? item.activity.runId === unsettledTurnId
+                      : item.type === "message"
+                        ? item.entry.message.runId === unsettledTurnId
+                        : item.item.runId === unsettledTurnId,
+                  ))
+              }
               copiedRowId={copiedRowId}
               iconSubtleColor={iconSubtleColor}
               themeAppearance={themeAppearance}
@@ -3996,12 +4111,6 @@ export const ThreadFeed = memo(function ThreadFeed({
               onClose={() => setRunSheet(null)}
             />
           </InlineFoldsContext>
-        ) : null}
-        {setupSheetThreadId === props.threadId && props.worktreeSetup ? (
-          <WorktreeSetupDetailsSheet
-            {...props.worktreeSetup}
-            onClose={() => setSetupSheetThreadId(null)}
-          />
         ) : null}
         <VideoPreviewModal source={expandedVideo} onRequestClose={closeVideoPreview} />
         <FilePreviewModal source={expandedFile} onRequestClose={closeFilePreview} />
@@ -4039,6 +4148,104 @@ function ThreadFeedLoadEarlierControl(props: ThreadFeedHistoryControls) {
     </View>
   );
 }
+
+type FeedRowContext = Omit<
+  Parameters<typeof renderFeedEntry>[1],
+  "userMessageGrouping" | "precedesUserMessage" | "isLastFeedRow"
+>;
+
+// Android anchors any sent message, not only a thread's first: the newest user message's row.
+/** Longer than a send's glide to its anchor, during which the list is briefly short of its end. */
+const ANCHOR_GLIDE_MS = 800;
+
+function androidAnchoredEndSpace(
+  rows: ReadonlyArray<ThreadFeedRow>,
+  anchorMessageId: string | null | undefined,
+  anchorsSendingMessage: boolean,
+  onSizeChanged: (size: number) => void,
+) {
+  // Once a send has anchored, every newer turn re-anchors, as in Gemini: queued follow-ups and
+  // messages from other devices get the same space below them as the one sent here.
+  const anchorIndex =
+    anchorsSendingMessage || anchorMessageId
+      ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
+      : -1;
+  return anchorIndex === -1
+    ? undefined
+    : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET, onSizeChanged };
+}
+
+/** Taller than any phone keyboard; used until the keyboard has reported its own height. */
+const FALLBACK_KEYBOARD_HEIGHT = 360;
+
+/** Holds children back for a moment, for states that only matter if they last. */
+function DelayedReveal(props: { readonly delayMs: number; readonly children: ReactNode }) {
+  const [shown, setShown] = useState(props.delayMs === 0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reveals after a timer, outside React
+  useEffect(() => {
+    if (props.delayMs === 0) return;
+    const timer = setTimeout(() => setShown(true), props.delayMs);
+    return () => clearTimeout(timer);
+  }, [props.delayMs]);
+  return shown || props.delayMs === 0 ? props.children : null;
+}
+
+type FeedRowProps = {
+  readonly item: GroupedThreadFeedRow;
+  readonly index: number;
+  readonly isLastFeedRow: boolean;
+  readonly context: FeedRowContext;
+  readonly setupCard: ComponentProps<typeof WorktreeSetupCard> | null;
+  readonly setupWorkingStartedAt: string | null;
+  /**
+   * Values the row's callbacks capture that change with the connection, such as the image
+   * resolver; compared by identity because callbacks themselves are compared as equal.
+   */
+  readonly capturedDeps: ReadonlyArray<unknown>;
+};
+
+function feedRowPropsEqual(previous: FeedRowProps, next: FeedRowProps): boolean {
+  return (
+    // Index is not compared: rows never read it, and an insert above would re-render every row.
+    previous.item === next.item &&
+    previous.isLastFeedRow === next.isLastFeedRow &&
+    previous.setupCard === next.setupCard &&
+    previous.setupWorkingStartedAt === next.setupWorkingStartedAt &&
+    previous.capturedDeps.length === next.capturedDeps.length &&
+    previous.capturedDeps.every((value, index) => Object.is(value, next.capturedDeps[index])) &&
+    // Deep enough for markdown styles (context → markdownStyles → assistant → nativeTextStyle).
+    sameRowValue(previous.context, next.context, 4)
+  );
+}
+
+const FeedRow = memo(function FeedRow(props: FeedRowProps) {
+  const { item, context } = props;
+  return (
+    <MessageImageGalleryScope
+      entry={item}
+      environmentId={context.environmentId}
+      threadId={context.threadId}
+      workspaceRoot={context.workspaceRoot}
+    >
+      <ThreadMediaVisibility>
+        {renderFeedEntry(
+          { item, index: props.index },
+          {
+            ...context,
+            userMessageGrouping: item.userMessageGrouping,
+            precedesUserMessage: item.precedesUserMessage,
+            isLastFeedRow: props.isLastFeedRow,
+          },
+        )}
+        {props.setupCard ? (
+          <WorktreeSetupCard key={context.threadId} {...props.setupCard} />
+        ) : props.setupWorkingStartedAt ? (
+          <WorktreeWorkingHeader startedAt={props.setupWorkingStartedAt} />
+        ) : null}
+      </ThreadMediaVisibility>
+    </MessageImageGalleryScope>
+  );
+}, feedRowPropsEqual);
 
 function MessageImageGalleryScope(props: {
   entry: ThreadFeedRow;

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { use, useRef, useState } from "react";
 import type { StyleProp, ViewInstance, ViewStyle } from "react-native";
 import { Pressable, ScrollView, View } from "react-native";
-import { useKeyboardState } from "react-native-keyboard-controller";
+import { KeyboardController } from "react-native-keyboard-controller";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { useHardwareBack } from "../../lib/backHandler";
@@ -26,6 +26,7 @@ type AnchorSnapshot = {
   readonly width: number;
   readonly height: number;
   readonly keyboardWasVisible: boolean;
+  readonly keyboardHeight: number;
 };
 
 type OverlayFrame = {
@@ -59,8 +60,6 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const [anchorNode, setAnchorNode] = useState<ViewInstance | null>(null);
   const overlayRef = useRef<ViewInstance>(null);
 
-  const keyboardVisible = useKeyboardState((state) => state.isVisible);
-  const keyboardHeight = useKeyboardState((state) => state.height);
   const close = () => {
     setAnchor(null);
     setPath([]);
@@ -69,9 +68,13 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     setContentHeight(null);
   };
 
+  // Read at opening, not subscribed: every Home row has a menu, and Home stays mounted under the
+  // chat, so a subscription re-rendered all of them on each keyboard move there.
   const open = () => {
+    const keyboardWasVisible = KeyboardController.isVisible();
+    const keyboardHeight = keyboardWasVisible ? KeyboardController.state().height : 0;
     anchorNode?.measureInWindow((x, y, width, height) => {
-      setAnchor({ x, y, width, height, keyboardWasVisible: keyboardVisible });
+      setAnchor({ x, y, width, height, keyboardWasVisible, keyboardHeight });
     });
   };
 
@@ -92,14 +95,14 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
     props.inWindow === true ||
     levelActions.length + Number(parent !== null) > MAX_VISIBLE_ITEMS;
 
-  useHardwareBack(anchor !== null && inWindow, () => {
+  const onHardwareBack = () => {
     if (path.length > 0) {
       setPath((current) => current.slice(0, -1));
     } else {
       close();
     }
     return true;
-  });
+  };
 
   const local =
     anchor === null || overlay === null
@@ -122,8 +125,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
           hinge: windowHinge && { x: windowHinge.x - overlay.x, width: windowHinge.width },
         });
   // This in-window menu preserves keyboard focus; subtract the IME area so its items remain tappable.
-  const usableBottom =
-    overlay === null ? 0 : overlay.height - (keyboardVisible ? keyboardHeight : 0);
+  const usableBottom = overlay === null ? 0 : overlay.height - (anchor?.keyboardHeight ?? 0);
   const spaceBelow =
     local === null || overlay === null
       ? 0
@@ -183,6 +185,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
           <View pointerEvents="none">{props.children}</View>
         </Pressable>
       )}
+      {anchor !== null && inWindow ? <MenuHardwareBack onBack={onHardwareBack} /> : null}
       {anchor === null ? null : (
         <OverlayPortal>
           <View
@@ -254,4 +257,10 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
       )}
     </>
   );
+}
+
+/** Mounted only while a menu is open: the focus tracking behind it re-renders every closed menu on each screen change. */
+function MenuHardwareBack(props: { readonly onBack: () => boolean }) {
+  useHardwareBack(true, props.onBack);
+  return null;
 }

@@ -62,6 +62,7 @@ import {
   formatItemFullDetail,
   type ThreadFeedActivity,
   workEntryRowLabel,
+  workEntryRowLabelIsCommand,
 } from "../../lib/threadActivity";
 import {
   toolCallLines,
@@ -428,7 +429,8 @@ interface ThreadWorkLogProps {
   readonly iconSubtleColor: ColorValue;
   readonly themeAppearance: "light" | "dark";
   readonly onCopyRow: (rowId: string, value: string) => void;
-  readonly onPressRow: (row: ThreadFeedActivity) => void;
+  /** Without it, and without expandedRows, rows are static text (Android's feed). */
+  readonly onPressRow?: (row: ThreadFeedActivity) => void;
   readonly renderImage: MarkdownImageRenderer;
   readonly renderReasoning: (text: string) => ReactNode;
   readonly onPressPreview: (source: FilePreviewSource) => void;
@@ -558,7 +560,7 @@ function ThreadWorkLogRow(
 ) {
   const { row } = props;
   const expanded = props.expanded === true;
-  const opensRun = props.expanded === null;
+  const opensRun = props.expanded === null && props.onPressRow !== undefined;
   const openLinkedThread = useOpenLinkedThread();
   const streamsOutput =
     useCommandOutputStreaming(props.environmentId) &&
@@ -613,17 +615,19 @@ function ThreadWorkLogRow(
                 Copied
               </Text>
             ) : null}
-            <Text
-              accessibilityLabel={timestamp.toLocaleString()}
-              className="shrink-0 text-xs text-foreground-subtle"
-            >
-              {timestamp.toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </Text>
+            {Platform.OS === "android" ? null : (
+              <Text
+                accessibilityLabel={timestamp.toLocaleString()}
+                className="shrink-0 text-xs text-foreground-tertiary"
+              >
+                {timestamp.toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Text>
+            )}
           </View>
           {!warning ? (
             <Text selectable className="ml-7 text-sm text-foreground">
@@ -646,7 +650,8 @@ function ThreadWorkLogRow(
     row.projectedItem.item.type === "notification"
       ? notificationChildThreadId(row.projectedItem.item.source)
       : undefined;
-  const canExpand = row.canExpand && notifiedSubagentThreadId === undefined;
+  const canExpand =
+    row.canExpand && notifiedSubagentThreadId === undefined && props.expanded !== null;
   const reasoning = row.projectedItem.item.type === "reasoning" ? row.projectedItem.item : null;
   const fetchedItem = fetchedDetail.data?.item ?? null;
   const isRead = toolGroupAction(row.workEntry) === "read";
@@ -743,7 +748,7 @@ function ThreadWorkLogRow(
           }
           if (canExpand || opensRun) {
             void Haptics.selectionAsync();
-            props.onPressRow(row);
+            props.onPressRow?.(row);
           }
         }}
         onLongPress={() => props.onCopyRow(row.id, row.getCopyText())}
@@ -779,7 +784,7 @@ function ThreadWorkLogRow(
                       : iconIsDestructive
                         ? "accent-adaptive-rose-600-400"
                         : failed
-                          ? "accent-danger-foreground/40"
+                          ? "accent-danger-foreground"
                           : undefined
                   }
                 />
@@ -787,6 +792,11 @@ function ThreadWorkLogRow(
             </WorkLogIconSlot>
             <WorkLogLabel
               tone={isUsageLimit ? "warning" : iconIsDestructive ? "danger" : "default"}
+              mono={
+                Platform.OS === "android" &&
+                row.groupStandIn === undefined &&
+                workEntryRowLabelIsCommand(row.workEntry, expanded)
+              }
             >
               {displayText}
               {answerPreview ? (
@@ -796,7 +806,7 @@ function ThreadWorkLogRow(
                     row.workEntry.questionAnswer &&
                     hasQuestionAnswer(row.workEntry.questionAnswer)
                       ? "text-foreground"
-                      : "text-foreground-subtle"
+                      : "text-foreground-tertiary"
                   }
                 >{`  ${answerPreview}`}</Text>
               ) : null}
@@ -819,7 +829,7 @@ function ThreadWorkLogRow(
               <SymbolView
                 name="xmark"
                 size={11}
-                tintColorClassName="accent-danger-foreground/40"
+                tintColorClassName="accent-danger-foreground"
                 type="monochrome"
               />
             </View>
@@ -877,13 +887,7 @@ function ThreadWorkLogRow(
               </View>
             ))}
           </FilePreviewGallery>
-          <ScrollView
-            nestedScrollEnabled
-            directionalLockEnabled
-            showsVerticalScrollIndicator
-            className="max-h-60"
-            contentContainerStyle={{ paddingRight: 8 }}
-          >
+          <DetailViewport>
             {reasoning ? (
               props.renderReasoning(reasoning.text)
             ) : call ? (
@@ -938,7 +942,7 @@ function ThreadWorkLogRow(
               </Text>
             ) : null}
             {streamsOutput ? null : exitLine}
-          </ScrollView>
+          </DetailViewport>
           {streamsOutput ? (
             <>
               <ThreadCommandOutput
@@ -953,6 +957,23 @@ function ThreadWorkLogRow(
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Android details flow in the run sheet's own scroll; a nested scroller there traps drags. */
+function DetailViewport(props: { readonly children: ReactNode }) {
+  return Platform.OS === "android" ? (
+    <View>{props.children}</View>
+  ) : (
+    <ScrollView
+      nestedScrollEnabled
+      directionalLockEnabled
+      showsVerticalScrollIndicator
+      className="max-h-60"
+      contentContainerStyle={{ paddingRight: 8 }}
+    >
+      {props.children}
+    </ScrollView>
   );
 }
 

@@ -38,6 +38,7 @@ vi.mock("react", () => ({
   useRef: (current: unknown) => ({ current }),
 }));
 vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
   Alert: {
     alert: (title: string, _message: string, buttons?: { text: string; onPress?: () => void }[]) =>
       state.alerts.push({ title, buttons }),

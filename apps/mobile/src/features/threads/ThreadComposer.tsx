@@ -320,6 +320,8 @@ function SendActionButton(props: {
   readonly presentation: ComposerSendPresentation;
   readonly disabled: boolean;
   readonly onSend: (followUp?: ActiveTurnComposerAction) => void;
+  /** Android: a live run keeps Stop beside Send while a draft holds the send slot. */
+  readonly onStop: (() => void) | null;
 }) {
   const { presentation } = props;
   const button = (
@@ -332,33 +334,45 @@ function SendActionButton(props: {
       onPress={() => props.onSend()}
     />
   );
-  if (
-    Platform.OS === "android" ||
-    !presentation.offersFollowUpChoice ||
-    presentation.action === null ||
-    props.disabled
-  ) {
-    return button;
-  }
-  const actions = [presentation.action, presentation.alternate].filter(
-    (action): action is ActiveTurnComposerAction => action !== null,
-  );
+  const actions = presentation.offersFollowUpChoice
+    ? [presentation.action, presentation.alternate].filter(
+        (action): action is ActiveTurnComposerAction => action !== null,
+      )
+    : [];
+  // Android sends with the default follow-up; Queue and Steer are cut with the long press.
+  const send =
+    actions.length === 0 || props.disabled || Platform.OS === "android" ? (
+      button
+    ) : (
+      <Menu
+        accessibilityLabel="Choose how to send this message"
+        shouldOpenOnLongPress
+        actions={actions.map((action) => ({
+          id: action,
+          title: FOLLOW_UP_ACTION_LABEL[action],
+          subtitle: FOLLOW_UP_ACTION_SUBTITLE[action],
+          state: action === presentation.action ? ("on" as const) : ("off" as const),
+        }))}
+        onPressAction={({ nativeEvent }) =>
+          props.onSend(nativeEvent.event as ActiveTurnComposerAction)
+        }
+      >
+        {button}
+      </Menu>
+    );
+  if (Platform.OS !== "android" || props.onStop === null) return send;
+  // Stop keeps the slot it holds with an empty draft, so typing never moves it under a finger.
   return (
-    <Menu
-      accessibilityLabel="Choose how to send this message"
-      shouldOpenOnLongPress
-      actions={actions.map((action) => ({
-        id: action,
-        title: FOLLOW_UP_ACTION_LABEL[action],
-        subtitle: FOLLOW_UP_ACTION_SUBTITLE[action],
-        state: action === presentation.action ? ("on" as const) : ("off" as const),
-      }))}
-      onPressAction={({ nativeEvent }) =>
-        props.onSend(nativeEvent.event as ActiveTurnComposerAction)
-      }
-    >
-      {button}
-    </Menu>
+    <View className="flex-row items-center gap-1">
+      {send}
+      <ComposerActionButton
+        size={props.size}
+        accessibilityLabel="Stop agent"
+        icon="stop.fill"
+        variant={Platform.OS === "android" ? "neutral" : "danger"}
+        onPress={props.onStop}
+      />
+    </View>
   );
 }
 
@@ -430,6 +444,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const composerPanel = materialTheme["--color-composer-panel"];
+  // Android's chat canvas, which Material You sets apart from the screen colour.
+  const screenColor = materialTheme["--color-thread-canvas"];
   const navigation = useNavigation();
   const foregroundColor = useUniwindTheme()["--color-foreground"];
   const bodyText = useScaledTextRole("body");
@@ -498,8 +514,10 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     running: props.activeThreadBusy,
     canSteer: props.canSteerActiveTurn,
     followUpBehavior: props.followUpBehavior,
+    // An empty draft has nothing to defer: the queue icon flashed while a sent message dispatched.
     deliveryDeferred:
-      props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading,
+      hasContent &&
+      (props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading),
   });
   const sendLabel = sendPresentation.label;
   const currentModelSelection = props.selectedThread.modelSelection;
@@ -601,7 +619,12 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const floatingSidebarComposer = useAndroidFloatingTabs() && layout.usesSplitView;
   const usesLargeControls =
     useSidebarWorkspaceTabs() === "picker" || (Platform.OS === "ios" && Platform.isPad);
-  const surfacePaddingVertical = usesLargeControls ? 9 : floatingSidebarComposer ? 6 : 2;
+  // Android's pill stands as tall as Gemini's, about 56dp, instead of hugging its controls.
+  const surfacePaddingVertical = usesLargeControls
+    ? 9
+    : floatingSidebarComposer || Platform.OS === "android"
+      ? 6
+      : 2;
   const [compactRowWidth, setCompactRowWidth] = useState(0);
   const compactAttachmentLimit = compactRowWidth >= 500 ? 3 : 1;
   const compactEditor = useCompactComposerEditor(bodyText, draftMessage);
@@ -678,6 +701,16 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     settingsSheetPresentation.onEditorFocusChange(false);
     onEditorFocusChange?.(false);
     setComposerEditing(false);
+  };
+  // Android lands in the message after attaching, as ChatGPT does: with chips filling the row
+  // the text field is otherwise hard to reach. A cancelled picker leaves focus alone.
+  const pickThenFocus = async (pick: () => Promise<void>) => {
+    const before = getComposerDraftSnapshot(composerDraftKey).attachments.length;
+    await pick();
+    if (Platform.OS !== "android") return;
+    if (getComposerDraftSnapshot(composerDraftKey).attachments.length > before) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
   };
   const handleSend = async (followUp?: ActiveTurnComposerAction) => {
     if (
@@ -845,18 +878,25 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
       style={{
         paddingTop: 6,
         paddingBottom: (props.bottomInset ?? 0) + THREAD_COMPOSER_BOTTOM_GUTTER,
-        backgroundColor:
-          Platform.OS === "android" ? themeColorWithAlpha(composerPanel, 1) : undefined,
       }}
     >
       {/* Use a plain View: Reanimated Animated.View drops experimental_backgroundImage on Android. */}
+      {/* The conversation fades out under the pill, as in Gemini, instead of meeting a hard edge. */}
       <View
         className={
           Platform.OS === "android"
-            ? "hidden"
+            ? "absolute inset-x-0 -top-6 bottom-0"
             : "absolute inset-0 bg-linear-to-b from-screen/0 via-screen/60 to-screen/90"
         }
         pointerEvents="none"
+        // Android drops the class-built gradient; it needs the resolved colours.
+        style={
+          Platform.OS === "android"
+            ? {
+                experimental_backgroundImage: `linear-gradient(to bottom, ${themeColorWithAlpha(screenColor, 0)} 0%, ${screenColor} 45%)`,
+              }
+            : undefined
+        }
       />
       <Animated.View
         className="relative w-full self-center"
@@ -924,8 +964,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                 size={usesLargeControls ? "large" : "regular"}
                 disabled={isSubmissionLocked}
                 supportsFiles={props.serverConfig !== null}
-                onPickMedia={props.onPickDraftMedia}
-                onPickFiles={props.onPickDraftFiles}
+                onPickMedia={() => pickThenFocus(props.onPickDraftMedia)}
+                onPickFiles={() => pickThenFocus(props.onPickDraftFiles)}
               />
               <Animated.View
                 className="min-w-0 flex-1"
@@ -1123,7 +1163,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     size={usesLargeControls ? "large" : "regular"}
                     accessibilityLabel="Stop agent"
                     icon="stop.fill"
-                    variant="danger"
+                    variant={Platform.OS === "android" ? "neutral" : "danger"}
                     disabled={!props.canOperateThread}
                     onPress={props.onStopThread}
                   />
@@ -1142,6 +1182,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                     presentation={sendPresentation}
                     disabled={!canSend}
                     onSend={handleSend}
+                    onStop={
+                      props.canStopThread && props.canOperateThread && queuedEdit === null
+                        ? props.onStopThread
+                        : null
+                    }
                   />
                 )}
               </View>
@@ -1192,7 +1237,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       size={usesLargeControls ? "large" : "regular"}
                       accessibilityLabel="Stop agent"
                       icon="stop.fill"
-                      variant="danger"
+                      variant={Platform.OS === "android" ? "neutral" : "danger"}
                       disabled={!props.canOperateThread}
                       onPress={props.onStopThread}
                     />
@@ -1211,6 +1256,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                       presentation={sendPresentation}
                       disabled={!canSend}
                       onSend={handleSend}
+                      onStop={
+                        props.canStopThread && props.canOperateThread && queuedEdit === null
+                          ? props.onStopThread
+                          : null
+                      }
                     />
                   ) : null}
                 </View>

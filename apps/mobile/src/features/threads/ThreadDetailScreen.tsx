@@ -64,6 +64,7 @@ import { formatModelSlugName, resolveSelectableModel } from "@t3tools/shared/mod
 import { isProviderNativeSubagentThread } from "@t3tools/contracts";
 import type { QueuedRunEdit } from "../../state/queued-run-edit";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
+import { resolveComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
 import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
 import * as Haptics from "expo-haptics";
 import {
@@ -255,7 +256,6 @@ export interface ThreadDetailScreenProps {
   readonly connectionStateLabel: EnvironmentConnectionPhase;
   readonly threadSyncStatus?: EnvironmentThreadStatus;
   readonly feedAwaitsCatchUp?: boolean;
-  readonly feedAwaitsEntry?: boolean;
   readonly historyControls?: ThreadFeedHistoryControls;
   readonly activeThreadBusy: boolean;
   readonly canStopThread: boolean;
@@ -292,6 +292,7 @@ export interface ThreadDetailScreenProps {
       text: string,
       hasAttachmentsOrContext: boolean,
     ) => Promise<boolean | "responded">,
+    onDispatch?: () => void,
   ) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   readonly canSwitchThreadProvider: boolean;
@@ -503,6 +504,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     }, COMPOSER_HEIGHT_SETTLE_MS);
   };
   const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
+  // Android: a send anchors its message from the first frame it draws, before its id returns.
+  const [anchorsSendingMessage, setAnchorsSendingMessage] = useState(false);
   const feedRef = useRef<ThreadFeedHandle>(null);
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
   // Keep the bottom padding fixed while the keyboard animates. Changing it at
@@ -859,8 +862,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       composerOverlapHeight: composerBottomInset,
     }),
   );
+  // Only a question card needs the cap. A constant otherwise, so the keyboard's frames don't
+  // re-lay out the screen.
+  const questionCardOpen = activeUserInputRequestId !== null;
   const composerPanelsHeightStyle = useAnimatedStyle(() => ({
-    maxHeight: pendingUserInputMaxHeight.value,
+    maxHeight: questionCardOpen ? pendingUserInputMaxHeight.value : screenAreaHeight,
     flexGrow: 0,
   }));
   // The usage panel stacks with the composer and any approval card, so it gets
@@ -1122,28 +1128,66 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
             );
           }
         : undefined;
-    const messageId = await props.onSendMessage(followUp, declineBeforeDispatch);
+    // Every send moves to the top, as in ChatGPT and Gemini, a steer included. A send that
+    // will wait in the queue is not in the conversation yet, so it moves when its turn starts.
+    const sendQueues =
+      props.activeThreadBusy &&
+      resolveComposerDispatchMode({
+        running: true,
+        alternateModifier: followUp !== undefined && followUp !== props.followUpBehavior,
+        activeTurnDefault: props.followUpBehavior,
+        canSteer: props.canSteerActiveTurn,
+      }) === "queue";
+    const anchorsSend = Platform.OS === "android" && !sendQueues;
+    // Starts only once the send passes its checks, so a refused send moves nothing.
+    const glideToAnchor = () => {
+      setAnchorsSendingMessage(true);
+      feedRef.current?.resetEndFollow();
+      // One gesture, as Gemini's: the message glides to its anchor while the keyboard closes.
+      requestAnimationFrame(() => {
+        if (scope.aborted) return;
+        void scrollMessageToEnd({ animated: !reduceMotion, closeKeyboard: true }).catch(() => {
+          if (!scope.aborted) freeze.set(false);
+        });
+      });
+    };
+    const messageId = await props
+      .onSendMessage(followUp, declineBeforeDispatch, anchorsSend ? glideToAnchor : undefined)
+      .finally(() => {
+        if (anchorsSend) setAnchorsSendingMessage(false);
+      });
     if (messageId === null || scope.aborted) {
       return messageId;
     }
 
     clearUsageLimitsFor(targetThreadKey);
 
-    const nextAnchorMessageId = resolveThreadFeedSubmissionAnchor({
-      currentAnchorMessageId: anchorMessageId,
-      submittedMessageId: messageId,
-      hasStartedTurn: props.selectedThread.latestRun !== null,
-      hasUserMessage,
-      queuedMessageCount: props.selectedThreadQueueCount,
-      deliveryDeferred: props.connectionStateLabel !== "connected",
-      anchorFirstMessage: Platform.OS !== "android",
-    });
+    // Android anchors every sent message at the top, as Gemini does: the reply grows into the
+    // space below it instead of pushing the conversation up under the reader.
+    // Otherwise the previous anchor stays, so its end space does not collapse under the reader.
+    const nextAnchorMessageId =
+      Platform.OS === "android"
+        ? anchorsSend
+          ? messageId
+          : anchorMessageId
+        : resolveThreadFeedSubmissionAnchor({
+            currentAnchorMessageId: anchorMessageId,
+            submittedMessageId: messageId,
+            hasStartedTurn: props.selectedThread.latestRun !== null,
+            hasUserMessage,
+            queuedMessageCount: props.selectedThreadQueueCount,
+            deliveryDeferred: props.connectionStateLabel !== "connected",
+          });
     feedRef.current?.resetEndFollow();
     setAnchorMessageId(nextAnchorMessageId);
     if (Platform.OS !== "android") composerEditorRef.current?.blur();
     // The send enqueued the message optimistically, so it is in the feed or
     // the queue by the next frame, once the new anchor has rendered.
-    if (nextAnchorMessageId === messageId && contentPresentationKind === "ready") {
+    if (
+      Platform.OS !== "android" &&
+      nextAnchorMessageId === messageId &&
+      contentPresentationKind === "ready"
+    ) {
       requestAnimationFrame(() => {
         if (scope.aborted) return;
         // Wait for the keyboard to finish dismissing: scrollMessageToEnd freezes
@@ -1188,6 +1232,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     composerEditorRef.current?.blur();
   };
 
+  const handleJumpedToMessage = () => finishThreadMessageJump(selectedThreadKey);
   const handleUseArtifactTemplate = (template: CodexArtifactTemplate) => {
     const draftMessage =
       props.composerDraftKey === null ? "" : getComposerDraftSnapshot(props.composerDraftKey).text;
@@ -1290,6 +1335,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               pendingHandoff={props.pendingHandoff}
               worktreeSetup={props.worktreeSetup}
               setupWorkingStartedAt={props.setupWorkingStartedAt}
+              openApprovalId={props.activePendingApproval?.requestId ?? null}
+              openUserInputId={props.activePendingUserInput?.requestId ?? null}
               queuedMessages={props.queuedMessages}
               dispatchingMessageId={props.dispatchingMessageId}
               // A native subagent has no composer to edit a pending message in;
@@ -1299,7 +1346,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               }
               contentPresentation={props.contentPresentation}
               awaitsCatchUp={props.feedAwaitsCatchUp}
-              awaitsEntry={props.feedAwaitsEntry}
               threadTitle={props.selectedThread.title}
               latestRun={props.activityRun}
               activeWorkStartedAt={props.activeWorkStartedAt}
@@ -1307,11 +1353,13 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               listRef={listRef}
               freeze={freeze}
               anchorMessageId={anchorMessageId}
+              anchorsSendingMessage={anchorsSendingMessage}
               jumpToMessageId={jumpMessageLoaded ? jumpMessageId : null}
-              onJumpedToMessage={() => finishThreadMessageJump(selectedThreadKey)}
+              onJumpedToMessage={handleJumpedToMessage}
               ref={feedRef}
               contentInsetEndAdjustment={combinedContentInsetEndAdjustment}
               keyboardOffset={composerKeyboardOffset}
+              keyboardHeightHint={lastKnownKeyboardHeight}
               contentTopInset={0}
               contentBottomInset={
                 estimatedOverlayHeight +
@@ -1510,7 +1558,8 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                     ) : null}
                     {props.activePendingApproval || props.activePendingUserInput ? (
                       <Animated.View
-                        className="shrink-0 gap-3 px-4 pb-3"
+                        // The flat cards sit over the feed; the canvas keeps replies from showing through.
+                        className="shrink-0 gap-3 px-4 pb-3 android:bg-thread-canvas"
                         style={
                           activeUserInputRequestId !== null
                             ? { paddingBottom: composerBottomInset }

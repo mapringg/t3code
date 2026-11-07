@@ -76,15 +76,8 @@ export function ThreadHeader(
         overflowOnly: true,
       });
     }
-    if (Platform.OS === "android" && props.onReconnect) {
-      actions.push({
-        accessibilityLabel: "Reconnect environment",
-        icon: "arrow.clockwise",
-        onPress: props.onReconnect,
-        overflowOnly: true,
-      });
-    }
-    if (lifecycleAction) {
+    // Android's thread header is title and place only while the chat core settles.
+    if (Platform.OS !== "android" && lifecycleAction) {
       actions.push({
         accessibilityLabel: lifecycleAction.label,
         icon: "clock",
@@ -107,14 +100,16 @@ export function ThreadHeader(
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
     lifecycleAction,
-    props.onReconnect,
   ]);
 
   return (
     <>
       <AppBar
         title={props.title}
-        subtitle={[connectionStatusLabel, props.subtitle, lifecycle?.label]
+        subtitle={(Platform.OS === "android"
+          ? [props.subtitle]
+          : [connectionStatusLabel, props.subtitle, lifecycle?.label]
+        )
           .filter(Boolean)
           .join(" · ")}
         sidebar={native.sidebar}
@@ -137,7 +132,9 @@ export function ThreadHeader(
         onBack={layout.usesSplitView ? undefined : goBack}
         actions={androidHeaderActions}
         hideBottomBorder
-        compact={composerKeyboardActive}
+        // Android's header holds its height, as Gemini's does: collapsing it would re-lay out the
+        // header and the feed mid-way through the keyboard's animation.
+        compact={Platform.OS !== "android" && composerKeyboardActive}
       />
       {native.fallback}
     </>

@@ -8,11 +8,13 @@ import { Image } from "expo-image";
 import { createContext, useContext, useId, useState } from "react";
 import { fetch } from "expo/fetch";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
-import { Pressable, StyleSheet, View, type ViewStyle } from "react-native";
+import { Platform, Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useFilePreviewGallery } from "../../components/FilePreviewGallery";
 import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { cn } from "../../lib/cn";
 import type { FilePreviewSource } from "../../components/FilePreviewModal";
 import { MediaActionsMenu } from "../../components/MediaActionsMenu";
 import { PresentationSource } from "../../components/ui/NativePresentation";
@@ -130,7 +132,17 @@ export function ThreadMarkdownImageView(props: {
     AsyncResult.isFailure(svg);
   const placeholderWidth: ViewStyle["width"] =
     availableWidth > 0 ? Math.min(availableWidth, MARKDOWN_IMAGE_MAX_WIDTH) : "100%";
-  const frameStyle: ViewStyle = displaySize ?? { width: placeholderWidth, aspectRatio: 16 / 9 };
+  // Android folds a broken image to one line instead of holding an empty frame in the feed.
+  const compactFailure = Platform.OS === "android" && failed;
+  const frameStyle: ViewStyle = compactFailure
+    ? {
+        width: placeholderWidth,
+        minHeight: 44,
+        flexDirection: "row",
+        gap: 8,
+        paddingHorizontal: 12,
+      }
+    : (displaySize ?? { width: placeholderWidth, aspectRatio: 16 / 9 });
 
   return (
     <View
@@ -148,8 +160,17 @@ export function ThreadMarkdownImageView(props: {
             className="items-center justify-center rounded-[10px] bg-md-code-bg"
             style={frameStyle}
           >
+            {compactFailure ? (
+              <SymbolView name="photo" size={16} tintColorClassName="accent-foreground-muted" />
+            ) : null}
             {failed ? (
-              <Text className="px-3 text-center text-xs text-foreground-muted">
+              <Text
+                numberOfLines={compactFailure ? 1 : undefined}
+                className={cn(
+                  "px-3 text-center text-xs text-foreground-muted",
+                  compactFailure && "shrink px-0 text-left",
+                )}
+              >
                 {props.unavailableDetail
                   ? `Image unavailable. ${props.unavailableDetail}`
                   : "Image unavailable"}

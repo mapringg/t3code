@@ -663,7 +663,9 @@ export function NewTaskDraftScreen(props: {
       );
       return null;
     }
-    if (Platform.OS !== "android") promptInputRef.current?.blur();
+    // Android hides the keyboard on the first send too, as every later send does.
+    if (Platform.OS === "android") void KeyboardController.dismiss();
+    else promptInputRef.current?.blur();
     navigation.dispatch(
       CommonActions.setParams(
         submittedThreadParams(String(message.environmentId), String(message.threadId)),

@@ -16,7 +16,9 @@ import { buildThreadFeed, deriveThreadFeedPresentation } from "../../lib/threadA
 import {
   appendRunStatusLine,
   minimalChatFeed,
+  briefStep,
   runStatusActivity,
+  runWaitingLabel,
   worktreeSetupRunStep,
 } from "./minimal-chat-feed";
 import { resolveFooterMessageIds } from "./pending-thread-feed";
@@ -65,7 +67,7 @@ const command = {
   exitCode: 0,
 };
 
-it("shows only each run's latest reply, live and settled, without run details or thinking", () => {
+it("keeps every reply of a run in order, live and settled, without run details or thinking", () => {
   const items: OrchestrationV2TurnItem[] = [
     {
       ...base("user"),
@@ -93,16 +95,11 @@ it("shows only each run's latest reply, live and settled, without run details or
       streaming: false,
     },
   ];
-  const settled = minimalChatFeed(deriveThreadFeedPresentation(feed(items), null));
-  expect(settled.map((entry) => entry.id)).toEqual(["user", "final"]);
-  const live = minimalChatFeed(
-    deriveThreadFeedPresentation(
-      feed(items),
-      { runId, status: "running", startedAt: at, completedAt: null },
-      at,
-    ),
-  );
-  expect(live.map((entry) => entry.id)).toEqual(["user", "final"]);
+  // The feed is the unfolded conversation; run state does not change which replies show.
+  const settled = minimalChatFeed(feed(items));
+  expect(settled.map((entry) => entry.id)).toEqual(["user", "intermediate", "final"]);
+  const live = minimalChatFeed(feed(items));
+  expect(live.map((entry) => entry.id)).toEqual(["user", "intermediate", "final"]);
 });
 
 it("keeps provider failures while removing adjacent tool activity", () => {
@@ -125,7 +122,25 @@ it("keeps provider failures while removing adjacent tool activity", () => {
   expect(minimal).toMatchObject([
     { type: "activity-group", activities: [{ projectedItem: { item: failure } }] },
   ]);
+  // A provider that also wrote the failure as its reply shows it once, as the reply.
+  const echoed: OrchestrationV2TurnItem = {
+    ...base("echo"),
+    type: "assistant_message",
+    messageId: MessageId.make("echo"),
+    text: "API Error: Please retry",
+    streaming: false,
+  };
+  expect(minimalChatFeed(feed([echoed, failure])).map((entry) => entry.id)).toEqual(["echo"]);
 });
+
+const openQuestion: OrchestrationV2TurnItem = {
+  ...base("question"),
+  type: "user_input_request",
+  status: "waiting",
+  completedAt: null,
+  requestId: RuntimeRequestId.make("question"),
+  questions: [],
+};
 
 it("preserves requests and generated content when tool details are hidden", () => {
   const source = feed([
@@ -161,6 +176,7 @@ it("preserves requests and generated content when tool details are hidden", () =
       requestId: RuntimeRequestId.make("waiting"),
       requestKind: "file-change",
     },
+    openQuestion,
     {
       ...base("secret"),
       type: "secret_request",
@@ -197,7 +213,7 @@ it("preserves requests and generated content when tool details are hidden", () =
     },
   ]);
   const presented = source;
-  const minimal = minimalChatFeed(presented);
+  const minimal = minimalChatFeed(presented, { approval: null, userInput: "question" });
   expect(minimal).toMatchObject([
     {
       type: "activity-group",
@@ -213,6 +229,26 @@ it("preserves requests and generated content when tool details are hidden", () =
   ]);
   expect(minimal[3]).toBe(presented.find((entry) => entry.type === "html-render"));
   expect(minimal[4]).toBe(presented.find((entry) => entry.type === "mcp-app"));
+  // Open requests are the ones their cards show; those step out of the feed, and the status line
+  // says what the run awaits.
+  const open = { approval: "waiting", userInput: "question" };
+  expect(runWaitingLabel({ approval: null, userInput: null })).toBeNull();
+  expect(runWaitingLabel({ approval: "waiting", userInput: null })).toBe("Waiting for approval");
+  expect(
+    minimalChatFeed(presented, open).some(
+      (entry) =>
+        entry.type === "activity-group" &&
+        entry.activities.some(
+          ({ projectedItem }) => projectedItem.item.type === "approval_request",
+        ),
+    ),
+  ).toBe(false);
+  // An async question's item completes before its request is answered.
+  const asyncQuestion = feed([
+    { ...openQuestion, status: "completed", completedAt: base("x").startedAt },
+  ]);
+  expect(minimalChatFeed(asyncQuestion, open)).toEqual([]);
+  expect(runWaitingLabel(open)).toBe("Waiting for your answer");
 });
 
 const userMessage: OrchestrationV2TurnItem = {
@@ -242,6 +278,18 @@ const idle = {
   setupStep: null,
 } as const;
 
+it("keeps a step to one short line by naming files, not paths", () => {
+  expect(briefStep("Read /home/me/code/t3/package.json")).toBe("Read package.json");
+  expect(briefStep("/home/me/code/t3/src/math.ts")).toBe("math.ts");
+  expect(briefStep("Edit ./src/a.ts and ../b/c.ts")).toBe("Edit a.ts and c.ts");
+  expect(briefStep("Edit src/features/a.ts")).toBe("Edit a.ts");
+  expect(briefStep("Searching /usr/lib/node")).toBe("Searching /usr/lib/node");
+  expect(briefStep("Running vp test")).toBe("Running vp test");
+  // Commands and URLs keep what they act on.
+  expect(briefStep("Running rm -rf /x/build")).toBe("Running rm -rf /x/build");
+  expect(briefStep("Fetch https://example.com/a/b")).toBe("Fetch https://example.com/a/b");
+});
+
 it("names the live step, and none when the provider reports no step", () => {
   const { output: _output, exitCode: _exitCode, ...pending } = command;
   const runningCommand: OrchestrationV2TurnItem = {
@@ -253,9 +301,19 @@ it("names the live step, and none when the provider reports no step", () => {
   expect(runStatusActivity(step)).toBe("Running pwd");
   const thinking = deriveThreadFeedPresentation(feed([userMessage]), running, at);
   expect(runStatusActivity(thinking)).toBeNull();
+  // Waiting on the reader is no work in progress, so the line drops its running time.
+  expect(
+    appendRunStatusLine(minimalChatFeed(thinking), {
+      ...idle,
+      activity: null,
+      waiting: "Waiting for your answer",
+      latestRun: running,
+      activeWorkStartedAt: at,
+    }).at(-1),
+  ).toMatchObject({ label: "Waiting for your answer", untimed: true });
 });
 
-it("hands the last slot between the status line and the reply footer as the run settles", () => {
+it("keeps the last row in place as the run settles, blank or naming how it ended", () => {
   const previousRunId = RunId.make("previous");
   const previousTurn: OrchestrationV2TurnItem[] = [
     {
@@ -283,7 +341,7 @@ it("hands the last slot between the status line and the reply footer as the run 
   const slot = (latestRun: typeof running | typeof completed | typeof interrupted) => {
     const workStartedAt = latestRun === running ? at : null;
     const presented = deriveThreadFeedPresentation(feed(turn), latestRun, workStartedAt);
-    const rows = appendRunStatusLine(minimalChatFeed(presented), {
+    const rows = appendRunStatusLine(minimalChatFeed(feed(turn)), {
       ...idle,
       activity: runStatusActivity(presented),
       latestRun,
@@ -300,20 +358,25 @@ it("hands the last slot between the status line and the reply footer as the run 
       footer: resolveFooterMessageIds(rows, latestRun === running ? runId : null).assistant,
     };
   };
-  // Nothing above the final reply changes when the run ends: earlier text and the previous
-  // reply's footer are already gone while it runs.
-  const above = ["prev-user", "prev-reply", "user"];
+  // Nothing above the final reply changes when the run ends: earlier replies stay put.
+  const above = ["prev-user", "prev-reply", "user", "intermediate"];
   expect(slot(running)).toMatchObject({
     above,
-    last: { type: "thinking", label: "Working", createdAt: at, runId },
+    last: { type: "thinking", label: "Working…", createdAt: at, runId },
     footer: null,
   });
-  expect(slot(completed)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
-  expect(slot(interrupted)).toMatchObject({ above, last: { id: "reply" }, footer: "reply" });
+  // Removing the line would shrink the list and clamp the anchored turn's offset.
+  const line = { id: "run-status-line", runId };
+  expect(slot(completed)).toMatchObject({ above, last: { ...line, label: "" }, footer: "reply" });
+  expect(slot(interrupted)).toMatchObject({
+    above,
+    last: { ...line, label: "Stopped" },
+    footer: "reply",
+  });
   expect(slot(running).last).toBe(slot(running).last);
 });
 
-it("keeps the slot as a still end line when a run stops or fails without its reply last", () => {
+it("says once how a stopped or failed run ended", () => {
   const endedAt = "2026-11-03T10:00:42.000Z";
   const failure: OrchestrationV2TurnItem = {
     ...base("failure"),
@@ -321,20 +384,60 @@ it("keeps the slot as a still end line when a run stops or fails without its rep
     status: "failed",
     failure: { class: "provider_error", message: "Please retry", code: null, retryable: true },
   };
-  const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
+  const rows = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") => {
     const latestRun = { runId, status, startedAt: at, completedAt: endedAt };
     const presented = deriveThreadFeedPresentation(feed(items), latestRun);
-    return appendRunStatusLine(minimalChatFeed(presented), {
+    return appendRunStatusLine(minimalChatFeed(feed(items)), {
       ...idle,
       activity: runStatusActivity(presented),
       latestRun,
-    }).at(-1);
+    });
   };
-  const ended = { type: "thinking", id: "run-status-line", createdAt: at, endedAt, runId };
+  const last = (items: OrchestrationV2TurnItem[], status: "interrupted" | "failed") =>
+    rows(items, status).at(-1);
+  const ended = { type: "thinking", id: "run-status-line", createdAt: at, runId };
   expect(last([userMessage], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
-  expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "Failed" });
-  // A stopped run's partial reply takes the slot with its footer, as a finished reply does.
-  expect(last([userMessage, reply], "interrupted")).toMatchObject({ id: "reply" });
+  expect(last([userMessage, reply], "interrupted")).toMatchObject({ ...ended, label: "Stopped" });
+  expect(last([userMessage, reply], "failed")).toMatchObject({ ...ended, label: "Failed" });
+  // A question left open by the stopped run names what is waiting, not how the run ended.
+  expect(
+    appendRunStatusLine(minimalChatFeed(feed([userMessage, reply])), {
+      ...idle,
+      activity: null,
+      waiting: "Waiting for your answer",
+      latestRun: { runId, status: "interrupted", startedAt: at, completedAt: endedAt },
+    }).at(-1),
+  ).toMatchObject({ ...ended, label: "Waiting for your answer" });
+  // The error row already says the run failed; the line stays, blank.
+  expect(last([userMessage, failure], "failed")).toMatchObject({ ...ended, label: "" });
+  expect(last([userMessage, reply, failure], "failed")).toMatchObject({ ...ended, label: "" });
+  expect(rows([userMessage, command], "interrupted").map((row) => row.id)).toEqual([
+    "user",
+    "run-status-line",
+  ]);
+  // An older turn keeps how it ended once a newer one starts, unless its error row says so.
+  const previous = RunId.make("previous");
+  const earlier = (id: string, item: OrchestrationV2TurnItem): OrchestrationV2TurnItem =>
+    ({ ...item, id: TurnItemId.make(id), runId: previous }) as OrchestrationV2TurnItem;
+  const later = (olderItems: OrchestrationV2TurnItem[]) =>
+    appendRunStatusLine(minimalChatFeed(feed([...olderItems, userMessage, reply])), {
+      ...idle,
+      activity: null,
+      latestRun: completed,
+      endedRuns: new Map([[previous, "Stopped"]]),
+    }).map((row) => row.id);
+  expect(
+    later([
+      earlier("prev-user", { ...userMessage, messageId: MessageId.make("prev-user") }),
+      earlier("prev-reply", { ...reply, messageId: MessageId.make("prev-reply") }),
+    ]),
+  ).toEqual(["prev-user", "prev-reply", "run-end:previous", "user", "reply", "run-status-line"]);
+  expect(
+    later([
+      earlier("prev-user", { ...userMessage, messageId: MessageId.make("prev-user") }),
+      earlier("prev-failure", failure),
+    ]),
+  ).not.toContain("run-end:previous");
 });
 
 it("shows the status line from send, below pending messages, until the run settles", () => {
@@ -377,21 +480,30 @@ it("shows the status line from send, below pending messages, until the run settl
   expect(last({})).toBe(pending);
   expect(last({ dispatchingMessageId: pendingMessage.messageId })).toMatchObject({
     type: "thinking",
-    label: "Working · Running pwd",
+    label: "Running pwd",
     createdAt: sentAt,
   });
   // A provider-finished run still captures its checkpoint before the reply's footer appears.
   expect(last({ latestRun: { ...running, status: "waiting" } })).toMatchObject({
-    label: "Working · Running pwd",
+    label: "Running pwd",
     createdAt: at,
   });
   expect(last({ latestRun: running, liveSubagents: 1 })).toMatchObject({
-    label: "Working · 1 agent",
+    label: "1 agent working",
   });
   expect(last({ latestRun: running, liveSubagents: 2 })).toMatchObject({
-    label: "Working · 2 agents",
+    label: "2 agents working",
   });
-  expect(last({ latestRun: completed, liveSubagents: 2 })).toBe(pending);
+  expect(last({ latestRun: completed, liveSubagents: 2 })).toMatchObject({ label: "" });
+  // Sending after a stopped turn keeps that turn's end line while the new one starts.
+  expect(
+    appendRunStatusLine([...rows, { ...pending, acknowledged: true }], {
+      ...idle,
+      activity: null,
+      latestRun: { ...completed, status: "interrupted" },
+      endedRuns: new Map([[runId, "Stopped"]]),
+    }).map((row) => row.id),
+  ).toEqual(["user", "run-end:run", "sent", "run-status-line"]);
 });
 
 it("names the worktree setup step on the status line until the first turn starts", () => {
@@ -447,7 +559,7 @@ it("names the worktree setup step on the status line until the first turn starts
   expect(line).toMatchObject({
     type: "thinking",
     id: "run-status-line",
-    label: "Working · Setting up worktree",
+    label: "Setting up worktree",
     createdAt: setupAt,
     runId: null,
   });

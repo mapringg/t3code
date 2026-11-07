@@ -236,6 +236,8 @@ type ThreadFeedEntryContent =
       readonly label?: string;
       /** When the run the status line reports ended; its elapsed time stops here. */
       readonly endedAt?: string;
+      /** The run waits on the reader, so the line shows no running time. */
+      readonly untimed?: boolean;
     };
 
 export interface ThreadFeedLatestRun {
@@ -251,6 +253,17 @@ const WORK_LOG_LABEL_MAX_LENGTH = 200;
 
 function compactWorkEntryText(value: string): string {
   return truncate(value.replace(/\s+/gu, " "), WORK_LOG_LABEL_MAX_LENGTH);
+}
+
+/** Whether workEntryRowLabel shows the raw command, a machine value set in monospace. */
+export function workEntryRowLabelIsCommand(
+  entry: WorkLogPresentationEntry,
+  expanded = false,
+): boolean {
+  if (entry.itemType === "fork") return false;
+  if (expanded && entry.itemType === "reasoning") return false;
+  if (resolveWorkEntryToolPresentation(entry)) return false;
+  return Boolean(entry.command?.trim());
 }
 
 export function workEntryRowLabel(entry: WorkLogPresentationEntry, expanded = false): string {
@@ -1278,6 +1291,12 @@ function deriveThreadFeedRunFolds(
     const duration = elapsedMs === null ? null : formatDuration(elapsedMs);
     const interrupted =
       latestRunMatches && (latestRun.status === "interrupted" || latestRun.status === "cancelled");
+    const onlyThought = group.entries.every(
+      (entry) =>
+        !hiddenEntryIds.has(entry.id) ||
+        (entry.type === "activity-group" &&
+          entry.activities.every((activity) => activity.workEntry.itemType === "reasoning")),
+    );
     foldsByAnchorId.set(firstHiddenEntry.id, {
       runId,
       createdAt: firstHiddenEntry.createdAt,
@@ -1287,8 +1306,10 @@ function deriveThreadFeedRunFolds(
           ? `You stopped after ${duration}`
           : "You stopped this response"
         : duration
-          ? `Worked for ${duration}`
-          : "Worked",
+          ? `${onlyThought ? "Thought" : "Worked"} for ${duration}`
+          : onlyThought
+            ? "Thought"
+            : "Worked",
     });
   }
   const covered = new Set(

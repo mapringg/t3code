@@ -87,7 +87,8 @@ function enrichedStyle(
     code: {
       fontFamily: monospace,
       color: Platform.OS === "android" ? style.codeColor : style.inlineCodeColor,
-      backgroundColor: Platform.OS === "android" ? style.codeBackgroundColor : "transparent",
+      // Android's span paints the whole line box, which at the chat's line height reads as slabs.
+      backgroundColor: "transparent",
       borderColor: "transparent",
       fontSize: style.fontSize * 0.9,
     },
@@ -139,6 +140,8 @@ function enrichedStyle(
       markerColor: style.mutedColor,
       // The bullet is centred on the gap's edge and scales with the system text size; the gap must too.
       gapWidth: 12 * fontScale,
+      // Gemini separates bullets so a list reads as items, not one wrapped paragraph.
+      itemSpacing: Platform.OS === "android" ? 6 : 0,
     },
     thematicBreak: { color: style.dividerColor, height: 1, marginTop: 8, marginBottom: 8 },
     table: {
@@ -146,7 +149,9 @@ function enrichedStyle(
       ...block,
       headerFontFamily: style.boldFontFamily,
       headerTextColor: style.strongColor,
-      headerBackgroundColor: style.codeBlockBackgroundColor,
+      // Android tables read like ChatGPT's: lines only, no filled header band.
+      headerBackgroundColor:
+        Platform.OS === "android" ? "transparent" : style.codeBlockBackgroundColor,
       rowEvenBackgroundColor: "transparent",
       rowOddBackgroundColor: "transparent",
       cellPaddingHorizontal: 10,
@@ -346,7 +351,8 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
             preserveWindowsPaths: true,
           }}
           enableTaskListItemToggle={false}
-          enableCodeBlockWrapToggle
+          // Android code scrolls sideways with only copy in its header, as Gemini's does.
+          enableCodeBlockWrapToggle={Platform.OS !== "android"}
           spoilerOverlay="solid"
           onLinkPress={
             props.onLinkPress || props.onImagePress ? ({ url }) => onLinkPress(url) : undefined

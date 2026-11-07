@@ -4,17 +4,17 @@ import { FormSheet } from "react-native-screens";
 import { useResolveClassNames } from "uniwind";
 import { AndroidSheetHeader } from "./AndroidScreenHeader";
 import { RoutedFormSheetContext } from "./RoutedFormSheetContext";
-import { ScreenContent } from "./ScreenContent";
 import type { SheetProps } from "./Sheet.types";
 export type { SheetProps } from "./Sheet.types";
 
 export function Sheet(props: SheetProps) {
-  const containerStyle = useResolveClassNames("bg-header");
+  const containerStyle = useResolveClassNames("bg-card");
   const [isOpen, setIsOpen] = useState(true);
   return (
     <FormSheet
       isOpen={isOpen}
-      detents={[0.5, 0.9]}
+      // One detent: below full expansion Material keeps every fling, so inner content stops scrolling.
+      detents={[0.9]}
       prefersGrabberVisible={false}
       nativeContainerStyle={containerStyle}
       onDismiss={props.onClose}
@@ -22,8 +22,8 @@ export function Sheet(props: SheetProps) {
     >
       <RoutedFormSheetContext value={false}>
         {/* Android FormSheet does not bound flex children. Material drags target the first scroll view, so place content before the header. */}
-        <View collapsable={false} className="absolute inset-0 flex-col-reverse bg-header">
-          <ScreenContent>{props.children}</ScreenContent>
+        <View collapsable={false} className="absolute inset-0 flex-col-reverse bg-card">
+          <View className="flex-1">{props.children}</View>
           <AndroidSheetHeader
             title={props.title}
             onBack={() => setIsOpen(false)}

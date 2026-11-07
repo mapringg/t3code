@@ -180,7 +180,8 @@ function ThreadListV2Section(props: {
   const snoozed = props.tone === "snoozed";
   const sidebarPane = props.pane === "sidebar";
   const className = cn(
-    "my-2.5 flex-row items-center gap-2.5",
+    // Android: the whole 44dp band toggles the shelf, not only its text.
+    "my-2.5 flex-row items-center gap-2.5 android:my-0 android:min-h-11",
     props.pane === "sidebar" ? "px-3" : "px-5",
   );
   const content = (

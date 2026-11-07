@@ -31,3 +31,15 @@ export async function withThreadDismissal<T>(
     if (!committed) dismissals.forEach(({ restore }) => restore());
   }
 }
+
+/**
+ * For actions that keep the thread on screen and only move it (pin, unpin, wake, unsettle):
+ * no exit animation, so the change applies at once and the list slides the row to its place.
+ */
+export function withoutThreadDismissal<T>(
+  _key: string,
+  action: () => Promise<T>,
+  _succeeded: (result: T) => boolean,
+): Promise<T> {
+  return action();
+}

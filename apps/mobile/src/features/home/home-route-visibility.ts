@@ -1,6 +1,7 @@
 import { RegistryContext } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
 import { useContext, useRef, useSyncExternalStore } from "react";
+import { Platform } from "react-native";
 import type { Atom } from "effect/reactivity";
 
 /**
@@ -28,17 +29,42 @@ function subscribeHomeVisibility(onChange: () => void) {
   };
 }
 
+// Android catches Home up after the pop has landed: the changes from while it was covered then
+// slide into place on a still list, instead of rebuilding it mid-animation. The timer covers a
+// focus with no transition, such as a sheet closing over Home.
+const SHOW_AFTER_FOCUS_MS = 400;
+let pendingShow: ReturnType<typeof setTimeout> | null = null;
+
+function cancelPendingShow() {
+  if (pendingShow === null) return;
+  clearTimeout(pendingShow);
+  pendingShow = null;
+}
+
+function showHome() {
+  if (Platform.OS !== "android") {
+    setHomeVisible(true);
+    return;
+  }
+  if (pendingShow !== null || homeVisible === true) return;
+  pendingShow = setTimeout(() => {
+    pendingShow = null;
+    setHomeVisible(true);
+  }, SHOW_AFTER_FOCUS_MS);
+}
+
 export function recordHomeTransitionStart(closing: boolean): void {
-  if (!closing) setHomeVisible(true);
+  if (!closing) showHome();
 }
 
 export function recordHomeTransitionEnd(closing: boolean): void {
-  if (closing) setHomeVisible(false);
+  cancelPendingShow();
+  setHomeVisible(!closing);
 }
 
 /** Popping a sheet or a deep-linked route above Home has no appear event. */
 export function recordHomeFocus(): void {
-  setHomeVisible(true);
+  showHome();
 }
 
 export function useHomeRouteVisible(): boolean {

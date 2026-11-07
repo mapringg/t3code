@@ -838,6 +838,26 @@ describe("buildThreadFeed", () => {
       "message-middle",
       "message-assistant",
     ]);
+
+    // A run that only thought says so, as other chat apps do.
+    const thoughtOnly = buildThreadFeed([
+      projected(userMessage(), 0),
+      projected(
+        {
+          ...opening,
+          id: TurnItemId.make("item-thought"),
+          type: "reasoning",
+          text: "Weighing the options",
+          streaming: false,
+        },
+        1,
+      ),
+      projected(assistantMessage(), 2),
+    ]);
+    expect(deriveThreadFeedPresentation(thoughtOnly, latestRun)[1]).toMatchObject({
+      type: "run-fold",
+      label: "Thought for 2s",
+    });
     const anchor = {
       ...command(),
       deferredWork: { cursor: "old-work", itemCount: 100, lastOrdinal: 100 },

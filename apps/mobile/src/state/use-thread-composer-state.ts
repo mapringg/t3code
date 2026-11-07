@@ -536,6 +536,8 @@ export function useThreadComposerState() {
       text: string,
       hasAttachmentsOrContext: boolean,
     ) => Promise<boolean | "responded">,
+    /** Runs once the send passes every check, just before the message is queued. */
+    onDispatch?: () => void,
   ) => {
     if (
       selectedThreadShell &&
@@ -697,6 +699,7 @@ export function useThreadComposerState() {
     const metadata = makeQueuedMessageMetadata();
     const messageId = MessageId.make(metadata.messageId);
     clearThreadComposerError(threadKey);
+    onDispatch?.();
     const enqueuePromise = enqueueThreadOutboxMessage({
       environmentId: selectedThreadShell.environmentId,
       threadId: selectedThreadShell.id,
