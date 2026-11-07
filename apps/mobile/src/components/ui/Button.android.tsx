@@ -24,7 +24,11 @@ export function Button(props: ButtonProps) {
   const { scale, mediumIconSize } = useAndroidControlSizing();
   const tone = props.tone ?? "secondary";
   const Component =
-    tone === "text" ? TextButton : tone === "secondary" ? FilledTonalButton : ComposeButton;
+    tone === "text" || tone === "mutedText"
+      ? TextButton
+      : tone === "secondary"
+        ? FilledTonalButton
+        : ComposeButton;
   const containerColor =
     tone === "contrast"
       ? colors["--color-foreground"]
@@ -32,7 +36,7 @@ export function Button(props: ButtonProps) {
         ? colors["--color-primary"]
         : tone === "danger"
           ? colors["--color-danger"]
-          : tone === "text"
+          : tone === "text" || tone === "mutedText"
             ? "#00000000"
             : colors["--color-secondary"];
   const contentColor =
@@ -44,7 +48,9 @@ export function Button(props: ButtonProps) {
           ? colors["--color-danger-foreground"]
           : tone === "text"
             ? colors["--color-primary-text"]
-            : colors["--color-secondary-foreground"];
+            : tone === "mutedText"
+              ? colors["--color-foreground-muted"]
+              : colors["--color-secondary-foreground"];
   return (
     <View
       accessible
