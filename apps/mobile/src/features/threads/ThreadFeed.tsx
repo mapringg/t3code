@@ -391,6 +391,8 @@ export interface ThreadFeedProps {
   readonly onJumpedToMessage?: () => void;
   readonly contentInsetEndAdjustment: SharedValue<number>;
   readonly keyboardOffset: number;
+  /** The keyboard's last reported height, or 0 before it has opened. */
+  readonly keyboardHeightHint?: number;
   readonly contentTopInset?: number;
   readonly contentBottomInset?: number;
   readonly historyControls?: ThreadFeedHistoryControls;
@@ -3713,12 +3715,19 @@ export const ThreadFeed = memo(function ThreadFeed({
     setViewportHeight((current) => (Math.abs(current - nextHeight) > 1 ? nextHeight : current));
   };
 
+  const [endSpaceHoldsKeyboard, setEndSpaceHoldsKeyboard] = useState(false);
+  const handleAnchoredEndSpaceSize = (size: number) => {
+    const keyboardHeight = props.keyboardHeightHint || FALLBACK_KEYBOARD_HEIGHT;
+    const holds = size >= keyboardHeight;
+    setEndSpaceHoldsKeyboard((current) => (current === holds ? current : holds));
+  };
   const anchoredEndSpace =
     Platform.OS === "android"
       ? androidAnchoredEndSpace(
           presentedFeed,
           props.anchorMessageId,
           props.anchorsSendingMessage === true,
+          handleAnchoredEndSpaceSize,
         )
       : resolveChatListAnchoredEndSpace(
           presentedFeed,
@@ -3984,7 +3993,14 @@ export const ThreadFeed = memo(function ThreadFeed({
               drawDistance={Platform.OS === "android" ? 100 : 500}
               keyboardShouldPersistTaps="always"
               keyboardDismissMode="none"
-              keyboardLiftBehavior="whenAtEnd"
+              // An anchored turn with more empty space below it than the keyboard is tall stays
+              // still, as in ChatGPT and Gemini: the keyboard covers empty space instead of
+              // lifting the turn off the top and dropping it back when it closes.
+              keyboardLiftBehavior={
+                Platform.OS === "android" && anchoredEndSpace !== undefined && endSpaceHoldsKeyboard
+                  ? "never"
+                  : "whenAtEnd"
+              }
               // Seed viewport size to skip programmatic attach-time positioning, which races UIKit's adjustedContentInset.
               {...(viewportHeight > 0 && viewportWidth > 0
                 ? { estimatedListSize: { height: viewportHeight, width: viewportWidth } }
@@ -4146,6 +4162,7 @@ function androidAnchoredEndSpace(
   rows: ReadonlyArray<ThreadFeedRow>,
   anchorMessageId: string | null | undefined,
   anchorsSendingMessage: boolean,
+  onSizeChanged: (size: number) => void,
 ) {
   // Once a send has anchored, every newer turn re-anchors, as in Gemini: queued follow-ups and
   // messages from other devices get the same space below them as the one sent here.
@@ -4153,8 +4170,13 @@ function androidAnchoredEndSpace(
     anchorsSendingMessage || anchorMessageId
       ? rows.findLastIndex((row) => row.type === "message" && row.message.role === "user")
       : -1;
-  return anchorIndex === -1 ? undefined : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET };
+  return anchorIndex === -1
+    ? undefined
+    : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET, onSizeChanged };
 }
+
+/** Taller than any phone keyboard; used until the keyboard has reported its own height. */
+const FALLBACK_KEYBOARD_HEIGHT = 360;
 
 /** Holds children back for a moment, for states that only matter if they last. */
 function DelayedReveal(props: { readonly delayMs: number; readonly children: ReactNode }) {

@@ -64,6 +64,7 @@ import { formatModelSlugName, resolveSelectableModel } from "@t3tools/shared/mod
 import { isProviderNativeSubagentThread } from "@t3tools/contracts";
 import type { QueuedRunEdit } from "../../state/queued-run-edit";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
+import { resolveComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
 import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
 import * as Haptics from "expo-haptics";
 import {
@@ -1127,12 +1128,17 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
             );
           }
         : undefined;
-    // A send that starts a turn moves to the top; one queued behind a running turn stays put.
-    const anchorsSend =
-      Platform.OS === "android" &&
-      props.connectionStateLabel === "connected" &&
-      props.selectedThreadQueueCount === 0 &&
-      !props.activeThreadBusy;
+    // Every send moves to the top, as in ChatGPT and Gemini, a steer included. A send that
+    // will wait in the queue is not in the conversation yet, so it moves when its turn starts.
+    const sendQueues =
+      props.activeThreadBusy &&
+      resolveComposerDispatchMode({
+        running: true,
+        alternateModifier: followUp !== undefined && followUp !== props.followUpBehavior,
+        activeTurnDefault: props.followUpBehavior,
+        canSteer: props.canSteerActiveTurn,
+      }) === "queue";
+    const anchorsSend = Platform.OS === "android" && !sendQueues;
     // Starts only once the send passes its checks, so a refused send moves nothing.
     const glideToAnchor = () => {
       setAnchorsSendingMessage(true);
@@ -1353,6 +1359,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
               ref={feedRef}
               contentInsetEndAdjustment={combinedContentInsetEndAdjustment}
               keyboardOffset={composerKeyboardOffset}
+              keyboardHeightHint={lastKnownKeyboardHeight}
               contentTopInset={0}
               contentBottomInset={
                 estimatedOverlayHeight +

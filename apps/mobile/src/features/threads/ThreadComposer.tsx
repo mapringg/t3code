@@ -702,6 +702,16 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     onEditorFocusChange?.(false);
     setComposerEditing(false);
   };
+  // Android lands in the message after attaching, as ChatGPT does: with chips filling the row
+  // the text field is otherwise hard to reach. A cancelled picker leaves focus alone.
+  const pickThenFocus = async (pick: () => Promise<void>) => {
+    const before = getComposerDraftSnapshot(composerDraftKey).attachments.length;
+    await pick();
+    if (Platform.OS !== "android") return;
+    if (getComposerDraftSnapshot(composerDraftKey).attachments.length > before) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  };
   const handleSend = async (followUp?: ActiveTurnComposerAction) => {
     if (
       isSubmissionLocked ||
@@ -954,8 +964,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
                 size={usesLargeControls ? "large" : "regular"}
                 disabled={isSubmissionLocked}
                 supportsFiles={props.serverConfig !== null}
-                onPickMedia={props.onPickDraftMedia}
-                onPickFiles={props.onPickDraftFiles}
+                onPickMedia={() => pickThenFocus(props.onPickDraftMedia)}
+                onPickFiles={() => pickThenFocus(props.onPickDraftFiles)}
               />
               <Animated.View
                 className="min-w-0 flex-1"
