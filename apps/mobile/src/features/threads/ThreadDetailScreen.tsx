@@ -202,6 +202,9 @@ import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
 import { useGlobalVoiceInput } from "../voice-input/VoiceInputProvider";
 
+/** The turn each thread last anchored, for this app session. */
+const rememberedAnchorMessageIds = new Map<string, MessageId>();
+
 export interface ThreadDetailScreenProps {
   readonly header?: React.ReactNode;
   readonly draftMode?: {
@@ -503,7 +506,24 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
       setComposerHeight(height);
     }, COMPOSER_HEIGHT_SETTLE_MS);
   };
-  const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
+  const [anchorState, setAnchorState] = useState<{
+    readonly threadKey: string;
+    readonly messageId: MessageId | null;
+  } | null>(null);
+  // Android reopens a thread as it was left: the turn a send anchored stays at the top.
+  const anchorMessageId =
+    anchorState?.threadKey === selectedThreadKey
+      ? anchorState.messageId
+      : Platform.OS === "android"
+        ? (rememberedAnchorMessageIds.get(selectedThreadKey) ?? null)
+        : null;
+  const setAnchorMessageId = (messageId: MessageId | null) => {
+    if (Platform.OS === "android") {
+      if (messageId === null) rememberedAnchorMessageIds.delete(selectedThreadKey);
+      else rememberedAnchorMessageIds.set(selectedThreadKey, messageId);
+    }
+    setAnchorState({ threadKey: selectedThreadKey, messageId });
+  };
   // Android: a send anchors its message from the first frame it draws, before its id returns.
   const [anchorsSendingMessage, setAnchorsSendingMessage] = useState(false);
   const feedRef = useRef<ThreadFeedHandle>(null);

@@ -3438,7 +3438,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     />
   );
   const reviewCommentColors = useReviewCommentColors();
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const unsettledTurnId = threadFeedRunIsUnsettled(props.latestRun) ? props.latestRun.runId : null;
   const compactionLabelsByEntryId = useMemo(
     () => threadFeedCompactionLabels(props.feed),
@@ -3473,7 +3472,6 @@ export const ThreadFeed = memo(function ThreadFeed({
     }
   };
   const handleScrollBeginDrag = () => {
-    if (!userHasScrolled) setUserHasScrolled(true);
     clearUserScrollSettle();
     userScrollSessionRef.current = true;
     cancelReflow();
@@ -4008,7 +4006,8 @@ export const ThreadFeed = memo(function ThreadFeed({
               // Enable overflow: RN scrollTo clamps against raw insets and ignores the automatic header inset.
               scrollToOverflowEnabled
               estimatedItemSize={180}
-              alignItemsAtEnd
+              // Android lays a short conversation out from the top, as Gemini does on reopen.
+              alignItemsAtEnd={Platform.OS !== "android"}
               initialScrollAtEnd
               onLoad={() => {
                 loadedListKeyRef.current = listMountKey;
@@ -4025,9 +4024,9 @@ export const ThreadFeed = memo(function ThreadFeed({
                   void listRef.current?.scrollToEnd({ animated: false });
                 }
               }}
-              // Android shows the scrollbar from the first drag: the landing scroll otherwise
-              // flashes it, and its fade redraws the whole feed at ~40 Hz after the open.
-              showsVerticalScrollIndicator={Platform.OS !== "android" || userHasScrolled}
+              // Android shows no scrollbar, as Gemini and ChatGPT: the space held below an anchored
+              // turn would park the thumb mid-track at the end, and its fade redraws the feed.
+              showsVerticalScrollIndicator={Platform.OS !== "android"}
               onScroll={handleScroll}
               onScrollBeginDrag={handleScrollBeginDrag}
               onScrollEndDrag={handleScrollEndDrag}
