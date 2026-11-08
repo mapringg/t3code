@@ -4286,7 +4286,7 @@ const FeedRow = memo(function FeedRow(props: FeedRowProps) {
       workspaceRoot={context.workspaceRoot}
     >
       <ThreadMediaVisibility>
-        {/* Android leaves the session and model dividers out until they're approved for its feed. */}
+        {/* Android's feed leaves out the session and model dividers. */}
         {Platform.OS !== "android" &&
         item.type === "message" &&
         item.message.projectedItem?.item.type === "user_message" &&
