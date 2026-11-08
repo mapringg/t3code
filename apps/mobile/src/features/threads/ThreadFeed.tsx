@@ -3714,22 +3714,27 @@ export const ThreadFeed = memo(function ThreadFeed({
   };
 
   const [endSpaceHoldsKeyboard, setEndSpaceHoldsKeyboard] = useState(false);
-  const [reopenLandingPending, setReopenLandingPending] = useState(
-    () => Platform.OS === "android" && props.anchorMessageId !== null,
-  );
   const handleAnchoredEndSpaceSize = (size: number) => {
-    // A thread reopened with an anchor lands at its end before the space below the anchor is
-    // measured; land again once it is, so the anchored turn sits where it was left.
-    if (reopenLandingPending) setReopenLandingPending(false);
+    rememberedAnchoredEndSpaceSizes.set(feedThreadKey, size);
     const keyboardHeight = props.keyboardHeightHint || FALLBACK_KEYBOARD_HEIGHT;
     const holds = size >= keyboardHeight;
     setEndSpaceHoldsKeyboard((current) => (current === holds ? current : holds));
   };
+  // A thread reopened with an anchor lands on the anchored turn itself, over the space last held
+  // below it: an end landing would follow estimated row heights and move as they measure.
+  const [reopenLandingPending, setReopenLandingPending] = useState(
+    () => Platform.OS === "android" && props.anchorMessageId !== null,
+  );
   const [reopenedWithAnchor] = useState(reopenLandingPending);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- lands the reopened list again once the native list has measured the space below its anchor
+  const handleAnchoredEndSpaceReady = () => {
+    if (reopenLandingPending) setReopenLandingPending(false);
+  };
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- settles the reopened list on its exact end once the native list has measured the rows below its anchor
   useEffect(() => {
     if (!reopenedWithAnchor || reopenLandingPending) return;
-    requestAnimationFrame(() => void listRef.current?.scrollToEnd({ animated: false }));
+    requestAnimationFrame(() => {
+      if (!userScrollSessionRef.current) void listRef.current?.scrollToEnd({ animated: false });
+    });
   }, [reopenedWithAnchor, reopenLandingPending, listRef]);
   const anchoredEndSpace =
     Platform.OS === "android"
@@ -3737,7 +3742,9 @@ export const ThreadFeed = memo(function ThreadFeed({
           presentedFeed,
           props.anchorMessageId,
           props.anchorsSendingMessage === true,
+          rememberedAnchoredEndSpaceSizes.get(feedThreadKey),
           handleAnchoredEndSpaceSize,
+          handleAnchoredEndSpaceReady,
         )
       : resolveChatListAnchoredEndSpace(
           presentedFeed,
@@ -4020,7 +4027,14 @@ export const ThreadFeed = memo(function ThreadFeed({
               estimatedItemSize={180}
               // Android lays a short conversation out from the top, as Gemini does on reopen.
               alignItemsAtEnd={Platform.OS !== "android"}
-              initialScrollAtEnd
+              {...(reopenLandingPending && anchoredEndSpace
+                ? {
+                    initialScrollIndex: {
+                      index: anchoredEndSpace.anchorIndex,
+                      viewOffset: anchoredEndSpace.anchorOffset,
+                    },
+                  }
+                : { initialScrollAtEnd: true })}
               onLoad={() => {
                 loadedListKeyRef.current = listMountKey;
                 setLoadedListKey(listMountKey);
@@ -4173,7 +4187,9 @@ function androidAnchoredEndSpace(
   rows: ReadonlyArray<ThreadFeedRow>,
   anchorMessageId: string | null | undefined,
   anchorsSendingMessage: boolean,
+  initialSize: number | undefined,
   onSizeChanged: (size: number) => void,
+  onReady: () => void,
 ) {
   // Once a send has anchored, every newer turn re-anchors, as in Gemini: queued follow-ups and
   // messages from other devices get the same space below them as the one sent here.
@@ -4186,8 +4202,11 @@ function androidAnchoredEndSpace(
   while (anchorIndex > 0 && isUserMessage(rows[anchorIndex - 1])) anchorIndex--;
   return anchorIndex === -1
     ? undefined
-    : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET, onSizeChanged };
+    : { anchorIndex, anchorOffset: CHAT_LIST_ANCHOR_OFFSET, initialSize, onSizeChanged, onReady };
 }
+
+/** The space last held below each thread's anchored turn, for this app session. */
+const rememberedAnchoredEndSpaceSizes = new Map<string, number>();
 
 /** Taller than any phone keyboard; used until the keyboard has reported its own height. */
 const FALLBACK_KEYBOARD_HEIGHT = 360;
