@@ -5,7 +5,7 @@ import { use, useCallback, useEffect, useRef } from "react";
 import { isDuoDevice } from "../../../lib/device-type";
 import { useDeviceType } from "../../../native/native-layout-metrics";
 import { createNativeHeaderMenu } from "../../../components/ui/nativeHeaderMenu.ios";
-import { useSettingsEnvironmentMenu } from "../../settings/components/SettingsEnvironmentFilterHeader";
+import { useSettingsEnvironmentMenus } from "../../settings/components/SettingsEnvironmentFilterHeader";
 import type { SearchBarCommands } from "react-native-screens";
 
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../../native/native-glass";
@@ -48,7 +48,7 @@ export function WorkspaceToolbar(props: {
   const focused = useIsFocused();
   const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const searchRef = useRef<SearchBarCommands>(null);
-  const settingsMenu = useSettingsEnvironmentMenu();
+  const settingsMenus = useSettingsEnvironmentMenus();
   // The Settings list takes the selected tab's place, so search follows it.
   const selectedTab = workspace.settingsOpen ? "settings" : workspace.state.selectedTab;
   const tab = workspace.state.tabs[selectedTab];
@@ -186,7 +186,7 @@ export function WorkspaceToolbar(props: {
       {workspace.settingsOpen ? (
         <Toolbar placement="right">
           {searchButton}
-          {createNativeHeaderMenu(settingsMenu)}
+          {settingsMenus.map((menu) => createNativeHeaderMenu(menu))}
         </Toolbar>
       ) : (
         <Toolbar placement="right">

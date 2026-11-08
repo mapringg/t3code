@@ -68,7 +68,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { resolveNewTaskBranchLabel } from "../threads/new-task-context-presentation";
 import { useVoiceInputController } from "../voice-input/useVoiceInputController";
 import { ScheduledTaskPromptField } from "./components/ScheduledTaskPromptField";
-import { useSettingsEnvironmentMenu } from "./components/SettingsEnvironmentFilterHeader";
+import { useSettingsEnvironmentMenus } from "./components/SettingsEnvironmentFilterHeader";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsSection } from "./components/SettingsSection";
 import { useSettingsEnvironmentFilter, type SettingsTarget } from "./settings-environment-filter";
@@ -408,7 +408,7 @@ export function SettingsScheduledTasksRouteScreen() {
   const { startEditor, resetEditor } = useScheduledTaskEditor();
   const navigation = useNavigation<NativeStackNavigationProp<ScheduledTaskRoutes>>();
   const insets = useSafeAreaInsets();
-  const environmentMenu = useSettingsEnvironmentMenu();
+  const environmentMenus = useSettingsEnvironmentMenus();
   const newTask = () => {
     if (visibleEnvironments.length === 0) return;
     resetEditor();
@@ -426,7 +426,7 @@ export function SettingsScheduledTasksRouteScreen() {
           onPress: newTask,
         },
       ]}
-      menus={[environmentMenu]}
+      menus={environmentMenus}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
