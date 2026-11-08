@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { I18nManager, Platform, Pressable, View } from "react-native";
-import Animated, { useAnimatedStyle, useReducedMotion, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useDerivedValue,
+  useReducedMotion,
+  withTiming,
+} from "react-native-reanimated";
 
 import { segmentedControlColors } from "./segmentedControlColors";
 import { AppText } from "./AppText";
@@ -37,11 +42,7 @@ export function SegmentedControl<Value extends string | number>(
         }}
       >
         {selectedIndex >= 0 && width > 0 ? (
-          <SelectionPill
-            color={selectedColor}
-            offset={selectedIndex * segmentWidth * (I18nManager.isRTL ? -1 : 1)}
-            width={segmentWidth}
-          />
+          <SelectionPill color={selectedColor} index={selectedIndex} width={segmentWidth} />
         ) : null}
         {props.options.map((option) => {
           const selected = option.value === props.selected;
@@ -76,14 +77,17 @@ export function SegmentedControl<Value extends string | number>(
 // of sliding there from the first one.
 function SelectionPill(props: {
   readonly color: string;
-  readonly offset: number;
+  readonly index: number;
   readonly width: number;
 }) {
   const reduceMotion = useReducedMotion();
-  const { offset, width } = props;
+  const { index, width } = props;
+  const direction = I18nManager.isRTL ? -1 : 1;
+  // The index animates, not the offset, so a resize moves the selection without sliding it.
+  const position = useDerivedValue(() => withTiming(index, { duration: reduceMotion ? 0 : 160 }));
   const style = useAnimatedStyle(() => ({
     width,
-    transform: [{ translateX: withTiming(offset, { duration: reduceMotion ? 0 : 160 }) }],
+    transform: [{ translateX: position.value * width * direction }],
   }));
   return (
     <Animated.View

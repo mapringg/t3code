@@ -3,6 +3,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { limitRecoveryOwnsSnooze } from "@t3tools/client-runtime/state/thread-execution";
 import {
   effectiveSnoozed,
   isThreadWokeUnseen,
@@ -55,6 +56,18 @@ export function useThreadLifecycleStatus(input: {
     return () => clearTimeout(timer);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Re-arm if timer clamping fires before the wake time.
   }, [snoozed, snoozedUntil, lifecycleNow]);
+  // The usage-limit recovery card shows this snooze and its Wake now.
+  const lifecycleSnoozed =
+    snoozed &&
+    !limitRecoveryOwnsSnooze({
+      runId:
+        thread.runtime?.status === "failed" && thread.runtime.lastErrorClass === "usage_limit"
+          ? thread.latestRun?.runId
+          : null,
+      resetAt: thread.runtime?.usageLimitResetAt,
+      recovery: thread.limitRecovery,
+      snoozedUntil,
+    });
   const settled = configLoaded && thread.settledOverride === "settled";
   const wokeAt = configLoaded ? threadWokeAt(thread, { now: lifecycleNow }) : null;
   const woke =
@@ -103,21 +116,21 @@ export function useThreadLifecycleStatus(input: {
     }
   };
 
-  if (!snoozed && !settled && !woke) return null;
+  if (!lifecycleSnoozed && !settled && !woke) return null;
   const label =
-    snoozed && snoozedUntil !== null
+    lifecycleSnoozed && snoozedUntil !== null
       ? `Snoozed, wakes in ${snoozeWakeLabel(snoozedUntil, { now: lifecycleNow })}`
       : settled
         ? "Settled"
         : "Woke from snooze";
-  const actionLabel = snoozed ? "Wake now" : settled ? "Un-settle" : "Dismiss";
+  const actionLabel = lifecycleSnoozed ? "Wake now" : settled ? "Un-settle" : "Dismiss";
   return {
     kind: "lifecycle",
-    state: snoozed ? "snoozed" : settled ? "settled" : "woke",
+    state: lifecycleSnoozed ? "snoozed" : settled ? "settled" : "woke",
     label,
     action: {
       label: statusPending
-        ? snoozed
+        ? lifecycleSnoozed
           ? "Waking…"
           : settled
             ? "Un-settling…"
@@ -125,7 +138,8 @@ export function useThreadLifecycleStatus(input: {
         : actionLabel,
       accessibilityLabel: actionLabel,
       disabled: !input.canOperateThread || statusPending,
-      onPress: () => void runStatusAction(snoozed ? "wake" : settled ? "unsettle" : "dismiss"),
+      onPress: () =>
+        void runStatusAction(lifecycleSnoozed ? "wake" : settled ? "unsettle" : "dismiss"),
     },
   };
 }

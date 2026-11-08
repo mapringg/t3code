@@ -1,4 +1,5 @@
 import type { NavigationState } from "@react-navigation/native";
+import { isSettingsRoute } from "../features/settings/settings-navigation";
 import { resetRootStack, type RootStackNavigation } from "./root-stack-reset";
 
 function androidWorkspaceBackReturnsToThread(state: NavigationState) {
@@ -67,11 +68,17 @@ export function returnToAndroidWorkspaceList(
   resetAndroidWorkspace(navigation);
 }
 
-// The new page slides over the old one, which drifts left, like HyperOS and Android 14
-// Settings. The system default cross-fades both pages, which ghosts while the page mounts.
-// In the split view these destinations swap the detail pane beside the sidebar instead.
-export function androidWorkspaceDestinationAnimation(routeName: string, usesSplitView: boolean) {
-  return usesSplitView && (routeName === "Thread" || routeName === "PullRequest")
-    ? ("none" as const)
-    : ("ios_from_right" as const);
+// Compact: pages slide over the old one like Android 14 Settings; the default cross-fade ghosts.
+// Split view: Thread, PullRequest and list-picked Settings pages swap the detail pane instantly.
+// Pages opened from a Settings page fade, since the default push bleeds a stripe beside the list.
+export function androidWorkspaceDestinationAnimation(
+  route: { readonly key: string; readonly name: string },
+  routes: readonly { readonly key: string; readonly name: string }[],
+  usesSplitView: boolean,
+) {
+  if (!usesSplitView) return "ios_from_right" as const;
+  if (route.name === "Thread" || route.name === "PullRequest") return "none" as const;
+  if (route.name === "Settings" || !isSettingsRoute(route.name)) return "ios_from_right" as const;
+  const below = routes[routes.findIndex((candidate) => candidate.key === route.key) - 1];
+  return below?.name === "Settings" ? ("none" as const) : ("fade" as const);
 }

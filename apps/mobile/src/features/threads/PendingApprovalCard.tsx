@@ -113,7 +113,7 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
         <Text className="font-sans text-xs leading-normal text-warning-foreground">{warning}</Text>
       ) : null}
       {/* Android ends the choices with the confirming one, right-aligned, as its dialogs do. */}
-      <View className="flex-row flex-wrap gap-2.5 android:justify-end android:gap-2">
+      <View className="gap-2 android:flex-row android:flex-wrap android:justify-end">
         {(Platform.OS === "android"
           ? [...options].sort(
               (left, right) =>
@@ -133,6 +133,7 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
             }
             disabled={disabled || !props.canOperateThread}
             onPress={() => void props.onRespond(props.approval.requestId, option.decision)}
+            fullWidth={Platform.OS !== "android"}
           />
         ))}
       </View>

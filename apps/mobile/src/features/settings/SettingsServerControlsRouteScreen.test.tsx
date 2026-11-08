@@ -88,8 +88,7 @@ vi.mock("../../components/ui/Button", () => ({
 }));
 vi.mock("./components/SettingsScreen", () => ({ SettingsScreen: Children }));
 vi.mock("./components/SettingsEnvironmentFilterHeader", () => ({
-  useAndroidSettingsEnvironmentFilter: () => undefined,
-  SettingsEnvironmentFilterHeader: () => null,
+  useSettingsEnvironmentMenus: () => [],
 }));
 vi.mock("./components/DatabaseStorageNotice", () => ({ DatabaseStorageNotice: () => null }));
 vi.mock("./components/SettingsSection", () => ({ SettingsSection: Children }));

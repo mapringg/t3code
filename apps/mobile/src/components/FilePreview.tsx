@@ -5,17 +5,23 @@ import { Modal, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { openAttachmentInViewer } from "../lib/attachmentDownload";
-import type { ResolvedFilePreviewSource } from "./FilePreviewModal.types";
+import { useMediaActions } from "../state/mediaActions";
+import type {
+  ResolvedFilePreviewDocument,
+  ResolvedFilePreviewSource,
+} from "./FilePreviewModal.types";
 import { MediaImagePreview } from "./MediaImagePreview";
 import { PdfPreview } from "./PdfPreview";
-import { ControlPill } from "./ui/ControlPill";
+import { SheetHeader } from "./ui/SheetHeader";
 import { AppText as Text } from "./ui/AppText";
 
 function PdfDocumentPreview(props: {
-  readonly source: ResolvedFilePreviewSource;
+  readonly source: ResolvedFilePreviewDocument;
   readonly onRequestClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const media = useMediaActions(props.source.actionsSource);
+  const save = media.actions.find((action) => action.id === "save");
   return (
     <Modal
       animationType="slide"
@@ -27,12 +33,24 @@ function PdfDocumentPreview(props: {
         className="flex-1 bg-card"
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
       >
-        <View className="flex-row items-center gap-3 border-b border-border px-4 py-2">
-          <Text className="flex-1 font-t3-semibold text-foreground" numberOfLines={1}>
-            {props.source.name ?? "PDF"}
-          </Text>
-          <ControlPill label="Close" variant="pill" onPress={props.onRequestClose} />
-        </View>
+        <SheetHeader
+          presentation="inline"
+          title={props.source.name ?? "PDF"}
+          onClose={props.onRequestClose}
+          actions={
+            save
+              ? [
+                  {
+                    accessibilityLabel: "Save or share",
+                    icon: "square.and.arrow.up",
+                    disabled: save.disabled,
+                    loading: media.sharing,
+                    onPress: () => void save.run(),
+                  },
+                ]
+              : []
+          }
+        />
         <PdfPreview uri={props.source.uri} />
       </View>
     </Modal>
@@ -40,7 +58,7 @@ function PdfDocumentPreview(props: {
 }
 
 function DocumentPreview(props: {
-  readonly source: ResolvedFilePreviewSource;
+  readonly source: ResolvedFilePreviewDocument;
   readonly onRequestClose: () => void;
   readonly onOpenError?: (error: unknown) => void;
 }) {
@@ -99,7 +117,8 @@ export function FilePreview(props: {
   readonly onRequestClose: () => void;
   readonly onOpenError?: (error: unknown) => void;
 }) {
-  if (props.source.kind === "pdf") return <PdfDocumentPreview {...props} />;
-  if (props.source.kind !== "image") return <DocumentPreview {...props} />;
-  return <MediaImagePreview {...props} />;
+  const { source } = props;
+  if (source.kind === "pdf") return <PdfDocumentPreview {...props} source={source} />;
+  if (source.kind !== "image") return <DocumentPreview {...props} source={source} />;
+  return <MediaImagePreview source={source} onRequestClose={props.onRequestClose} />;
 }

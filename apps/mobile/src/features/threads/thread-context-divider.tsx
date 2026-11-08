@@ -6,7 +6,7 @@ import { ShimmeringWorkContent } from "./thread-work-log";
 
 export function ThreadContextDivider(props: {
   label: string;
-  icon: AppSymbolName;
+  icon?: AppSymbolName;
   iconColor: ColorValue;
   active?: boolean;
   failed?: boolean;
@@ -15,7 +15,9 @@ export function ThreadContextDivider(props: {
   return (
     <View className="my-3 flex-row items-center justify-center gap-3 px-1 py-1">
       <View className="shrink flex-row flex-wrap items-center justify-center gap-1.5">
-        <SymbolView name={props.icon} size={12} tintColor={props.iconColor} type="monochrome" />
+        {props.icon ? (
+          <SymbolView name={props.icon} size={12} tintColor={props.iconColor} type="monochrome" />
+        ) : null}
         {props.active ? (
           <ShimmeringWorkContent
             className="flex-none"

@@ -1,6 +1,10 @@
 import { Chip } from "../../components/ui/Chip";
 import { PullRequestSectionHeading } from "./PullRequestSectionHeading";
-import type { PullRequestDetail, PullRequestListEntry } from "@t3tools/contracts";
+import type {
+  PullRequestDetail,
+  PullRequestListEntry,
+  PullRequestSummary,
+} from "@t3tools/contracts";
 import { Platform, View } from "react-native";
 import { PullRequestCardGroup, PullRequestCardRow } from "./PullRequestControls";
 import { PullRequestStackCard } from "./PullRequestStackCard";
@@ -21,11 +25,14 @@ export function PullRequestOverviewLoading({
   params,
   stack,
 }: {
-  readonly summary: PullRequestListEntry;
+  readonly summary: PullRequestListEntry | PullRequestSummary;
   readonly params: PullRequestParams;
   readonly stack: PullRequestStackState;
 }) {
-  const review = pullRequestListReviewStatus(summary);
+  const review = pullRequestListReviewStatus({
+    reviewDecision: summary.reviewDecision ?? undefined,
+    viewerReviewRequested: "viewerReviewRequested" in summary && summary.viewerReviewRequested,
+  });
   const conflicting = summary.mergeability === "conflicting";
   const clean = summary.mergeability === "mergeable";
   return (
@@ -95,7 +102,7 @@ export function PullRequestOverviewLoading({
         <MergeButtonPlaceholder />
       </PullRequestCardGroup>
       {/* Android reveals labels and the description with the overview, so nothing moves. */}
-      {Platform.OS !== "android" && summary.labels.length ? (
+      {Platform.OS !== "android" && "labels" in summary && summary.labels.length ? (
         <View className="flex-row flex-wrap gap-2">
           {summary.labels.map((label) => (
             <Chip key={label.name} label={label.name} size="small" />

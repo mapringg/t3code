@@ -1,7 +1,7 @@
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
+import { Platform } from "react-native";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
-import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -67,11 +67,5 @@ export function SettingsFollowUpRouteScreen() {
     </ScrollView>
   );
 
-  return Platform.OS === "android" ? (
-    <SettingsScreen title="Chat">{content}</SettingsScreen>
-  ) : (
-    <View collapsable={false} className="flex-1 bg-sheet">
-      {content}
-    </View>
-  );
+  return <SettingsScreen title="Chat">{content}</SettingsScreen>;
 }
